@@ -1,71 +1,103 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <title>Air Compressor Monitoring | Stage 2</title>
+
+  <!-- Page styles -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Shared navbar styles -->
+  <link rel="stylesheet" href="/shared/navbar.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Charts + CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
+
 <body>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+  <!-- =========================
+       NAVBAR (SAME AS TEMPERATURE)
+  ========================== -->
+  <div id="navbar"></div>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+  <script src="/shared/navbar.js"></script>
+  <script>
+    fetch('/shared/navbar.html')
+      .then(res => {
+        if (!res.ok) throw new Error('Navbar failed to load');
+        return res.text();
+      })
+      .then(html => {
+        document.getElementById('navbar').innerHTML = html;
+      })
+      .catch(err => console.error(err));
+  </script>
 
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+  <!-- =========================
+       PAGE CONTENT
+  ========================== -->
+  <main class="dashboard-content">
 
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
+    <header class="dash-header">
+      <h1>Air Compressor Monitoring</h1>
+      <p class="text-muted">
+        Performance analytics from Energy, Flow, and Dewpoint sensors
+      </p>
+    </header>
+
+    <!-- KPI SUMMARY -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <small class="kpi-label">FLOW (LATEST)</small>
+        <div class="kpi-value" id="val-flow">—</div>
+      </div>
+
+      <div class="kpi-card">
+        <small class="kpi-label">ENERGY (LATEST)</small>
+        <div class="kpi-value" id="val-energy">—</div>
+      </div>
+
+      <div class="kpi-card">
+        <small class="kpi-label">SPECIFIC POWER</small>
+        <div class="kpi-value" id="val-efficiency">—</div>
+      </div>
+
+      <div class="kpi-card">
+        <small class="kpi-label">DEWPOINT</small>
+        <div class="kpi-value" id="val-dewpoint">—</div>
+      </div>
+    </section>
+
+    <!-- CHARTS -->
+    <section class="main-grid">
+      <div class="card">
+        <h3 class="card-title">Flow vs Energy</h3>
+        <div class="chart-container">
+          <canvas id="efficiencyChart"></canvas>
         </div>
-    </div>
+      </div>
 
-    <div class="nav-item">
-        <button class="nav-btn active">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
+      <div class="card">
+        <h3 class="card-title">Dewpoint Trend</h3>
+        <div class="chart-container">
+          <canvas id="dewpointChart"></canvas>
         </div>
-    </div>
-</nav>
+      </div>
+    </section>
 
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
-    </div>
+  </main>
 
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-</main>
+  <!-- PAGE LOGIC -->
+  <script src="script.js" defer></script>
 
-<script src="/Overview/script.js"></script>
 </body>
 </html>

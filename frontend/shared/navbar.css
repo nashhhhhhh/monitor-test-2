@@ -1,7 +1,15 @@
+body {
+  background: #f8fafc;
+  font-family: 'Inter', sans-serif;
+}
+
+/* RESET */
 html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
 }
+
 
 :root {
   --nav-bg: #1e293b;
@@ -20,6 +28,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .brand {
@@ -81,6 +90,7 @@ html, body {
   position: sticky;
   top: 0;
   z-index: 1000;
+  width: 100%;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
