@@ -1,125 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Air Compressor | Stage 2</title>
+  <meta charset="UTF-8">
+  <title>Air Compressor Monitoring | Stage 2</title>
 
-    <!-- Shared Navbar -->
-    <link rel="stylesheet" href="/shared/navbar.css">
+  <!-- Page styles -->
+  <link rel="stylesheet" href="style.css">
 
-    <!-- Page Styles -->
-    <link rel="stylesheet" href="style.css">
+  <!-- Shared navbar styles -->
+  <link rel="stylesheet" href="/shared/navbar.css">
 
-    <!-- External libs -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Charts + CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
+
 <body>
 
-<!-- Shared Navbar Injection -->
-<div id="navbar-root"></div>
+  <!-- =========================
+       NAVBAR (SAME AS TEMPERATURE)
+  ========================== -->
+  <div id="navbar"></div>
 
-<main class="dashboard-content">
+  <script src="/shared/navbar.js"></script>
+  <script>
+    fetch('/shared/navbar.html')
+      .then(res => {
+        if (!res.ok) throw new Error('Navbar failed to load');
+        return res.text();
+      })
+      .then(html => {
+        document.getElementById('navbar').innerHTML = html;
+      })
+      .catch(err => console.error(err));
+  </script>
 
-    <section class="dash-header">
-        <h2>Pneumatic Command Center</h2>
-        <p class="text-muted">
-            Derived performance metrics from Flow, Energy, and Dewpoint sensors
-        </p>
-    </section>
+  <!-- =========================
+       PAGE CONTENT
+  ========================== -->
+  <main class="dashboard-content">
 
-    <!-- KPI GRID -->
+    <header class="dash-header">
+      <h1>Air Compressor Monitoring</h1>
+      <p class="text-muted">
+        Performance analytics from Energy, Flow, and Dewpoint sensors
+      </p>
+    </header>
+
+    <!-- KPI SUMMARY -->
     <section class="kpi-grid">
-        <div class="kpi-card">
-            <small class="kpi-label">TOTAL CONSUMPTION (LATEST)</small>
-            <div class="kpi-value" id="val-flow">—</div>
-            <div class="kpi-trend pos">Within Expected Range</div>
-        </div>
+      <div class="kpi-card">
+        <small class="kpi-label">FLOW (LATEST)</small>
+        <div class="kpi-value" id="val-flow">—</div>
+      </div>
 
-        <div class="kpi-card">
-            <small class="kpi-label">SYSTEM EFFICIENCY</small>
-            <div class="kpi-value text-accent" id="val-efficiency">—</div>
-            <div class="kpi-trend">Specific Power</div>
-        </div>
+      <div class="kpi-card">
+        <small class="kpi-label">ENERGY (LATEST)</small>
+        <div class="kpi-value" id="val-energy">—</div>
+      </div>
 
-        <div class="kpi-card">
-            <small class="kpi-label">AIR QUALITY (DEWPOINT)</small>
-            <div class="kpi-value" id="val-dewpoint">—</div>
-            <div class="kpi-trend text-success">Dryer Optimal</div>
-        </div>
+      <div class="kpi-card">
+        <small class="kpi-label">SPECIFIC POWER</small>
+        <div class="kpi-value" id="val-efficiency">—</div>
+      </div>
 
-        <div class="kpi-card">
-            <small class="kpi-label">EST. RUNNING COST</small>
-            <div class="kpi-value" id="val-cost">—</div>
-            <div class="kpi-trend neg">Current Period</div>
-        </div>
+      <div class="kpi-card">
+        <small class="kpi-label">DEWPOINT</small>
+        <div class="kpi-value" id="val-dewpoint">—</div>
+      </div>
     </section>
 
     <!-- CHARTS -->
     <section class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Production Demand vs Energy Load</h3>
-            <div class="chart-container">
-                <canvas id="efficiencyChart"></canvas>
-            </div>
+      <div class="card">
+        <h3 class="card-title">Flow vs Energy</h3>
+        <div class="chart-container">
+          <canvas id="efficiencyChart"></canvas>
         </div>
+      </div>
 
-        <div class="card">
-            <h3 class="card-title">Air Quality (Dewpoint)</h3>
-            <div class="chart-container">
-                <canvas id="dewpointChart"></canvas>
-            </div>
+      <div class="card">
+        <h3 class="card-title">Dewpoint Trend</h3>
+        <div class="chart-container">
+          <canvas id="dewpointChart"></canvas>
         </div>
+      </div>
     </section>
 
-    <!-- TABLE -->
-    <section class="card table-card">
-        <h3 class="card-title">Diagnostic Summary</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Metric</th>
-                    <th>Value</th>
-                    <th>Interpretation</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Flow Rate</td>
-                    <td>Normal</td>
-                    <td>Demand matches expected profile</td>
-                    <td><span class="status-pill active">OK</span></td>
-                </tr>
-                <tr>
-                    <td>Specific Power</td>
-                    <td>Elevated</td>
-                    <td>Possible leak or inefficiency</td>
-                    <td><span class="status-pill warning">Investigate</span></td>
-                </tr>
-                <tr>
-                    <td>Dewpoint</td>
-                    <td>+3 °C</td>
-                    <td>Moisture control optimal</td>
-                    <td><span class="status-pill active">Stable</span></td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
+  </main>
 
-</main>
-
-<!-- Inject Shared Navbar -->
-<script>
-fetch('/shared/navbar.html')
-    .then(res => res.text())
-    .then(html => document.getElementById('navbar-root').innerHTML = html);
-</script>
-
-<script src="/shared/navbar.js"></script>
-<script src="script.js"></script>
+  <!-- PAGE LOGIC -->
+  <script src="script.js" defer></script>
 
 </body>
 </html>

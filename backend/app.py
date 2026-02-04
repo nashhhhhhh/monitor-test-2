@@ -1,91 +1,80 @@
 from flask import Flask, jsonify, send_from_directory
 import sqlite3
+import csv
 import os
 
-# ==============================
-# Flask App Configuration
-# ==============================
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
+DATA_DIR = os.path.join(BASE_DIR, "..", "data")
 
 app = Flask(
     __name__,
-    static_folder="../frontend",
+    static_folder=FRONTEND_DIR,
     static_url_path=""
 )
 
-# ==============================
-# Helpers
-# ==============================
-
-def get_db_connection():
-    db_path = os.path.join(BASE_DIR, "temps.db")
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# ==============================
-# Page Routes
-# ==============================
+# =====================================================
+# FRONTEND ROUTING
+# =====================================================
 
 @app.route("/")
-def overview():
-    # Serve Overview page as default
-    return send_from_directory(
-        app.static_folder + "/Overview",
-        "index.html"
-    )
+def root():
+    return send_from_directory(FRONTEND_DIR + "/Overview", "index.html")
 
-@app.route("/Overview/")
-def overview_page():
-    return send_from_directory(
-        app.static_folder + "/Overview",
-        "index.html"
-    )
+@app.route("/<path:path>")
+def frontend_files(path):
+    return send_from_directory(FRONTEND_DIR, path)
 
-@app.route("/Temperature/")
-def temperature_page():
-    return send_from_directory(
-        app.static_folder + "/Temperature",
-        "index.html"
-    )
-
-@app.route("/CCTV/")
-def cctv_page():
-    return send_from_directory(
-        app.static_folder + "/CCTV",
-        "index.html"
-    )
-
-# ==============================
-# API ROUTES
-# ==============================
+# =====================================================
+# TEMPERATURE API
+# =====================================================
 
 @app.route("/api/temperature/rooms")
-def get_rooms():
-    conn = sqlite3.connect("temps.db")
+def temperature_rooms():
+    conn = sqlite3.connect(os.path.join(BASE_DIR, "temps.db"))
     conn.row_factory = sqlite3.Row
     rows = conn.execute("SELECT * FROM room_temperature").fetchall()
     conn.close()
 
-    return jsonify([dict(row) for row in rows])
+    return jsonify([dict(r) for r in rows])
 
+# =====================================================
+# AIR COMPRESSOR API
+# =====================================================
 
-# ==============================
-# HEALTH CHECK (OPTIONAL)
-# ==============================
+def read_csv(path, value_key):
+    data = []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(list(f)[2:])  # skip metadata rows
+        for row in reader:
+            data.append({
+                "time": row["Timestamp"].split(" ")[1],
+                value_key: float(row["Value"])
+            })
+    return data
 
-@app.route("/api/health")
-def health():
-    return jsonify({"status": "ok"})
+@app.route("/api/aircompressor")
+def aircompressor():
+    energy = read_csv(
+        os.path.join(DATA_DIR, "aircompressor_energy.csv"),
+        "energy"
+    )
+    flow = read_csv(
+        os.path.join(DATA_DIR, "airmeter_flow.csv"),
+        "flow"
+    )
+    dew = read_csv(
+        os.path.join(DATA_DIR, "air_dewpoint.csv"),
+        "dewpoint"
+    )
 
-# ==============================
-# Run Server
-# ==============================
+    return jsonify({
+        "energy": energy,
+        "flow": flow,
+        "dewpoint": dew
+    })
+
+# =====================================================
 
 if __name__ == "__main__":
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True
-    )
+    app.run(debug=True)
