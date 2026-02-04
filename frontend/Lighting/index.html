@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lighting Control | Stage 2</title>
+    <link rel="stylesheet" href="/Overview/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <div class="pulse"></div>
+        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
+    </div>
+    <div id="clock" class="header-clock"></div>
+</header>
+
+<nav>
+    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+
+    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
+    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Spiral Blast Freezer</button>
+    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
+    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+
+    <div class="nav-item">
+        <button class="nav-btn">Utilities ▾</button>
+        <div class="dropdown-menu">
+            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
+            <a href="/Utilities/Boiler/index.html">Boiler System</a>
+            <a href="/Utilities/MDB/index.html">MDB</a>
+            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
+            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
+        </div>
+    </div>
+
+    <div class="nav-item">
+        <button class="nav-btn active">Kitchen Equipment ▾</button>
+        <div class="dropdown-menu">
+            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
+            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
+            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
+            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
+        </div>
+    </div>
+</nav>
+
+<main class="dashboard-content">
+    <div class="dash-header">
+        <h2>Lighting Infrastructure</h2>
+        <p class="text-muted">Illumination efficiency and fixture health status</p>
+    </div>
+
+    <section class="kpi-grid">
+        <div class="kpi-card">
+            <small class="kpi-label">ACTIVE FIXTURES</small>
+            <div class="kpi-value" id="active-count">142 / 145</div>
+        </div>
+        <div class="kpi-card">
+            <small class="kpi-label">ENERGY SAVINGS (LED)</small>
+            <div class="kpi-value text-success">34%</div>
+        </div>
+        <div class="kpi-card">
+            <small class="kpi-label">SYSTEM LOAD</small>
+            <div class="kpi-value text-accent">12.4 kW</div>
+        </div>
+    </section>
+
+    <div class="main-grid">
+        <div class="card">
+            <h3 class="card-title">Power Consumption Trend</h3>
+            <div class="chart-container"><canvas id="lightingTrendChart"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h3 class="card-title">Fixture Health Report</h3>
+            <div id="lighting-dataset-root">
+                <p class="text-muted" style="text-align: center; padding-top: 50px;">
+                    <span class="pulse" style="display:inline-block; margin-right:10px;"></span>
+                    Awaiting Sensor Ingestion...
+                </p>
+                <table id="fixture-table" style="display:none;">
+                    <thead>
+                        <tr><th>Zone</th><th>Fixture ID</th><th>Status</th><th>Life %</th></tr>
+                    </thead>
+                    <tbody id="lighting-data-rows">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

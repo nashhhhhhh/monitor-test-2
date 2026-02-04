@@ -1,0 +1,83 @@
+/* Styles for Sub-pages */
+body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 20px; margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+h2 { margin-top: 0; color: #1f2937; }
+
+
+/* Header Container */
+header { 
+    background: #0f172a; 
+    color: #fff; 
+    padding: 12px 24px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-title { margin: 0; font-size: 1.1rem; letter-spacing: -0.5px; }
+.brand-subtitle { font-weight: 300; opacity: 0.6; }
+
+/* The Green Pulse Animation */
+.pulse { 
+    width: 10px; height: 10px; 
+    background: #10b981; 
+    border-radius: 50%; 
+    animation: pulse-ring 2s infinite; 
+}
+
+@keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Nav Bar */
+nav { 
+    display: flex; 
+    background: #1e293b; 
+    padding: 0 16px; 
+    position: sticky; 
+    top: 0; 
+    z-index: 1000; 
+}
+
+.nav-item { position: relative; }
+
+.nav-btn { 
+    background: none; border: none; 
+    color: #94a3b8; padding: 16px 20px; 
+    cursor: pointer; font-size: 0.85rem; 
+    font-weight: 600; transition: all 0.2s; 
+}
+
+.nav-btn:hover, .nav-btn.active { color: #fff; }
+.nav-btn.active { background: #3b82f6; }
+
+/* Dropdown Menu */
+.dropdown-menu { 
+    position: absolute; top: 100%; left: 0; 
+    background: #fff; min-width: 220px; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+    opacity: 0; visibility: hidden; 
+    transform: translateY(10px); 
+    transition: all 0.25s; border-radius: 0 0 8px 8px; 
+}
+
+.nav-item:hover .dropdown-menu { 
+    opacity: 1; visibility: visible; 
+    transform: translateY(0); 
+}
+
+.dropdown-menu a { 
+    color: #475569; padding: 12px 20px; 
+    text-decoration: none; display: block; 
+    font-size: 0.85rem; 
+}
+
+.dropdown-menu a:hover { 
+    background: #f8fafc; 
+    color: #3b82f6; 
+    border-left: 4px solid #3b82f6; 
+}

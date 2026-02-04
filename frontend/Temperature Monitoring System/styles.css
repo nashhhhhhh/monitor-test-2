@@ -1,0 +1,209 @@
+/* =====================
+   GLOBAL
+===================== */
+:root {
+  --bg-main: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --accent-green: #22c55e;
+  --accent-orange: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-dark: #0f172a;
+  --shadow-soft: 0 10px 30px rgba(0,0,0,0.12);
+  --shadow-light: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background: radial-gradient(circle at top, #e2e8f0, var(--bg-main));
+  color: #0f172a;
+}
+
+/* =====================
+   HEADER
+===================== */
+header {
+  padding: 24px 40px;
+  background: linear-gradient(135deg, #020617, #0f172a);
+  color: #f8fafc;
+  box-shadow: var(--shadow-soft);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 0.3px;
+}
+
+header p {
+  margin-top: 6px;
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+/* =====================
+   SUMMARY CARDS
+===================== */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  padding: 24px 40px;
+}
+
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 22px;
+  text-align: center;
+  box-shadow: var(--shadow-light);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-soft);
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.card span {
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.req h2 { color: var(--accent-green); }
+.tol h2 { color: var(--accent-orange); }
+.out h2 { color: var(--accent-red); }
+
+/* =====================
+   CONTROLS
+===================== */
+.controls {
+  padding: 10px 40px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  background: #e5e7eb;
+  color: #020617;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-light);
+}
+
+.success { background: var(--accent-green); color: white; }
+.warning { background: var(--accent-orange); color: white; }
+.danger  { background: var(--accent-red); color: white; }
+
+.lock {
+  margin-left: auto;
+  background: #020617;
+  color: white;
+}
+
+/* =====================
+   LEGEND
+===================== */
+.legend {
+  display: flex;
+  gap: 14px;
+  padding: 8px 40px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  backdrop-filter: blur(6px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  box-shadow: var(--shadow-light);
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.legend-color.req { background: var(--accent-green); }
+.legend-color.tol { background: var(--accent-orange); }
+.legend-color.out { background: var(--accent-red); }
+
+/* =====================
+   FLOORPLAN
+===================== */
+.floorplan-wrapper {
+  margin: 20px 40px 30px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  height: calc(100vh - 420px);
+}
+
+#floorplan-container {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+#floorplan-container svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* =====================
+   ROOMS
+===================== */
+.room {
+  transition: fill 0.25s ease, stroke 0.25s ease;
+  stroke: rgba(0,0,0,0.4);
+  stroke-width: 0.5;
+}
+
+.room:hover {
+  stroke-width: 2;
+  stroke: #020617;
+}
+
+/* =====================
+   RESPONSIVE
+===================== */
+@media (max-width: 900px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  .lock {
+    margin-left: 0;
+  }
+}
