@@ -19,5 +19,13 @@ async function loadTemperatureSummary() {
     console.error('Overview API error:', err);
   }
 }
+/* =========================
+   FIT TO WIDTH
+========================= */
+function fitToWidth() {
+  scale = 1;
+  panX = 0;
+  panY = 0;
+}
 
 loadTemperatureSummary();

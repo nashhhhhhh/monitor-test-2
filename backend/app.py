@@ -1,44 +1,113 @@
-from flask import Flask, send_from_directory
+from flask import Flask, jsonify, send_from_directory
+import sqlite3
 import os
-from temperature_api import temperature_bp
+
+# ==============================
+# Flask App Configuration
+# ==============================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder="../frontend",
+    static_url_path=""
+)
 
-# =========================
-# REGISTER BLUEPRINTS
-# =========================
-app.register_blueprint(temperature_bp)
+# ==============================
+# Helpers
+# ==============================
 
-# =========================
-# ROUTES – PAGES
-# =========================
+def get_db_connection():
+    db_path = os.path.join(BASE_DIR, "temps.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# ==============================
+# Page Routes
+# ==============================
+
 @app.route("/")
 def overview():
-    return send_from_directory(os.path.join(FRONTEND_DIR, "Overview"), "index.html")
+    # Serve Overview page as default
+    return send_from_directory(
+        app.static_folder + "/Overview",
+        "index.html"
+    )
 
-@app.route("/<module>")
-def module_page(module):
-    module_path = os.path.join(FRONTEND_DIR, module)
-    if os.path.exists(module_path):
-        return send_from_directory(module_path, "index.html")
-    return "Module not found", 404
+@app.route("/Overview/")
+def overview_page():
+    return send_from_directory(
+        app.static_folder + "/Overview",
+        "index.html"
+    )
 
-@app.route("/<module>/<submodule>")
-def submodule_page(module, submodule):
-    sub_path = os.path.join(FRONTEND_DIR, module, submodule)
-    if os.path.exists(sub_path):
-        return send_from_directory(sub_path, "index.html")
-    return "Submodule not found", 404
+@app.route("/Temperature/")
+def temperature_page():
+    return send_from_directory(
+        app.static_folder + "/Temperature",
+        "index.html"
+    )
 
-# =========================
-# STATIC FILES
-# =========================
-@app.route("/frontend/<path:path>")
-def frontend_files(path):
-    return send_from_directory(FRONTEND_DIR, path)
+@app.route("/CCTV/")
+def cctv_page():
+    return send_from_directory(
+        app.static_folder + "/CCTV",
+        "index.html"
+    )
+
+# ==============================
+# API ROUTES
+# ==============================
+
+@app.route("/api/temperature/rooms")
+def api_temperature_rooms():
+    """
+    Used by:
+    - Overview KPIs
+    - Temperature floorplan
+    """
+
+    conn = get_db_connection()
+    rows = conn.execute("""
+        SELECT
+            base_room,
+            room_name,
+            "Actual Temp" AS actual_temp,
+            Requirement,
+            status
+        FROM room_temperature
+    """).fetchall()
+    conn.close()
+
+    data = []
+    for r in rows:
+        data.append({
+            "room": r["base_room"],
+            "name": r["room_name"],
+            "actual": r["actual_temp"],
+            "setpoint": r["Requirement"],
+            "status": r["status"]
+        })
+
+    return jsonify(data)
+
+# ==============================
+# HEALTH CHECK (OPTIONAL)
+# ==============================
+
+@app.route("/api/health")
+def health():
+    return jsonify({"status": "ok"})
+
+# ==============================
+# Run Server
+# ==============================
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        host="127.0.0.1",
+        port=5000,
+        debug=True
+    )
