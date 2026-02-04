@@ -20,7 +20,7 @@ let latestData = [];
 /* =========================
    LOAD SVG (INLINE)
 ========================= */
-fetch('assets/floorplan.svg')
+fetch('/frontend/Temperature/assets/floorplan.svg')
   .then(res => res.text())
   .then(svg => {
     container.innerHTML = svg;
@@ -35,7 +35,7 @@ fetch('assets/floorplan.svg')
 ========================= */
 async function syncRoomData() {
   try {
-    const res = await fetch('/api/rooms'); // relative path
+    const res = await fetch('/api/temperature/rooms');// relative path
     latestData = await res.json();
 
     updateSummary(latestData);

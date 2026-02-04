@@ -1,106 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stage 2 Operations | Unified Command</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <title>Stage 2 System – Overview</title>
+  <link rel="stylesheet" href="/frontend/Overview/style.css">
+  <script src="/frontend/Overview/script.js" defer></script>
 </head>
 <body>
 
 <header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
+  <h1>Stage 2 Facility Overview</h1>
 </header>
 
-<nav>
-    <button class="nav-btn active">Overview</button>
+<section class="kpi-grid">
+  <div class="kpi-card ok">
+    <h3>Temperature OK</h3>
+    <p id="temp-ok">--</p>
+  </div>
 
-    <button class="nav-btn" onclick="window.location.href='../CCTV/index.html'">CCTV</button>
+  <div class="kpi-card warning">
+    <h3>Temperature Warning</h3>
+    <p id="temp-warning">--</p>
+  </div>
 
-    <button class="nav-btn" onclick="window.location.href='../Spiral Blast Freezer/index.html'">Freezer</button>
+  <div class="kpi-card critical">
+    <h3>Temperature Critical</h3>
+    <p id="temp-critical">--</p>
+  </div>
 
-    <button class="nav-btn" onclick="window.location.href='http://127.0.0.1:5000'">Temperature</button>
-    
-    <button class="nav-btn" onclick="window.location.href='../Lighting/index.html'">Lighting</button>
+  <div class="kpi-card neutral">
+    <h3>Systems Online</h3>
+    <p>✔ All</p>
+  </div>
+</section>
 
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="../Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="../Utilities/Boiler/index.html">Boiler System</a>
-            <a href="../Utilities/MDB/index.html">MDB</a>
-            <a href="../Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="../Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
-        </div>
-    </div>
+<section class="quick-links">
+  <a href="/Temperature">Temperature Monitoring</a>
+  <a href="/Utilities/Boiler">Boiler</a>
+  <a href="/Utilities/Air Compressor">Air Compressor</a>
+  <a href="/CCTV">CCTV</a>
+</section>
 
-    <div class="nav-item">
-        <button class="nav-btn">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="../Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="../Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="../Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="../Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
-        </div>
-    </div>
-</nav>
-
-<main class="dashboard-content">
-    <section class="dash-header">
-        <h2>Operations Summary</h2>
-        <p class="text-muted">Real-time performance metrics across all Stage 2 sectors</p>
-    </section>
-
-    <section class="kpi-grid">
-        <div class="kpi-card">
-            <small class="kpi-label">PLANT AVAILABILITY</small>
-            <div class="kpi-value">99.4%</div>
-            <div class="kpi-trend pos">▲ 0.2%</div>
-        </div>
-        <div class="kpi-card">
-            <small class="kpi-label">ACTIVE ENERGY LOAD</small>
-            <div class="kpi-value text-accent">412 kW</div>
-            <div class="kpi-trend">Stable</div>
-        </div>
-        <div class="kpi-card">
-            <small class="kpi-label">CRITICAL ALERTS</small>
-            <div class="kpi-value text-danger">02</div>
-            <div class="kpi-trend neg">Requires Attention</div>
-        </div>
-    </section>
-
-    <section class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Utility Demand Distribution</h3>
-            <div class="chart-container"><canvas id="overviewChart"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Thermal Stability (Avg)</h3>
-            <div class="chart-container"><canvas id="thermalChart"></canvas></div>
-        </div>
-    </section>
-
-    <section class="card table-card">
-        <h3 class="card-title">Critical Asset Status</h3>
-        <table>
-            <thead>
-                <tr><th>Asset</th><th>Category</th><th>Status</th><th>Health Score</th></tr>
-            </thead>
-            <tbody>
-                <tr><td><strong>Boiler #01</strong></td><td>Utilities</td><td><span class="status-pill">Operational</span></td><td>94%</td></tr>
-                <tr><td><strong>Spiral Freezer</strong></td><td>Production</td><td><span class="status-pill warning">Defrosting</span></td><td>78%</td></tr>
-                <tr><td><strong>X-Ray 04</strong></td><td>Kitchen</td><td><span class="status-pill">Active</span></td><td>100%</td></tr>
-            </tbody>
-        </table>
-    </section>
-</main>
-
-<script src="script.js"></script>
 </body>
 </html>
