@@ -6,10 +6,10 @@
   <title>Stage 2 System – Overview</title>
 
   <!-- Page-specific styles -->
-  <link rel="stylesheet" href="/Overview/style.css">
+  <link rel="stylesheet" href="/frontend/Overview/style.css">
 
   <!-- Navbar styles -->
-  <link rel="stylesheet" href="/shared/navbar.css">
+  <link rel="stylesheet" href="/frontend/shared/navbar.css">
 
   <!-- Page script -->
   <script src="/frontend/Overview/script.js" defer></script>
@@ -17,24 +17,17 @@
 
 <body>
 
-  <!-- NAVBAR -->
-  <link rel="stylesheet" href="/shared/navbar.css">
-
+  <!-- NAVBAR PLACEHOLDER -->
   <div id="navbar"></div>
 
-  <script src="/shared/navbar.js"></script>
-  <script>
-    fetch('/shared/navbar.html')
-      .then(res => {
-        if (!res.ok) throw new Error('Navbar failed to load');
-        return res.text();
-      })
-      .then(html => {
-        document.getElementById('navbar').innerHTML = html;
-      })
-      .catch(err => console.error(err));
-  </script>
+  <link rel="stylesheet" href="/frontend/shared/navbar.css">
+  <script src="/frontend/shared/navbar.js" defer></script>
 
+  <script>
+    fetch('/frontend/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html);
+  </script>
 
 
   <!-- PAGE CONTENT -->
@@ -63,6 +56,6 @@
       <p>✔ All</p>
     </div>
   </section>
-  <script src="/Overview/script.js"></script>
+
 </body>
 </html>
