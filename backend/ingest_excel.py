@@ -1,7 +1,7 @@
 import pandas as pd
 import sqlite3
 
-EXCEL_FILE = "../Temperature_Reading.xlsx"
+EXCEL_FILE = "../data/Temperature_Reading.xlsx"
 DB_FILE = "temps.db"
 
 def ingest():

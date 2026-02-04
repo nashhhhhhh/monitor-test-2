@@ -17,33 +17,34 @@
 }
 
 body {
+  font-family: system-ui, 'Inter', sans-serif;
+  background: #f1f5f9;   /* light grey */
   margin: 0;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  background: radial-gradient(circle at top, #e2e8f0, var(--bg-main));
   color: #0f172a;
 }
 
 /* =====================
-   HEADER
+   HEADER (CONSISTENT)
 ===================== */
 header {
-  padding: 24px 40px;
-  background: linear-gradient(135deg, #020617, #0f172a);
-  color: #f8fafc;
-  box-shadow: var(--shadow-soft);
+  background: white;
+  color: #0f172a;
+  padding: 1.2rem;
+  margin-top: 0;
 }
 
 header h1 {
   margin: 0;
-  font-size: 30px;
-  letter-spacing: 0.3px;
+  font-size: 1.6rem;
+  font-weight: 700;
 }
 
 header p {
   margin-top: 6px;
-  opacity: 0.75;
   font-size: 14px;
+  color: #475569;
 }
+
 
 /* =====================
    SUMMARY CARDS

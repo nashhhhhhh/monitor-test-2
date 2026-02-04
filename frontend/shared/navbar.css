@@ -1,0 +1,149 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --nav-bg: #1e293b;
+  --header-dark: #0f172a;
+  --accent: #3b82f6;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --success: #10b981;
+}
+
+/* ===== HEADER ===== */
+.top-header {
+  background: var(--header-dark);
+  color: white;
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  height: 36px;
+}
+
+.brand-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.brand-subtitle {
+  font-weight: 300;
+  opacity: 0.6;
+}
+
+/* Pulse */
+.pulse {
+  width: 10px;
+  height: 10px;
+  background: var(--success);
+  border-radius: 50%;
+  position: relative;
+}
+
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.7; }
+  70% { transform: scale(3); opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.header-clock {
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+/* ===== NAV BAR ===== */
+.main-nav {
+  display: flex;
+  background: var(--nav-bg);
+  padding: 0 16px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 18px 20px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: 0.25s;
+}
+
+.nav-btn:hover {
+  color: white;
+  background: rgba(255,255,255,0.06);
+}
+
+.nav-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ===== DROPDOWN ===== */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: 0.25s;
+}
+
+.nav-item:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 14px 18px;
+  color: #475569;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.dropdown-menu a:hover {
+  background: #f1f5f9;
+  color: var(--accent);
+  padding-left: 22px;
+  border-left: 4px solid var(--accent);
+}

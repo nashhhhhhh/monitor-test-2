@@ -1,45 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Stage 2 System – Overview</title>
+
+  <!-- Page-specific styles -->
   <link rel="stylesheet" href="/frontend/Overview/style.css">
+
+  <!-- Navbar styles -->
+  <link rel="stylesheet" href="/frontend/shared/navbar.css">
+
+  <!-- Page script -->
   <script src="/frontend/Overview/script.js" defer></script>
 </head>
+
 <body>
 
-<header>
-  <h1>Stage 2 Facility Overview</h1>
-</header>
+  <!-- NAVBAR PLACEHOLDER -->
+  <div id="navbar"></div>
 
-<section class="kpi-grid">
-  <div class="kpi-card ok">
-    <h3>Temperature OK</h3>
-    <p id="temp-ok">--</p>
-  </div>
+  <link rel="stylesheet" href="/frontend/shared/navbar.css">
+  <script src="/frontend/shared/navbar.js" defer></script>
 
-  <div class="kpi-card warning">
-    <h3>Temperature Warning</h3>
-    <p id="temp-warning">--</p>
-  </div>
+  <script>
+    fetch('/frontend/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html);
+  </script>
 
-  <div class="kpi-card critical">
-    <h3>Temperature Critical</h3>
-    <p id="temp-critical">--</p>
-  </div>
 
-  <div class="kpi-card neutral">
-    <h3>Systems Online</h3>
-    <p>✔ All</p>
-  </div>
-</section>
+  <!-- PAGE CONTENT -->
+  <header>
+    <h1>Overview</h1>
+  </header>
 
-<section class="quick-links">
-  <a href="/Temperature">Temperature Monitoring</a>
-  <a href="/Utilities/Boiler">Boiler</a>
-  <a href="/Utilities/Air Compressor">Air Compressor</a>
-  <a href="/CCTV">CCTV</a>
-</section>
+  <section class="kpi-grid">
+    <div class="kpi-card ok">
+      <h3>Temperature OK</h3>
+      <p id="temp-ok">--</p>
+    </div>
+
+    <div class="kpi-card warning">
+      <h3>Temperature Warning</h3>
+      <p id="temp-warning">--</p>
+    </div>
+
+    <div class="kpi-card critical">
+      <h3>Temperature Critical</h3>
+      <p id="temp-critical">--</p>
+    </div>
+
+    <div class="kpi-card neutral">
+      <h3>Systems Online</h3>
+      <p>✔ All</p>
+    </div>
+  </section>
 
 </body>
 </html>

@@ -1,67 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Cold Room Monitoring Dashboard</title>
 
-  <!-- External CSS -->
+  <!-- Temperature styles -->
   <link rel="stylesheet" href="/frontend/Temperature/styles.css">
 
+  <!-- Navbar styles (shared) -->
+  <link rel="stylesheet" href="/frontend/shared/navbar.css">
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+    rel="stylesheet">
 </head>
 
 <body>
 
-<header>
-  <h1>Temperature Monitoring Dashboard</h1>
-  <!-- <p>Live compliance overview (Database Driven)</p> -->
-</header>
+  <!-- =========================
+       NAVBAR PLACEHOLDER
+  ========================== -->
+  <div id="navbar"></div>
 
-<section class="summary">
-  <div class="card req">
-    <h2 id="count-req">0</h2>
-    <span>Within Requirements</span>
-  </div>
-  <div class="card tol">
-    <h2 id="count-tol">0</h2>
-    <span>Within Tolerance</span>
-  </div>
-  <div class="card out">
-    <h2 id="count-out">0</h2>
-    <span>Out of Tolerance</span>
-  </div>
-</section>
+  <!-- =========================
+       NAVBAR LOADER
+  ========================== -->
+  <script>
+    fetch('/frontend/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById('navbar').innerHTML = html;
+      });
+  </script>
 
-<section class="controls">
-  <button onclick="filterRooms('all')" class="btn">Show All</button>
-  <button onclick="filterRooms('req')" class="btn success">Within Requirements</button>
-  <button onclick="filterRooms('tol')" class="btn warning">Within Tolerance</button>
-  <button onclick="filterRooms('out')" class="btn danger">Out of Tolerance</button>
+  <!-- =========================
+       PAGE CONTENT
+  ========================== -->
+  <header>
+    <h1>Temperature Monitoring Dashboard</h1>
+    <!-- <p>Live compliance overview (Database Driven)</p> -->
+  </header>
 
-  <button id="lockBtn" class="btn lock">Unlock Layout</button>
-</section>
+  <section class="summary">
+    <div class="card req">
+      <h2 id="count-req">0</h2>
+      <span>Within Requirements</span>
+    </div>
+    <div class="card tol">
+      <h2 id="count-tol">0</h2>
+      <span>Within Tolerance</span>
+    </div>
+    <div class="card out">
+      <h2 id="count-out">0</h2>
+      <span>Out of Tolerance</span>
+    </div>
+  </section>
 
-<section class="legend">
-  <div class="legend-item">
-    <span class="legend-color req"></span>
-    <span>Within Requirements</span>
-  </div>
-  <div class="legend-item">
-    <span class="legend-color tol"></span>
-    <span>Within Tolerance</span>
-  </div>
-  <div class="legend-item">
-    <span class="legend-color out"></span>
-    <span>Out of Tolerance</span>
-  </div>
-</section>
+  <section class="controls">
+    <button onclick="filterRooms('all')" class="btn">Show All</button>
+    <button onclick="filterRooms('req')" class="btn success">Within Requirements</button>
+    <button onclick="filterRooms('tol')" class="btn warning">Within Tolerance</button>
+    <button onclick="filterRooms('out')" class="btn danger">Out of Tolerance</button>
 
-<section class="floorplan-wrapper">
-  <div id="floorplan-container"></div>
-</section>
+    <button id="lockBtn" class="btn lock">Unlock Layout</button>
+  </section>
 
-<script src="/frontend/Temperature/app.js" defer></script>
+  <section class="legend">
+    <div class="legend-item">
+      <span class="legend-color req"></span>
+      <span>Within Requirements</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color tol"></span>
+      <span>Within Tolerance</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color out"></span>
+      <span>Out of Tolerance</span>
+    </div>
+  </section>
+
+  <section class="floorplan-wrapper">
+    <div id="floorplan-container"></div>
+  </section>
+
+  <!-- Temperature logic -->
+  <script src="/frontend/Temperature/app.js" defer></script>
+
 </body>
 </html>
