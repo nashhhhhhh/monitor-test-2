@@ -127,6 +127,43 @@ def aircompressor():
     })
 
 # =====================================================
+# BOILER API
+# =====================================================
+
+@app.route("/api/boiler")
+def boiler():
+    # Boiler 1 Runtimes
+    b01_1 = read_csv("boiler01_1_RT.csv", "runtime")
+    b01_2 = read_csv("boiler01_2_RT.csv", "runtime")
+    b01_3 = read_csv("boiler01_3_RT.csv", "runtime")
+    
+    # Boiler 2 Runtimes
+    b02_1 = read_csv("boiler02_1_RT.csv", "runtime")
+    b02_2 = read_csv("boiler02_2_RT.csv", "runtime")
+    
+    # Flow and Gas Totals
+    gas_total = read_csv("boiler-gas_total.csv", "gas")
+    direct_steam = read_csv("boiler-directsteam-meterflow_total.csv", "steam")
+    indirect_steam = read_csv("boiler-indirectsteam-meterflow.csv", "steam")
+
+    return jsonify({
+        "boiler_01": {
+            "stage_1_runtime": b01_1,
+            "stage_2_runtime": b01_2,
+            "stage_3_runtime": b01_3
+        },
+        "boiler_02": {
+            "stage_1_runtime": b02_1,
+            "stage_2_runtime": b02_2
+        },
+        "consumption": {
+            "gas_total_kg": gas_total,
+            "direct_steam_kg": direct_steam,
+            "indirect_steam_kg": indirect_steam
+        }
+    })
+
+# =====================================================
 
 if __name__ == "__main__":
     print(f"\n🚀 Server starting at http://127.0.0.1:5000")
