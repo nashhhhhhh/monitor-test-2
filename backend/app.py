@@ -62,36 +62,14 @@ def cctv_page():
 # ==============================
 
 @app.route("/api/temperature/rooms")
-def api_temperature_rooms():
-    """
-    Used by:
-    - Overview KPIs
-    - Temperature floorplan
-    """
-
-    conn = get_db_connection()
-    rows = conn.execute("""
-        SELECT
-            base_room,
-            room_name,
-            "Actual Temp" AS actual_temp,
-            Requirement,
-            status
-        FROM room_temperature
-    """).fetchall()
+def get_rooms():
+    conn = sqlite3.connect("temps.db")
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT * FROM room_temperature").fetchall()
     conn.close()
 
-    data = []
-    for r in rows:
-        data.append({
-            "room": r["base_room"],
-            "name": r["room_name"],
-            "actual": r["actual_temp"],
-            "setpoint": r["Requirement"],
-            "status": r["status"]
-        })
+    return jsonify([dict(row) for row in rows])
 
-    return jsonify(data)
 
 # ==============================
 # HEALTH CHECK (OPTIONAL)

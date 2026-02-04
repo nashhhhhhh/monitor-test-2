@@ -20,7 +20,7 @@ let latestData = [];
 /* =========================
    LOAD SVG (INLINE)
 ========================= */
-fetch('/frontend/Temperature/assets/floorplan.svg')
+fetch('/Temperature/assets/floorplan.svg')
   .then(res => res.text())
   .then(svg => {
     container.innerHTML = svg;
@@ -51,6 +51,11 @@ async function syncRoomData() {
 ========================= */
 function applyDataToSVG(data) {
   data.forEach(room => {
+    if (!room.base_room) {
+      console.error("❌ Missing base_room in API payload:", room);
+      return;
+    }
+
     const svgId = ROOM_ID_MAP[room.base_room] || room.base_room;
 
     let el = document.getElementById(svgId);
@@ -204,10 +209,26 @@ function initPanZoom() {
 }
 
 /* =========================
-   FIT TO WIDTH
+   FIT SVG TO CONTAINER
 ========================= */
 function fitToWidth() {
-  scale = 1;
+  const svg = document.querySelector('#floorplan-container svg');
+  if (!svg) return;
+
+  const viewBox = svg.viewBox.baseVal;
+  if (!viewBox || viewBox.width === 0) return;
+
+  const containerWidth = document.getElementById('floorplan-container').clientWidth;
+  scale = containerWidth / viewBox.width;
   panX = 0;
   panY = 0;
+
+  const viewport = document.getElementById('viewport');
+  if (viewport) {
+    viewport.setAttribute(
+      'transform',
+      `translate(${panX},${panY}) scale(${scale})`
+    );
+  }
 }
+
