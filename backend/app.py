@@ -44,13 +44,21 @@ def temperature_rooms():
 
 def read_csv(path, value_key):
     data = []
+    if not os.path.exists(path):
+        return data
     with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(list(f)[2:])  # skip metadata rows
+        lines = f.readlines()[2:] # Skip metadata
+        reader = csv.DictReader(lines)
         for row in reader:
-            data.append({
-                "time": row["Timestamp"].split(" ")[1],
-                value_key: float(row["Value"])
-            })
+            try:
+                # Ensure we have data before processing
+                if row.get("Timestamp") and row.get("Value"):
+                    data.append({
+                        "time": row["Timestamp"].split(" ")[1],
+                        value_key: float(row["Value"])
+                    })
+            except (ValueError, IndexError):
+                continue
     return data
 
 @app.route("/api/aircompressor")
