@@ -1,16 +1,22 @@
-body {
-  background: #f8fafc;
-  font-family: 'Inter', sans-serif;
+/* ===============================
+   GLOBAL SAFETY (DO NOT MOVE)
+================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-/* RESET */
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  font-family: 'Inter', sans-serif;
+  background: #f8fafc;
 }
 
-
+/* ===============================
+   VARIABLES
+================================ */
 :root {
   --nav-bg: #1e293b;
   --header-dark: #0f172a;
@@ -20,16 +26,22 @@ html, body {
   --success: #10b981;
 }
 
-/* ===== HEADER ===== */
+/* ===============================
+   TOP HEADER
+================================ */
 .top-header {
   background: var(--header-dark);
   color: white;
   padding: 14px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   width: 100%;
 }
+
+.top-header {
+  display: flex;
+  align-items: center;
+}
+
+
 
 .brand {
   display: flex;
@@ -52,7 +64,24 @@ html, body {
   opacity: 0.6;
 }
 
-/* Pulse */
+.header-clock {
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+/* 🔑 THIS LINE IS THE FIX */
+.header-clock {
+  margin-left: auto;          /* pushes clock to far right */
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ===============================
+   PULSE
+================================ */
 .pulse {
   width: 10px;
   height: 10px;
@@ -76,15 +105,12 @@ html, body {
   100% { opacity: 0; }
 }
 
-.header-clock {
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-}
-
-/* ===== NAV BAR ===== */
+/* ===============================
+   NAV BAR (FIXED, SAME POSITION)
+================================ */
 .main-nav {
   display: flex;
+  flex-wrap: wrap;                 /* 🔑 allows wrap instead of overflow */
   background: var(--nav-bg);
   padding: 0 16px;
   position: sticky;
@@ -92,8 +118,12 @@ html, body {
   z-index: 1000;
   width: 100%;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-sizing: border-box;          /* 🔑 prevents padding overflow */
 }
 
+/* ===============================
+   NAV ITEMS
+================================ */
 .nav-item {
   position: relative;
 }
@@ -109,6 +139,7 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   transition: 0.25s;
+  white-space: nowrap;             /* 🔑 prevents layout break */
 }
 
 .nav-btn:hover {
@@ -121,12 +152,15 @@ html, body {
   color: white;
 }
 
-/* ===== DROPDOWN ===== */
+/* ===============================
+   DROPDOWN
+================================ */
 .dropdown-menu {
   position: absolute;
   top: 100%;
   left: 0;
   min-width: 220px;
+  max-width: 90vw;                 /* 🔑 prevents overflow */
   background: white;
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
@@ -135,6 +169,8 @@ html, body {
   visibility: hidden;
   transform: translateY(10px);
   transition: 0.25s;
+  overflow-x: hidden;
+  z-index: 2000;
 }
 
 .nav-item:hover .dropdown-menu {
@@ -149,6 +185,7 @@ html, body {
   color: #475569;
   text-decoration: none;
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .dropdown-menu a:hover {
