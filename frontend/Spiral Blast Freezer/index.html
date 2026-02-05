@@ -2,69 +2,100 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
+    <title>Spiral Blast Freezer Monitoring</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
+    <div id="navbar"></div>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+    <main class="dashboard-content">
+        <header class="dash-header">
+            <h2>Spiral Blast Freezer System</h2>
+        </header>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+        <section class="kpi-grid">
+            <div class="kpi-card highlight-eff">
+                <div class="kpi-label">Production Today</div>
+                <div class="kpi-value" id="val-production">0</div>
+                <div class="kpi-trend pos" id="val-capacity">0 Pcs/Min</div>
+            </div>
+            <div class="kpi-card highlight-energy">
+                <div class="kpi-label">Total Consumption</div>
+                <div class="kpi-value" id="val-energy-total">0</div>
+                <div class="kpi-trend">Combined kWh</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Freezer Avg Temp</div>
+                <div class="kpi-value" id="val-temp-avg">--°C</div>
+                <div class="kpi-trend" id="val-temp-range">TEF01 / TEF02</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">System Efficiency</div>
+                <div class="kpi-value mini" id="val-eff-calc">0.00</div>
+                <div class="kpi-trend">Pcs / kWh</div>
+            </div>
+        </section>
 
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn active" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Spiral Blast Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+        <div class="main-grid">
+            <div class="card">
+                <div class="card-title">Drive Status & Diagnostics</div>
+                <div class="diag-group">
+                    <h4>Spiral Unit 01 <span id="status-sf01-master" class="status-pill warning">STANDBY</span></h4>
+                    <div class="diag-item">
+                        <span>Main Drive Frequency</span>
+                        <div><span id="sf1-main-hz">0</span> Hz <span id="dot-sf1-main" class="dot offline"></span></div>
+                    </div>
+                    <div class="diag-item">
+                        <span>Sub Drive Frequency</span>
+                        <div><span id="sf1-sub-hz">0</span> Hz <span id="dot-sf1-sub" class="dot offline"></span></div>
+                    </div>
+                </div>
+                <div class="diag-group" style="margin-top: 20px;">
+                    <h4>Spiral Unit 02 <span id="status-sf02-master" class="status-pill warning">STANDBY</span></h4>
+                    <div class="diag-item">
+                        <span>Main Drive Frequency</span>
+                        <div><span id="sf2-main-hz">0</span> Hz <span id="dot-sf2-main" class="dot offline"></span></div>
+                    </div>
+                </div>
+            </div>
 
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
+            <div class="card">
+                <div class="card-title">Temperature & Production Trends</div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="nav-item">
-        <button class="nav-btn ">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
+        <div class="card table-card">
+            <div class="card-title">Low Receiver Status (Refrigeration System)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Receiver Unit</th>
+                        <th>Temperature (°C)</th>
+                        <th>Suction Pressure</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="refrig-table-body">
+                    </tbody>
+            </table>
         </div>
-    </div>
-</nav>
+    </main>
 
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
-    </div>
-
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-</main>
-
-<script src="/Overview/script.js"></script>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+        .then(res => res.ok ? res.text() : Promise.reject())
+        .then(html => document.getElementById('navbar').innerHTML = html);
+    </script>
+    <script src="script.js"></script>
 </body>
 </html>
