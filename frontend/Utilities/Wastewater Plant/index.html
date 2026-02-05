@@ -1,70 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <title>Waste Water Treatment Plant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Shared Navbar -->
+  <link rel="stylesheet" href="/shared/navbar.css" />
+
+  <!-- Page Styles -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
+  <!-- NAVBAR -->
+  <div id="navbar"></div>
+  <script src="/shared/navbar.js"></script>
+  <script>
+    fetch('/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html);
+  </script>
+
+  <!-- PAGE HEADER -->
+  <header class="page-header">
+    <div>
+      <h1>Waste Water Treatment Plant</h1>
+      <p class="subtitle">
+        Real-time monitoring of pumps, energy usage, and effluent conditions
+      </p>
     </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+  </header>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
-
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
-
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
-        </div>
-    </div>
-
-    <div class="nav-item">
-        <button class="nav-btn active">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
-        </div>
-    </div>
-</nav>
-
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
+  <!-- KPI SUMMARY -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <h4>Total Energy Usage</h4>
+      <p id="kpi-energy">-- kWh</p>
     </div>
 
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
+    <div class="kpi-card">
+      <h4>Active Pumps</h4>
+      <p id="kpi-pumps">--</p>
     </div>
-</main>
 
-<script src="/Overview/script.js"></script>
+    <div class="kpi-card">
+      <h4>Raw Water Temp</h4>
+      <p id="kpi-temp">-- °C</p>
+    </div>
+
+    <div class="kpi-card">
+      <h4>System Status</h4>
+      <p class="status-ok">Normal</p>
+    </div>
+  </section>
+
+  <!-- MAIN GRID -->
+  <main class="content-grid">
+
+    <!-- ENERGY -->
+    <section class="panel">
+      <h2>Energy Consumption</h2>
+      <div class="panel-placeholder">
+        PMG / Control Panel / WG Energy Charts
+      </div>
+    </section>
+
+    <!-- PUMPS -->
+    <section class="panel">
+      <h2>Pump Operations</h2>
+      <div class="panel-placeholder">
+        Raw Waste Water Pumps & Effluent Pumps
+      </div>
+    </section>
+
+    <!-- TEMPERATURE -->
+    <section class="panel">
+      <h2>Raw Waste Water Temperature</h2>
+      <div class="panel-placeholder">
+        Temperature Trend (°C)
+      </div>
+    </section>
+
+    <!-- FLOW / PROCESS -->
+    <section class="panel">
+      <h2>Process Overview</h2>
+      <div class="panel-placeholder">
+        Flow / Operational Summary
+      </div>
+    </section>
+
+  </main>
+
+  <!-- PAGE LOGIC -->
+  <script src="script.js" defer></script>
+
 </body>
 </html>

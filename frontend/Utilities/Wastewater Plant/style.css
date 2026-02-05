@@ -1,0 +1,134 @@
+/* ===========================
+   GLOBAL RESET (SAFE)
+=========================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* ===========================
+   PAGE CONTAINER
+=========================== */
+.dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ===========================
+   HEADER
+=========================== */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.page-header p {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* ===========================
+   KPI GRID
+=========================== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.kpi-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+  position: relative;
+}
+
+.kpi-card h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin: 0 0 8px;
+}
+
+.kpi-card p {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* KPI ACCENTS */
+.kpi-energy { border-left: 6px solid #3b82f6; }
+.kpi-pump   { border-left: 6px solid #10b981; }
+.kpi-temp   { border-left: 6px solid #f59e0b; }
+
+/* ===========================
+   SECTIONS
+=========================== */
+.section {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 28px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+}
+
+.section h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* ===========================
+   CHART PLACEHOLDERS
+=========================== */
+.chart-box {
+  height: 280px;
+  border-radius: 12px;
+  background: repeating-linear-gradient(
+    45deg,
+    #f1f5f9,
+    #f1f5f9 10px,
+    #e2e8f0 10px,
+    #e2e8f0 20px
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 16px;
+  }
+
+  .kpi-card p {
+    font-size: 1.6rem;
+  }
+}
