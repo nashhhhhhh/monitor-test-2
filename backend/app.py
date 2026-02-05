@@ -142,9 +142,9 @@ def boiler():
     b02_2 = read_csv("boiler02_2_RT.csv", "runtime")
     
     # Flow and Gas Totals
-    gas_total = read_csv("boiler-gas_total.csv", "gas")
-    direct_steam = read_csv("boiler-directsteam-meterflow_total.csv", "steam")
-    indirect_steam = read_csv("boiler-indirectsteam-meterflow.csv", "steam")
+    gas_total = read_csv("boiler_gas_total.csv", "gas")
+    direct_steam = read_csv("boiler_directsteam_meterflow_total.csv", "steam")
+    indirect_steam = read_csv("boiler_indirectsteam_meterflow.csv", "steam")
 
     return jsonify({
         "boiler_01": {

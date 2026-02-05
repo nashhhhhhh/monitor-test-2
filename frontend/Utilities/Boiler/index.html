@@ -1,56 +1,112 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" href="/Overview/style.css">
+    <meta charset="UTF-8">
+    <title>Boiler Performance Dashboard</title>
+    <!-- Page styles -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Shared navbar styles -->
+    <link rel="stylesheet" href="/shared/navbar.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Charts + CSV -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
 </head>
 <body>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">FUCK YOU System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+    <!-- =========================
+       NAVBAR (SAME AS TEMPERATURE)
+    ========================== -->
+    <div id="navbar"></div>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+        .then(res => {
+            if (!res.ok) throw new Error('Navbar failed to load');
+            return res.text();
+        })
+        .then(html => {
+            document.getElementById('navbar').innerHTML = html;
+        })
+        .catch(err => console.error(err));
+    </script>
 
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+    <!-- =========================
+       NAVBAR (SAME AS TEMPERATURE)
+    ========================== -->
+    <main class="dashboard-content">
+        <header class="dash-header">
+            <h2>Boiler System Monitoring</h2>
+            <p class="text-muted">
+            Performance analytics from Energy, Flow, and Dewpoint sensors
+            </p>
+        </header>
 
-    <div class="nav-item">
-        <button class="nav-btn active">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Current Gas Total</div>
+                <div class="kpi-value" id="val-gas">0</div>
+                <div class="kpi-trend pos">Active Consumption</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Total Steam Output</div>
+                <div class="kpi-value" id="val-steam">0</div>
+                <div class="kpi-trend pos">Cumulative Flow</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">System Efficiency</div>
+                <div class="kpi-value" id="val-efficiency">0.00</div>
+                <div class="kpi-trend" id="efficiency-status">S/G Ratio</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Boiler 01 Status</div>
+                <div id="status-b01" class="status-pill" style="display: inline-block; margin-top: 10px;">Checking...</div>
+            </div>
+        </section>
+
+        <section class="main-grid">
+            <div class="card">
+                <div class="card-title">Accumulated Runtimes (Stages)</div>
+                <div class="chart-container">
+                    <canvas id="runtimeChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Gas vs. Steam Correlation</div>
+                <div class="chart-container">
+                    <canvas id="consumptionChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <div class="card table-card">
+            <div class="card-title">Latest System Logs</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Gas (kg)</th>
+                        <th>Steam (kg)</th>
+                        <th>B1 Runtime (hr)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="data-log-body">
+                    </tbody>
+            </table>
         </div>
-    </div>
+    </main>
 
-    <div class="nav-item">
-        <button class="nav-btn">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
-        </div>
-    </div>
-</nav>
-
-    <div class="container">
-        <h2>Boiler Performance</h2>
-        <div class="grid">
-            <div class="card"><canvas id="boilerEfficiencyGauge"></canvas></div>
-            <div class="card"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-    <script src="/Overview/script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
