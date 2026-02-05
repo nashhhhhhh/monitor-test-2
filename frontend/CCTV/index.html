@@ -5,42 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CCTV Monitoring | Stage 2</title>
 
+    <!-- Page Styles -->
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
 
+    <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
+    <!-- Shared Navbar -->
     <div id="navbar"></div>
 
+    <!-- Dashboard Content -->
     <main class="dashboard-content">
+
+        <!-- Header -->
         <header class="dash-header">
             <div>
                 <h1>CCTV System Status</h1>
-                <p class="text-muted">Monitoring online/offline logs for security resources</p>
+                <p class="text-muted">
+                    Monitoring online and offline states of all security cameras
+                </p>
             </div>
+
+            <div class="kpi-group">
+                <div class="kpi-pill online">
+                    <div class="kpi-label">ONLINE</div>
+                    <div class="kpi-value" id="onlineCount">0</div>
+                </div>
+
+                <div class="kpi-pill offline">
+                    <div class="kpi-label">OFFLINE</div>
+                    <div class="kpi-value" id="offlineCount">0</div>
+                </div>
+            </div>
+
+
             <div class="kpi-pill">
-                <span class="kpi-label">TOTAL DEVICES:</span>
+                <span class="kpi-label">TOTAL DEVICES</span>
                 <span class="kpi-value" id="total-devices">0</span>
             </div>
         </header>
 
+        <!-- Filter Buttons -->
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="online">Online</button>
+            <button class="filter-btn" data-filter="offline">Offline</button>
+        </div>
+
+        <!-- Camera Cards -->
         <section class="camera-grid" id="camera-container">
             <div class="status-msg">Initializing system...</div>
         </section>
+
     </main>
 
+    <!-- Navbar Loader -->
     <script src="/shared/navbar.js"></script>
     <script>
-        // Load the shared navbar
         fetch('/shared/navbar.html')
             .then(res => res.text())
             .then(html => document.getElementById('navbar').innerHTML = html)
-            .catch(err => console.error("Navbar Error:", err));
+            .catch(err => console.error("Navbar load error:", err));
     </script>
+
+    <!-- Page Script -->
     <script src="script.js" defer></script>
+
 </body>
 </html>
