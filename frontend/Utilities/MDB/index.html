@@ -2,69 +2,119 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
+    <title>Boiler Monitoring</title>
+    
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="/shared/navbar.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
 <body>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+    <div id="navbar"></div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+        .then(res => {
+            if (!res.ok) throw new Error('Navbar failed to load');
+            return res.text();
+        })
+        .then(html => {
+            document.getElementById('navbar').innerHTML = html;
+        })
+        .catch(err => console.error(err));
+    </script>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+    <main class="dashboard-content">
+        <header class="dash-header">
+            <div>
+                <h2>Power Distribution & Generator Analytics</h2>
+                <p class="text-muted">MDB Room Monitoring & Emergency Power Systems</p>
+            </div>
+            <div id="clock" class="clock-display">--:--:--</div>
+        </header>
 
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+        <section class="kpi-grid">
+            <div class="kpi-card highlight-power">
+                <div class="kpi-label">Total Facility Demand</div>
+                <div class="kpi-value" id="val-total-kw">0.0</div>
+                <div class="kpi-trend">Real-time Load (kW)</div>
+            </div>
+            <div class="kpi-card highlight-gen">
+                <div class="kpi-label">Generator Status</div>
+                <div id="status-gen-master" class="status-pill warning" style="margin-top:10px; display:inline-block;">STANDBY</div>
+                <div class="kpi-trend" id="val-gen-runtime">Total Run: 0 hrs</div>
+            </div>
+            <div class="kpi-card highlight-fuel">
+                <div class="kpi-label">Fuel Level</div>
+                <div class="kpi-value" id="val-fuel-pct">0%</div>
+                <div class="kpi-trend" id="val-fuel-liters">0 Liters Remaining</div>
+            </div>
+            <div class="kpi-card highlight-pf">
+                <div class="kpi-label">Average Power Factor</div>
+                <div class="kpi-value" id="val-avg-pf">0.00</div>
+                <div class="kpi-trend">System Efficiency (cos φ)</div>
+            </div>
+        </section>
 
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
-        </div>
-    </div>
+        <section class="main-grid">
+            <div class="card">
+                <div class="card-title">MDB Breaker & Feeder Status</div>
+                <div class="diagnostic-container">
+                    <div class="diag-group">
+                        <h4>MDB Room 01 <span class="status-pill active">HEALTHY</span></h4>
+                        <div class="diag-item"><span>Main Incomer</span> <span id="dot-mdb1-main" class="dot active"></span></div>
+                        <div class="diag-item"><span>Capacitor Bank</span> <span id="dot-mdb1-cap" class="dot active"></span></div>
+                        <div class="diag-item"><span>AC Feeder</span> <span id="dot-mdb1-ac" class="dot active"></span></div>
+                    </div>
+                    <div class="diag-group" style="margin-top: 20px;">
+                        <h4>Generator Health <span id="status-gen-health" class="status-pill active">READY</span></h4>
+                        <div class="diag-item"><span>Battery Voltage</span> <span id="val-gen-batt">24.2V</span></div>
+                        <div class="diag-item"><span>Coolant Temp</span> <span id="val-gen-temp">45°C</span></div>
+                        <div class="diag-item"><span>Engine State</span> <span id="dot-gen-engine" class="dot offline"></span></div>
+                    </div>
+                </div>
+            </div>
 
-    <div class="nav-item">
-        <button class="nav-btn active">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
-        </div>
-    </div>
-</nav>
+            <div class="card">
+                <div class="card-title">Power Source Distribution</div>
+                <div class="efficiency-report">
+                    <div class="eff-item">
+                        <div class="kpi-label">Utility Power (Grid)</div>
+                        <div class="kpi-value mini" id="val-util-load">0%</div>
+                        <div class="progress-bar"><div id="bar-utility" class="progress-fill" style="width: 100%; background: var(--accent);"></div></div>
+                    </div>
+                    <div class="eff-item" style="margin-top: 25px;">
+                        <div class="kpi-label">Generator Load Factor</div>
+                        <div class="kpi-value mini" id="val-gen-load">0%</div>
+                        <div class="progress-bar"><div id="bar-gen" class="progress-fill" style="width: 0%; background: var(--warning);"></div></div>
+                    </div>
+                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 15px;">Critical Threshold: 80% Gen Load.</p>
+                </div>
+            </div>
+        </section>
 
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
-    </div>
-
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-</main>
-
-<script src="/Overview/script.js"></script>
+        <section class="main-grid" style="margin-top: 24px;">
+            <div class="card">
+                <div class="card-title">Power Consumption Profile (24h)</div>
+                <div class="chart-container">
+                    <canvas id="loadChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Phase Voltage Stability (V)</div>
+                <div class="chart-container">
+                    <canvas id="voltageChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
 </body>
 </html>
