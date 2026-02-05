@@ -1,3 +1,6 @@
+/* ===============================
+   CSS VARIABLES
+================================ */
 :root {
     --bg-blue: #0f172a;
     --card-bg: #1e293b;
@@ -8,6 +11,20 @@
     --danger: #ef4444;
 }
 
+/* FORCE DASHBOARD TITLE COLOR */
+.dash-header h1 {
+    color: #0f172a !important;
+}
+
+
+
+/* ===============================
+   BASE STYLES
+================================ */
+* {
+    box-sizing: border-box;
+}
+
 body {
     background-color: var(--bg-blue);
     color: var(--text-main);
@@ -15,6 +32,9 @@ body {
     margin: 0;
 }
 
+/* ===============================
+   DASHBOARD LAYOUT
+================================ */
 .dashboard-content {
     padding: 2.5rem;
     max-width: 1400px;
@@ -25,73 +45,223 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 1.5rem;
     margin-bottom: 2rem;
     border-bottom: 1px solid var(--border);
     padding-bottom: 1.5rem;
 }
 
+.dash-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.text-muted {
+    color: var(--text-muted);
+    margin-top: 0.35rem;
+    font-size: 0.95rem;
+}
+
+/* ===============================
+   KPI PILL
+================================ */
 .kpi-pill {
     background: var(--card-bg);
     padding: 0.75rem 1.25rem;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px solid var(--border);
     display: flex;
     gap: 10px;
     align-items: center;
 }
 
-.kpi-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); }
-.kpi-value { font-size: 1.25rem; font-weight: 700; color: var(--success); }
+.kpi-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
 
+.kpi-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--success);
+}
+
+/* KPI GROUP */
+.kpi-group {
+    display: flex;
+    gap: 12px;
+}
+
+/* KPI VARIANTS */
+.kpi-pill.online .kpi-value {
+    color: var(--success);
+}
+
+.kpi-pill.offline .kpi-value {
+    color: var(--danger);
+}
+
+.kpi-pill.offline {
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+
+/* ===============================
+   FILTER BAR
+================================ */
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 2rem;
+}
+
+.filter-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 0.55rem 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.filter-btn:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+.filter-btn.active {
+    background: var(--success);
+    border-color: var(--success);
+    color: #022c22;
+}
+
+/* ===============================
+   CAMERA GRID
+================================ */
 .camera-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
 }
 
+/* ===============================
+   CAMERA CARD
+================================ */
 .cam-card {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 1.5rem;
-    transition: transform 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.cam-card:hover { transform: translateY(-4px); }
+.cam-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
 
+/* ===============================
+   CARD HEADER
+================================ */
 .cam-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 1rem;
+    margin-bottom: 1.2rem;
 }
 
+.cam-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* ===============================
+   STATUS INDICATOR
+================================ */
 .status-indicator {
     width: 12px;
     height: 12px;
     border-radius: 50%;
 }
 
-.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
-.offline { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
-
-.status-label {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
+.status-indicator.online {
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
 }
 
-.status-online { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-.status-offline { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.status-indicator.offline {
+    background: var(--danger);
+    box-shadow: 0 0 10px var(--danger);
+}
 
-.timestamp { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
+/* ===============================
+   STATUS LABEL
+================================ */
+.status-label {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.03em;
+}
 
+.status-online {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.status-offline {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+/* ===============================
+   CARD BODY TEXT
+================================ */
+.timestamp {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0.2rem 0;
+}
+
+/* ===============================
+   STATUS / ERROR MESSAGES
+================================ */
 .status-msg {
     grid-column: 1 / -1;
     text-align: center;
     padding: 3rem;
     color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.status-msg.error {
+    color: var(--danger);
+}
+
+/* ===============================
+   RESPONSIVE
+================================ */
+@media (max-width: 768px) {
+    .dashboard-content {
+        padding: 1.5rem;
+    }
+
+    .dash-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-bar {
+        flex-wrap: wrap;
+    }
 }
