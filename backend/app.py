@@ -238,10 +238,6 @@ def wg():
 
 @app.route("/api/spiral_blast_freezer")
 def spiral_blast_freezer():
-    """
-    Returns ALL data from spiral blast freezer CSV files.
-    Each dataset includes both the full data and key metrics.
-    """
     
     # --- 1. COMPRESSOR PERFORMANCE ---
     comp01_data = {
