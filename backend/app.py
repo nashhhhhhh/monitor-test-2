@@ -171,54 +171,38 @@ def boiler():
 
 @app.route("/api/cctv/log")
 def cctv_log():
-    file_name = "../data/Resource Online Status Log_2026_02_05_10_21_49.xlsx"
+    file_name = "Resource Online Status Log_2026_02_05_10_21_49.xlsx"
     path = os.path.join(DATA_DIR, file_name)
-    data = []
-    
+
     if not os.path.exists(path):
         print(f"❌ File not found: {path}")
         return jsonify([])
 
     try:
-        # Use utf-8-sig to handle the invisible Excel BOM characters
-        with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
-            lines = f.readlines()
-            
-            # THE CRITICAL STEP:
-            # Your file has 9 lines of metadata. The headers are on Line 10 (index 9).
-            # We skip exactly 9 lines to find the columns: Timestamp, Resource Name, Resource Status.
-            if len(lines) < 10:
-                return jsonify([])
+        import pandas as pd
 
-            data_start = lines[9:] # Slicing starting from the header row
-            reader = csv.DictReader(io.StringIO("".join(data_start)))
-            
-            for row in reader:
-                name = row.get("Resource Name", "").strip()
-                status = row.get("Resource Status", "").strip()
-                ts = row.get("Timestamp", "").strip()
+        df = pd.read_excel(path)
+        df.columns = df.columns.str.strip()
 
-                if name and status:
-                    data.append({
-                        "name": name,
-                        "status": status,
-                        # Split "2026-02-05 10:21:49" to get "10:21:49"
-                        "time": ts.split(" ")[1] if " " in ts else ts
-                    })
+        devices = []
 
-        # Deduplicate: Get only the LATEST status for each device
-        latest_status = {}
-        for entry in data:
-            latest_status[entry["name"]] = entry
+        for _, row in df.iterrows():
+            devices.append({
+                "name": str(row["Name"]).strip(),
+                "status": str(row["Current Status"]).strip(),
+                "area": str(row["Area"]).strip(),
+                "address": str(row["Address"]).strip(),
+                "lastOffline": str(row["Latest Offline Time"]),
+                "offlineCount": str(row["Total Offline Times"]),
+                "offlineDuration": str(row["Total Offline Duration"])
+            })
 
-        final_list = list(latest_status.values())
-        print(f"✅ Successfully loaded {len(final_list)} unique CCTV resources.")
-        return jsonify(final_list)
-            
+        print(f"✅ Loaded {len(devices)} CCTV devices")
+        return jsonify(devices)
+
     except Exception as e:
-        print(f"🔥 Error: {e}")
-        return jsonify([])
-
+        print("🔥 CCTV API Error:", e)
+        return jsonify([]) 
 
 # =====================================================
 
