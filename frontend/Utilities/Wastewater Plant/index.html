@@ -23,13 +23,8 @@
   <script src="/shared/navbar.js"></script>
   <script>
     fetch('/shared/navbar.html')
-      .then(res => {
-        if (!res.ok) throw new Error('Navbar failed to load');
-        return res.text();
-      })
-      .then(html => {
-        document.getElementById('navbar').innerHTML = html;
-      })
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html)
       .catch(err => console.error(err));
   </script>
 
@@ -42,7 +37,7 @@
 
     <section class="kpi-grid">
       <div class="kpi-card">
-        <div class="kpi-label">Plant Energy (Total kWh)</div>
+        <div class="kpi-label">Total Energy (kWh)</div>
         <div class="kpi-value" id="kpi-energy">--</div>
       </div>
 
@@ -57,8 +52,8 @@
       </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">System Status</div>
-        <div class="kpi-value status-ok">NORMAL</div>
+        <div class="kpi-label">Pump Efficiency</div>
+        <div class="kpi-value" id="kpi-efficiency">--%</div>
       </div>
     </section>
 
@@ -85,35 +80,17 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Operational Summary</div>
-        <div class="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Resource</th>
-                <th>Metric</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Effluent Pump</td>
-                <td>Flow Rate</td>
-                <td><span class="status-pill active">ACTIVE</span></td>
-              </tr>
-              <tr>
-                <td>Control Panel</td>
-                <td>Power Load</td>
-                <td><span class="status-pill active">STABLE</span></td>
-              </tr>
-              <tr>
-                <td>Solid Waste</td>
-                <td>Generation</td>
-                <td><span class="status-pill active">MONITORING</span></td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="card status-board-container">
+        <div class="card-title">System Status</div>
+        <div class="status-content">
+          <div class="status-indicator-large">
+            <span class="pulse-dot"></span>
+            <span id="status-text">NORMAL</span>
+          </div>
+          <p class="status-subtext">All plant systems are operating within designated parameters.</p>
+          <div class="status-details">
+            <small>Last Sync: <span id="last-sync">--:--:--</span></small>
+          </div>
         </div>
       </div>
 

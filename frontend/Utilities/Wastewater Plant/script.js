@@ -1,21 +1,25 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Store chart instances globally within this scope to prevent "Canvas in use" errors
   let charts = {};
 
   async function loadWWTPData() {
     try {
-      const [effluent, rawPump, rawTemp, pmgEnergy, ctrlEnergy, wgData] = await Promise.all([
+      console.log("🚰 Syncing WWTP Data...");
+      const [effluent, rawPump, rawTemp, pmgEnergy, ctrlEnergy] = await Promise.all([
         fetch("/api/wwtp/effluent_pump").then(r => r.json()),
         fetch("/api/wwtp/raw_pump").then(r => r.json()),
         fetch("/api/wwtp/raw_temp").then(r => r.json()),
         fetch("/api/wwtp/pmg_energy").then(r => r.json()),
-        fetch("/api/wwtp/control_energy").then(r => r.json()),
-        fetch("/api/wwtp/wg").then(r => r.json())
+        fetch("/api/wwtp/control_energy").then(r => r.json())
       ]);
 
+      // 1. Update KPIs & Efficiency
       updateKPIs({ effluent, rawPump, rawTemp, pmgEnergy, ctrlEnergy });
       
-      // Update or Create Charts
+      // 2. Update Status Time
+      const now = new Date();
+      document.getElementById('last-sync').textContent = now.toLocaleTimeString();
+
+      // 3. Render/Update Charts
       renderChart('energyChart', 'line', {
         labels: pmgEnergy.map(d => d.time).slice(-20),
         datasets: [
@@ -39,23 +43,22 @@ document.addEventListener("DOMContentLoaded", () => {
             data: rawTemp.map(d => d.value).slice(-20), 
             borderColor: '#f59e0b', 
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            fill: true 
+            fill: true,
+            tension: 0.3
         }]
       });
 
     } catch (err) {
       console.error("🔥 WWTP load error:", err);
+      document.getElementById('status-text').textContent = "ERROR";
+      document.getElementById('status-text').style.color = "var(--danger)";
     }
   }
 
   function renderChart(id, type, data) {
     const ctx = document.getElementById(id);
     if (!ctx) return;
-
-    // If chart exists, destroy it before creating a new one to fix the Canvas error
-    if (charts[id]) {
-        charts[id].destroy();
-    }
+    if (charts[id]) { charts[id].destroy(); }
 
     charts[id] = new Chart(ctx, {
       type: type,
@@ -64,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { 
-            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } 
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, family: 'Inter' } } } 
         },
         scales: {
           x: { grid: { display: false } },
@@ -75,16 +78,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateKPIs(data) {
-    const latestPmg = data.pmgEnergy.slice(-1)[0]?.value || 0;
-    const latestCtrl = data.ctrlEnergy.slice(-1)[0]?.value || 0;
-    const latestTemp = data.rawTemp.slice(-1)[0]?.value || 0;
+    const lastPmg = data.pmgEnergy.slice(-1)[0]?.value || 0;
+    const lastCtrl = data.ctrlEnergy.slice(-1)[0]?.value || 0;
+    const lastTemp = data.rawTemp.slice(-1)[0]?.value || 0;
+    const lastRaw = data.rawPump.slice(-1)[0]?.value || 0;
+    const lastEffluent = data.effluent.slice(-1)[0]?.value || 0;
     
-    document.getElementById("kpi-energy").textContent = `${(latestPmg + latestCtrl).toLocaleString()}`;
-    document.getElementById("kpi-temp").textContent = `${latestTemp.toFixed(1)}°C`;
+    document.getElementById("kpi-energy").textContent = (lastPmg + lastCtrl).toLocaleString();
+    document.getElementById("kpi-temp").textContent = `${lastTemp.toFixed(1)}°C`;
     
-    const active = (data.effluent.slice(-1)[0]?.value > 0 ? 1 : 0) + 
-                   (data.rawPump.slice(-1)[0]?.value > 0 ? 1 : 0);
+    const active = (lastEffluent > 0 ? 1 : 0) + (lastRaw > 0 ? 1 : 0);
     document.getElementById("kpi-pumps").textContent = active;
+
+    let efficiency = 0;
+    if (lastRaw > 0) {
+      efficiency = ((lastRaw - lastEffluent) / lastRaw) * 100;
+    }
+    document.getElementById("kpi-efficiency").textContent = `${efficiency.toFixed(1)}%`;
   }
 
   loadWWTPData();
