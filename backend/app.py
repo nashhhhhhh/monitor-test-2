@@ -1,11 +1,14 @@
-from flask import Flask, jsonify, send_from_directory, Blueprint
+from flask import Flask, jsonify, send_from_directory
 import sqlite3
 import csv
 import os
 import io
 import pandas as pd
 
-# --- PATH CONFIGURATION ---
+# =====================================================
+# PATH CONFIGURATION
+# =====================================================
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
 DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
@@ -17,74 +20,130 @@ app = Flask(
 )
 
 # =====================================================
-# BRUTE-FORCE CSV READER
+# GENERIC CSV READER (LEGACY SUPPORT)
 # =====================================================
 
 def read_csv(file_name, value_key):
     path = os.path.join(DATA_DIR, file_name)
     data = []
-    
+
     if not os.path.exists(path):
         print(f"❌ FILE MISSING: {path}")
         return data
 
     try:
-        # Using utf-8-sig to handle Excel's Byte Order Mark (BOM)
         with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
             lines = f.readlines()
-            
-            # 1. FIND THE DATA START
-            # We look for the line containing 'Timestamp'
+
             header_idx = -1
             for i, line in enumerate(lines):
-                if "Timestamp" in line or "timestamp" in line:
+                if "timestamp" in line.lower():
                     header_idx = i
                     break
-            
+
             if header_idx == -1:
-                print(f"⚠️ HEADER NOT FOUND in {file_name}. Printing first line for debug: {lines[0] if lines else 'EMPTY'}")
+                print(f"⚠️ HEADER NOT FOUND: {file_name}")
                 return data
 
-            # 2. PARSE THE DATA
-            # We take the lines from the header onwards
             content = "".join(lines[header_idx:])
-            # Use io.StringIO to treat the string like a file for DictReader
             reader = csv.DictReader(io.StringIO(content))
-            
+
             for row in reader:
-                # Force clean the keys (strip invisible spaces/characters)
-                clean_row = {k.strip() if k else "": v for k, v in row.items()}
-                
-                # Try to find the timestamp and value columns regardless of case
+                clean_row = {k.strip(): v for k, v in row.items() if k}
+
                 ts_val = None
                 real_val = None
-                
+
                 for k, v in clean_row.items():
-                    k_lower = k.lower()
-                    if "timestamp" in k_lower: ts_val = v
-                    if "value" in k_lower: real_val = v
+                    kl = k.lower()
+                    if "timestamp" in kl:
+                        ts_val = v
+                    if "value" in kl:
+                        real_val = v
 
                 if ts_val and real_val:
                     try:
-                        # Extract Time (HH:MM:SS)
-                        time_part = ts_val.strip().split(" ")[1] if " " in ts_val.strip() else ts_val.strip()
-                        
+                        time_part = ts_val.split(" ")[1] if " " in ts_val else ts_val
                         data.append({
                             "time": time_part,
-                            value_key: float(real_val.strip())
+                            value_key: float(real_val)
                         })
-                    except (ValueError, IndexError):
+                    except:
                         continue
-            
-            print(f"✅ LOADED: {file_name} ({len(data)} rows)")
-            
+
     except Exception as e:
-        print(f"🔥 ERROR reading {file_name}: {str(e)}")
-        
+        print(f"🔥 CSV ERROR ({file_name}): {e}")
+
     return data
 
+
 # =====================================================
-# FRONTEND ROUTING
+# WASTE WATER PLANT (WWTP) CONFIG & LOADER
+# =====================================================
+
+WWTP_FILES = {
+    "effluent_pump_total": "EffluentPump_Total.csv",
+    "control_panel_energy": "_PM-WWTP-CONTROL-PANEL_Energy.csv",
+    "raw_wastewater_temp": "_RawWasteWater_Temp.csv",
+    "raw_wastewater_pump": "_RawWaterWastePump-01_Total.csv",
+    "pmg_energy": "PMG-WWTP_Energy.csv",
+    "wg_wwtp": "WG-WWTP.csv"
+}
+
+wwtp_data = {}
+
+def load_wwtp_csv(file_name):
+    path = os.path.join(DATA_DIR, file_name)
+
+    if not os.path.exists(path):
+        print(f"❌ WWTP FILE MISSING: {file_name}")
+        return None
+
+    try:
+        df = pd.read_csv(path)
+
+        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+
+        for col in df.columns:
+            if "time" in col or "date" in col:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+                df = df.sort_values(col)
+                break
+
+        print(f"✅ WWTP LOADED: {file_name} ({len(df)} rows)")
+        return df
+
+    except Exception as e:
+        print(f"🔥 WWTP LOAD ERROR ({file_name}): {e}")
+        return None
+
+
+for key, file in WWTP_FILES.items():
+    wwtp_data[key] = load_wwtp_csv(file)
+
+
+def wwtp_to_json(df, limit=500):
+    if df is None or df.empty:
+        return []
+    return df.tail(limit).to_dict(orient="records")
+
+
+def wwtp_summary(df):
+    if df is None or df.empty:
+        return {}
+
+    numeric = df.select_dtypes(include="number")
+
+    return {
+        "latest": numeric.iloc[-1].to_dict(),
+        "min": numeric.min().to_dict(),
+        "max": numeric.max().to_dict(),
+        "average": numeric.mean().to_dict()
+    }
+
+
+# =====================================================
+# FRONTEND ROUTES
 # =====================================================
 
 @app.route("/")
@@ -94,6 +153,7 @@ def root():
 @app.route("/<path:path>")
 def frontend_files(path):
     return send_from_directory(FRONTEND_DIR, path)
+
 
 # =====================================================
 # TEMPERATURE API
@@ -108,8 +168,9 @@ def temperature_rooms():
         rows = conn.execute("SELECT * FROM room_temperature").fetchall()
         conn.close()
         return jsonify([dict(r) for r in rows])
-    except Exception as e:
+    except:
         return jsonify([])
+
 
 # =====================================================
 # AIR COMPRESSOR API
@@ -117,15 +178,12 @@ def temperature_rooms():
 
 @app.route("/api/aircompressor")
 def aircompressor():
-    energy = read_csv("aircompressor_energy.csv", "energy")
-    flow = read_csv("airmeter_flow.csv", "flow")
-    dew = read_csv("air_dewpoint.csv", "dewpoint")
-
     return jsonify({
-        "energy": energy,
-        "flow": flow,
-        "dewpoint": dew
+        "energy": read_csv("aircompressor_energy.csv", "energy"),
+        "flow": read_csv("airmeter_flow.csv", "flow"),
+        "dewpoint": read_csv("air_dewpoint.csv", "dewpoint")
     })
+
 
 # =====================================================
 # BOILER API
@@ -133,46 +191,28 @@ def aircompressor():
 
 @app.route("/api/boiler")
 def boiler():
-    # Boiler 1 Runtimes
-    b01_1 = read_csv("boiler01_1_RT.csv", "runtime")
-    b01_2 = read_csv("boiler01_2_RT.csv", "runtime")
-    b01_3 = read_csv("boiler01_3_RT.csv", "runtime")
-    
-    # Boiler 2 Runtimes
-    b02_1 = read_csv("boiler02_1_RT.csv", "runtime")
-    b02_2 = read_csv("boiler02_2_RT.csv", "runtime")
-    
-    # Flow and Gas Totals
-    gas_total = read_csv("boiler_gas_total.csv", "gas")
-    direct_steam = read_csv("boiler_directsteam_meterflow_total.csv", "steam")
-    indirect_steam = read_csv("boiler_indirectsteam_meterflow.csv", "steam")
-
-    # Energy Metrics (Added per request)
-    direct_energy = read_csv("boiler_direct_energy.csv", "energy")
-    indirect_energy = read_csv("boiler_indirect_energy.csv", "energy")
-
     return jsonify({
         "boiler_01": {
-            "stage_1_runtime": b01_1,
-            "stage_2_runtime": b01_2,
-            "stage_3_runtime": b01_3
+            "stage_1_runtime": read_csv("boiler01_1_RT.csv", "runtime"),
+            "stage_2_runtime": read_csv("boiler01_2_RT.csv", "runtime"),
+            "stage_3_runtime": read_csv("boiler01_3_RT.csv", "runtime")
         },
         "boiler_02": {
-            "stage_1_runtime": b02_1,
-            "stage_2_runtime": b02_2
+            "stage_1_runtime": read_csv("boiler02_1_RT.csv", "runtime"),
+            "stage_2_runtime": read_csv("boiler02_2_RT.csv", "runtime")
         },
         "consumption": {
-            "gas_total_kg": gas_total,
-            "direct_steam_kg": direct_steam,
-            "indirect_steam_kg": indirect_steam,
-            "direct_energy_kwh": direct_energy,
-            "indirect_energy_kwh": indirect_energy
+            "gas_total_kg": read_csv("boiler_gas_total.csv", "gas"),
+            "direct_steam_kg": read_csv("boiler_directsteam_meterflow_total.csv", "steam"),
+            "indirect_steam_kg": read_csv("boiler_indirectsteam_meterflow.csv", "steam"),
+            "direct_energy_kwh": read_csv("boiler_direct_energy.csv", "energy"),
+            "indirect_energy_kwh": read_csv("boiler_indirect_energy.csv", "energy")
         }
     })
 
 
 # =====================================================
-# CCTV / RESOURCE STATUS API
+# CCTV API
 # =====================================================
 
 @app.route("/api/cctv/log")
@@ -181,110 +221,66 @@ def cctv_log():
     path = os.path.join(DATA_DIR, file_name)
 
     if not os.path.exists(path):
-        print(f"❌ File not found: {path}")
         return jsonify([])
 
     try:
-        import pandas as pd
-
         df = pd.read_excel(path)
         df.columns = df.columns.str.strip()
 
-        devices = []
+        return jsonify([
+            {
+                "name": str(r["Name"]).strip(),
+                "status": str(r["Current Status"]).strip(),
+                "area": str(r["Area"]).strip(),
+                "address": str(r["Address"]).strip(),
+                "lastOffline": str(r["Latest Offline Time"]),
+                "offlineCount": str(r["Total Offline Times"]),
+                "offlineDuration": str(r["Total Offline Duration"])
+            }
+            for _, r in df.iterrows()
+        ])
+    except:
+        return jsonify([])
 
-        for _, row in df.iterrows():
-            devices.append({
-                "name": str(row["Name"]).strip(),
-                "status": str(row["Current Status"]).strip(),
-                "area": str(row["Area"]).strip(),
-                "address": str(row["Address"]).strip(),
-                "lastOffline": str(row["Latest Offline Time"]),
-                "offlineCount": str(row["Total Offline Times"]),
-                "offlineDuration": str(row["Total Offline Duration"])
-            })
 
-        print(f"✅ Loaded {len(devices)} CCTV devices")
-        return jsonify(devices)
-
-    except Exception as e:
-        print("🔥 CCTV API Error:", e)
-        return jsonify([]) 
-    
 # =====================================================
-# SPIRAL BLAST FREEZER API
+# WASTE WATER PLANT (WWTP) APIs
 # =====================================================
 
-@app.route("/api/spiral_blast_freezer")
-def spiral_blast_freezer():
-    # --- 1. COMPRESSOR PERFORMANCE ---
-    # Metrics: Runtime, Frequency (Hz), and Current (Amp)
-    comp01_data = {
-        "runtime": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "RUNTIME"),
-        "freq": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "FRQ"),
-        "current": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "CURRENT")
-    }
-    comp02_data = {
-        "runtime": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "RUNTIME"),
-        "freq": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "FRQ"),
-        "current": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "CURRENT")
-    }
+@app.route("/api/wwtp")
+def wwtp_sources():
+    return jsonify({"sources": list(WWTP_FILES.keys())})
 
-    # --- 2. SPIRAL FREEZER UNITS (01, 02, 03) ---
-    # Metrics: Internal Temps (TEF01) and Unit Runtimes
-    spiral01 = {
-        "temp": read_csv("SPIRAL01 2025-11-28 (1 Min).xlsx - Data.csv", "TEF01"),
-        "runtime": read_csv("SPIRAL01 2025-11-28 (1 Min).xlsx - Data.csv", "Runtime")
-    }
-    spiral02 = {
-        "temp": read_csv("SPIRAL02 2025-11-28 (1 Min).xlsx - Data.csv", "TEF01"),
-        "runtime": read_csv("SPIRAL02 2025-11-28 (1 Min).xlsx - Data.csv", "Runtime")
-    }
-    spiral03 = {
-        "temp": read_csv("SPIRAL03 2025-11-28 (60 Min).xlsx - Data.csv", "TEF01"),
-        "runtime": read_csv("SPIRAL03 2025-11-28 (60 Min).xlsx - Data.csv", "Runtime")
-    }
 
-    # --- 3. REFRIGERATION SYSTEM STATUS ---
-    # Metrics: Low Receiver Temperatures
-    refrig_system = {
-        "receiver_01": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.1"),
-        "receiver_02": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.2"),
-        "receiver_03": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.3")
-    }
-
-    # --- 4. MULTI-LAYER FREEZERS (MLF) ENERGY ---
-    # Metrics: Total Energy Consumption (kWh)
-    mlf_energy = {
-        "mlf01_kwh": read_csv("MLF01 2025-11-28 (60 Min).xlsx - Data.csv", "kWh."),
-        "mlf02_kwh": read_csv("MLF02 2025-11-20 (60 Min).xlsx - Data.csv", "kWh.")
-    }
-
-    # --- 5. CONVEYOR & PRODUCTION ---
-    # Metrics: Line capacity (Pieces/Minute)
-    conveyor_lines = {
-        "line_1": read_csv("CONVE01 2025-11-28 (60 Min).xlsx - Data.csv", "Capacity (Pcs/Min)"),
-        "line_2": read_csv("CONVE02 2025-12-23 (1 Min).xlsx - Data.csv", "Capacity (Pcs/Min)"),
-        "line_3": read_csv("CONVE03 2025-11-28 (60 Min).xlsx - Data.csv", "Capacity (Pcs/Min)")
-    }
-
-    # --- 6. UTILITY / MDB POWER TOTALS ---
-    mdb_power = {
-        "panel_01": read_csv("MDB01 2025-11-25 (60 Min).xlsx - Data.csv", "kWh."),
-        "panel_02": read_csv("MDB02 2025-11-26 (60 Min).xlsx - Data.csv", "kWh."),
-        "monthly_summary": read_csv("Power_Meter_Monthly & Utility Monthly (November-2025).xlsx - ENERGY.csv", "kWh")
-    }
-
+@app.route("/api/wwtp/health")
+def wwtp_health():
     return jsonify({
-        "compressors": {"c01": comp01_data, "c02": comp02_data},
-        "spiral_freezers": {"s01": spiral01, "s02": spiral02, "s03": spiral03},
-        "refrigeration": refrig_system,
-        "energy_consumption": {"mlf": mlf_energy, "mdb": mdb_power},
-        "production_output": conveyor_lines
+        k: "loaded" if v is not None else "error"
+        for k, v in wwtp_data.items()
     })
 
+
+@app.route("/api/wwtp/<source>")
+def wwtp_data_source(source):
+    df = wwtp_data.get(source)
+    if df is None:
+        return jsonify({"error": "Invalid WWTP source"}), 404
+    return jsonify(wwtp_to_json(df))
+
+
+@app.route("/api/wwtp/<source>/summary")
+def wwtp_summary_api(source):
+    df = wwtp_data.get(source)
+    if df is None:
+        return jsonify({"error": "Invalid WWTP source"}), 404
+    return jsonify(wwtp_summary(df))
+
+
+# =====================================================
+# SERVER START
 # =====================================================
 
 if __name__ == "__main__":
-    print(f"\n🚀 Server starting at http://127.0.0.1:5000")
-    print(f"📂 Data folder: {DATA_DIR}\n")
+    print("\n🚀 Server running at http://127.0.0.1:5000")
+    print(f"📂 Data directory: {DATA_DIR}\n")
     app.run(debug=True, port=5000)
