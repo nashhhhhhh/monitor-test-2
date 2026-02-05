@@ -147,6 +147,10 @@ def boiler():
     direct_steam = read_csv("boiler_directsteam_meterflow_total.csv", "steam")
     indirect_steam = read_csv("boiler_indirectsteam_meterflow.csv", "steam")
 
+    # Energy Metrics (Added per request)
+    direct_energy = read_csv("boiler_direct_energy.csv", "energy")
+    indirect_energy = read_csv("boiler_indirect_energy.csv", "energy")
+
     return jsonify({
         "boiler_01": {
             "stage_1_runtime": b01_1,
@@ -160,7 +164,9 @@ def boiler():
         "consumption": {
             "gas_total_kg": gas_total,
             "direct_steam_kg": direct_steam,
-            "indirect_steam_kg": indirect_steam
+            "indirect_steam_kg": indirect_steam,
+            "direct_energy_kwh": direct_energy,
+            "indirect_energy_kwh": indirect_energy
         }
     })
 

@@ -3,32 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <title>Boiler Monitoring</title>
-    
     <link rel="stylesheet" href="style.css">
-
     <link rel="stylesheet" href="/shared/navbar.css">
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
 <body>
-
     <div id="navbar"></div>
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
-        .then(res => {
-            if (!res.ok) throw new Error('Navbar failed to load');
-            return res.text();
-        })
-        .then(html => {
-            document.getElementById('navbar').innerHTML = html;
-        })
-        .catch(err => console.error(err));
+        .then(res => res.ok ? res.text() : Promise.reject())
+        .then(html => document.getElementById('navbar').innerHTML = html)
+        .catch(err => console.error('Navbar load error:', err));
     </script>
 
     <main class="dashboard-content">
@@ -37,7 +26,7 @@
                 <h2>Boiler System Monitoring</h2>
                 <p class="text-muted">Diagnostics & Steam Path Efficiency</p>
             </div>
-
+            <div id="clock" class="clock-display">--:--:--</div>
         </header>
 
         <section class="kpi-grid">
@@ -51,35 +40,35 @@
                 <div class="kpi-value" id="val-steam">0</div>
                 <div class="kpi-trend">Combined Path (kg)</div>
             </div>
-            <div class="kpi-card highlight-eff">
-                <div class="kpi-label">Overall Efficiency</div>
-                <div class="kpi-value" id="val-eff-sys">0.00</div>
-                <div class="kpi-trend">Total S/G Ratio</div>
+            <div class="kpi-card highlight-energy">
+                <div class="kpi-label">Total Electrical Energy</div>
+                <div class="kpi-value" id="val-energy-total">0</div>
+                <div class="kpi-trend">Combined Panels (kWh)</div>
             </div>
             <div class="kpi-card highlight-eff">
                 <div class="kpi-label">Boiler 1 Efficiency</div>
                 <div class="kpi-value" id="val-eff-b1">0.00</div>
-                <div class="kpi-trend">Direct Path Ratio</div>
+                <div class="kpi-trend">Indirect Path Ratio</div>
             </div>
             <div class="kpi-card highlight-eff">
                 <div class="kpi-label">Boiler 2 Efficiency</div>
                 <div class="kpi-value" id="val-eff-b2">0.00</div>
-                <div class="kpi-trend">Indirect Path Ratio</div>
+                <div class="kpi-trend">Direct Path Ratio</div>
             </div>
         </section>
 
         <section class="main-grid" style="margin-top: 24px;">
             <div class="card">
-                <div class="card-title">Sub-Unit Diagnostic Report</div>
+                <div class="card-title">Sub-Unit Diagnostic Status</div>
                 <div class="diagnostic-container">
                     <div class="diag-group">
-                        <h4>Boiler 01 <span id="status-b01-master" class="status-pill">--</span></h4>
+                        <h4>Boiler 01 (Indirect) <span id="status-b01-master" class="status-pill">--</span></h4>
                         <div class="diag-item"><span>Stage 1 (Main)</span> <span id="dot-b01-1" class="dot"></span></div>
                         <div class="diag-item"><span>Stage 2 (Boost)</span> <span id="dot-b01-2" class="dot"></span></div>
                         <div class="diag-item"><span>Stage 3 (Aux)</span> <span id="dot-b01-3" class="dot"></span></div>
                     </div>
                     <div class="diag-group" style="margin-top: 20px;">
-                        <h4>Boiler 02 <span id="status-b02-master" class="status-pill">--</span></h4>
+                        <h4>Boiler 02 (Direct) <span id="status-b02-master" class="status-pill">--</span></h4>
                         <div class="diag-item"><span>Stage 1 (Main)</span> <span id="dot-b02-1" class="dot"></span></div>
                         <div class="diag-item"><span>Stage 2 (Aux)</span> <span id="dot-b02-2" class="dot"></span></div>
                     </div>
@@ -87,13 +76,36 @@
             </div>
 
             <div class="card">
-                <div class="card-title">Detailed Stage Runtimes (hr)</div>
+                <div class="card-title">Energy Consumption Analysis</div>
+                <div class="efficiency-report">
+                    <div class="eff-item">
+                        <div class="kpi-label">Boiler 1 (Panel 1 - Indirect)</div>
+                        <div class="kpi-value mini" id="val-energy-b1">0 kWh</div>
+                        <div class="progress-bar"><div id="bar-energy-b1" class="progress-fill" style="width: 0%; background: #10b981;"></div></div>
+                    </div>
+                    <div class="eff-item" style="margin-top: 25px;">
+                        <div class="kpi-label">Boiler 2 (Panel 2 - Direct)</div>
+                        <div class="kpi-value mini" id="val-energy-b2">0 kWh</div>
+                        <div class="progress-bar"><div id="bar-energy-b2" class="progress-fill" style="width: 0%; background: #3b82f6;"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="main-grid" style="margin-top: 24px;">
+            <div class="card">
+                <div class="card-title">Detailed Sub-Boiler Runtimes (hr)</div>
                 <div class="chart-container">
                     <canvas id="runtimeChart"></canvas>
                 </div>
             </div>
+            <div class="card">
+                <div class="card-title">Consumption Correlation</div>
+                <div class="chart-container">
+                    <canvas id="consumptionChart"></canvas>
+                </div>
+            </div>
         </section>
-        
     </main>
     <script src="script.js"></script>
 </body>

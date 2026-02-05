@@ -296,3 +296,22 @@ bar-indirect { background: var(--accent); }
 .highlight-eff .kpi-value {
     color: var(--success);
 }
+
+.highlight-energy { border-left: 5px solid #8b5cf6; }
+.highlight-energy .kpi-value { color: #8b5cf6; }
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 1s ease-in-out;
+}
+
+.mini { font-size: 1.2rem !important; }
