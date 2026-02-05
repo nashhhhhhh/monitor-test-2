@@ -23,7 +23,11 @@ app = Flask(
 # GENERIC CSV READER (LEGACY SUPPORT)
 # =====================================================
 
-def read_csv(file_name, value_key):
+def read_csv(file_name, value_key="value"):
+    """
+    Reads CSV files, skips metadata by searching for the 'Timestamp' header,
+    and extracts time and numeric values.
+    """
     path = os.path.join(DATA_DIR, file_name)
     data = []
 
@@ -35,6 +39,7 @@ def read_csv(file_name, value_key):
         with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
             lines = f.readlines()
 
+            # Find the header row (contains 'Timestamp')
             header_idx = -1
             for i, line in enumerate(lines):
                 if "timestamp" in line.lower():
@@ -42,18 +47,21 @@ def read_csv(file_name, value_key):
                     break
 
             if header_idx == -1:
-                print(f"⚠️ HEADER NOT FOUND: {file_name}")
+                print(f"⚠️ HEADER NOT FOUND in {file_name}")
                 return data
 
+            # Parse from the header onwards
             content = "".join(lines[header_idx:])
             reader = csv.DictReader(io.StringIO(content))
 
             for row in reader:
+                # Clean keys (strip whitespace)
                 clean_row = {k.strip(): v for k, v in row.items() if k}
 
                 ts_val = None
                 real_val = None
 
+                # Find the Timestamp and Value columns dynamically
                 for k, v in clean_row.items():
                     kl = k.lower()
                     if "timestamp" in kl:
@@ -63,83 +71,22 @@ def read_csv(file_name, value_key):
 
                 if ts_val and real_val:
                     try:
-                        time_part = ts_val.split(" ")[1] if " " in ts_val else ts_val
+                        # Extract Time + AM/PM for better dashboard visualization
+                        # Input: "20-Dec-25 1:15:00 AM ICT" -> Output: "1:15:00 AM"
+                        parts = ts_val.split(" ")
+                        time_part = f"{parts[1]} {parts[2]}" if len(parts) > 2 else parts[1]
+                        
                         data.append({
                             "time": time_part,
                             value_key: float(real_val)
                         })
-                    except:
+                    except (ValueError, IndexError):
                         continue
 
     except Exception as e:
         print(f"🔥 CSV ERROR ({file_name}): {e}")
 
     return data
-
-
-# =====================================================
-# WASTE WATER PLANT (WWTP) CONFIG & LOADER
-# =====================================================
-
-WWTP_FILES = {
-    "effluent_pump_total": "EffluentPump_Total.csv",
-    "control_panel_energy": "_PM-WWTP-CONTROL-PANEL_Energy.csv",
-    "raw_wastewater_temp": "_RawWasteWater_Temp.csv",
-    "raw_wastewater_pump": "_RawWaterWastePump-01_Total.csv",
-    "pmg_energy": "PMG-WWTP_Energy.csv",
-    "wg_wwtp": "WG-WWTP.csv"
-}
-
-wwtp_data = {}
-
-def load_wwtp_csv(file_name):
-    path = os.path.join(DATA_DIR, file_name)
-
-    if not os.path.exists(path):
-        print(f"❌ WWTP FILE MISSING: {file_name}")
-        return None
-
-    try:
-        df = pd.read_csv(path)
-
-        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-
-        for col in df.columns:
-            if "time" in col or "date" in col:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
-                df = df.sort_values(col)
-                break
-
-        print(f"✅ WWTP LOADED: {file_name} ({len(df)} rows)")
-        return df
-
-    except Exception as e:
-        print(f"🔥 WWTP LOAD ERROR ({file_name}): {e}")
-        return None
-
-
-for key, file in WWTP_FILES.items():
-    wwtp_data[key] = load_wwtp_csv(file)
-
-
-def wwtp_to_json(df, limit=500):
-    if df is None or df.empty:
-        return []
-    return df.tail(limit).to_dict(orient="records")
-
-
-def wwtp_summary(df):
-    if df is None or df.empty:
-        return {}
-
-    numeric = df.select_dtypes(include="number")
-
-    return {
-        "latest": numeric.iloc[-1].to_dict(),
-        "min": numeric.min().to_dict(),
-        "max": numeric.max().to_dict(),
-        "average": numeric.mean().to_dict()
-    }
 
 
 # =====================================================
@@ -247,34 +194,42 @@ def cctv_log():
 # WWTP API ROUTES
 # =========================
 
+@app.route("/api/wwtp/summary")
+def wwtp_dashboard_data():
+    """Consolidated endpoint for the WWTP Dashboard"""
+    return jsonify({
+        "effluent_flow": read_csv("EffluentPump_Total.csv", "m3"),
+        "raw_pump_flow": read_csv("_RawWaterWastePump-01_Total.csv", "m3"),
+        "raw_temp": read_csv("_RawWasteWater_Temp.csv", "temp"),
+        "control_energy": read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv", "kwh"),
+        "plant_energy": read_csv("PMG-WWTP_Energy.csv", "kwh"),
+        "solid_waste": read_csv("WG-WWTP.csv", "m3")
+    })
+
+# Individual endpoints for specific chart updates
 @app.route("/api/wwtp/effluent_pump")
 def effluent_pump():
-    return jsonify(read_csv("EffluentPump_Total.csv"))
-
+    return jsonify(read_csv("EffluentPump_Total.csv", "value"))
 
 @app.route("/api/wwtp/raw_pump")
 def raw_pump():
-    return jsonify(read_csv("_RawWaterWastePump-01_Total.csv"))
-
+    return jsonify(read_csv("_RawWaterWastePump-01_Total.csv", "value"))
 
 @app.route("/api/wwtp/raw_temp")
 def raw_temp():
-    return jsonify(read_csv("_RawWasteWater_Temp.csv"))
-
+    return jsonify(read_csv("_RawWasteWater_Temp.csv", "value"))
 
 @app.route("/api/wwtp/control_energy")
 def control_energy():
-    return jsonify(read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv"))
-
+    return jsonify(read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv", "value"))
 
 @app.route("/api/wwtp/pmg_energy")
 def pmg_energy():
-    return jsonify(read_csv("PMG-WWTP_Energy.csv"))
-
+    return jsonify(read_csv("PMG-WWTP_Energy.csv", "value"))
 
 @app.route("/api/wwtp/wg")
 def wg():
-    return jsonify(read_csv("WG-WWTP.csv"))
+    return jsonify(read_csv("WG-WWTP.csv", "value"))
 
 
 # =====================================================

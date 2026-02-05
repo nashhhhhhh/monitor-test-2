@@ -1,27 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Store chart instances globally within this scope to prevent "Canvas in use" errors
+  let charts = {};
 
-  /* ============================
-     KPI ELEMENTS
-  ============================ */
-  const kpiEnergy = document.getElementById("kpi-energy");
-  const kpiPumps = document.getElementById("kpi-pumps");
-  const kpiTemp = document.getElementById("kpi-temp");
-
-  /* ============================
-     FETCH ALL WWTP DATA
-  ============================ */
   async function loadWWTPData() {
     try {
-      console.log("🚰 Loading WWTP data...");
-
-      const [
-        effluentPump,
-        rawPump,
-        rawTemp,
-        pmgEnergy,
-        controlEnergy,
-        wgData
-      ] = await Promise.all([
+      const [effluent, rawPump, rawTemp, pmgEnergy, ctrlEnergy, wgData] = await Promise.all([
         fetch("/api/wwtp/effluent_pump").then(r => r.json()),
         fetch("/api/wwtp/raw_pump").then(r => r.json()),
         fetch("/api/wwtp/raw_temp").then(r => r.json()),
@@ -30,72 +13,80 @@ document.addEventListener("DOMContentLoaded", () => {
         fetch("/api/wwtp/wg").then(r => r.json())
       ]);
 
-      console.log("✅ WWTP data loaded");
+      updateKPIs({ effluent, rawPump, rawTemp, pmgEnergy, ctrlEnergy });
+      
+      // Update or Create Charts
+      renderChart('energyChart', 'line', {
+        labels: pmgEnergy.map(d => d.time).slice(-20),
+        datasets: [
+          { label: 'Plant Energy', data: pmgEnergy.map(d => d.value).slice(-20), borderColor: '#3b82f6', tension: 0.3 },
+          { label: 'Control Panel', data: ctrlEnergy.map(d => d.value).slice(-20), borderColor: '#10b981', tension: 0.3 }
+        ]
+      });
 
-      updateKPIs({
-        effluentPump,
-        rawPump,
-        rawTemp,
-        pmgEnergy,
-        controlEnergy,
-        wgData
+      renderChart('flowChart', 'bar', {
+        labels: effluent.map(d => d.time).slice(-15),
+        datasets: [
+          { label: 'Effluent Out', data: effluent.map(d => d.value).slice(-15), backgroundColor: '#3b82f6' },
+          { label: 'Raw Inflow', data: rawPump.map(d => d.value).slice(-15), backgroundColor: '#94a3b8' }
+        ]
+      });
+
+      renderChart('tempChart', 'line', {
+        labels: rawTemp.map(d => d.time).slice(-20),
+        datasets: [{ 
+            label: 'Temp °C', 
+            data: rawTemp.map(d => d.value).slice(-20), 
+            borderColor: '#f59e0b', 
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            fill: true 
+        }]
       });
 
     } catch (err) {
       console.error("🔥 WWTP load error:", err);
-      showErrorState();
     }
   }
 
-  /* ============================
-     KPI CALCULATIONS
-  ============================ */
+  function renderChart(id, type, data) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+
+    // If chart exists, destroy it before creating a new one to fix the Canvas error
+    if (charts[id]) {
+        charts[id].destroy();
+    }
+
+    charts[id] = new Chart(ctx, {
+      type: type,
+      data: data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { 
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } 
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: false }
+        }
+      }
+    });
+  }
+
   function updateKPIs(data) {
-
-    /* ---- TOTAL ENERGY ---- */
-    const totalEnergy = [
-      ...data.pmgEnergy,
-      ...data.controlEnergy,
-      ...data.wgData
-    ].reduce((sum, r) => sum + (r.energy || 0), 0);
-
-    kpiEnergy.textContent = `${totalEnergy.toFixed(1)} kWh`;
-
-    /* ---- ACTIVE PUMPS ---- */
-    const activePumps =
-      countRunning(data.effluentPump) +
-      countRunning(data.rawPump);
-
-    kpiPumps.textContent = activePumps;
-
-    /* ---- LATEST TEMPERATURE ---- */
-    const latestTemp =
-      data.rawTemp.length
-        ? data.rawTemp[data.rawTemp.length - 1].temp
-        : null;
-
-    kpiTemp.textContent = latestTemp !== null
-      ? `${latestTemp.toFixed(1)} °C`
-      : "-- °C";
+    const latestPmg = data.pmgEnergy.slice(-1)[0]?.value || 0;
+    const latestCtrl = data.ctrlEnergy.slice(-1)[0]?.value || 0;
+    const latestTemp = data.rawTemp.slice(-1)[0]?.value || 0;
+    
+    document.getElementById("kpi-energy").textContent = `${(latestPmg + latestCtrl).toLocaleString()}`;
+    document.getElementById("kpi-temp").textContent = `${latestTemp.toFixed(1)}°C`;
+    
+    const active = (data.effluent.slice(-1)[0]?.value > 0 ? 1 : 0) + 
+                   (data.rawPump.slice(-1)[0]?.value > 0 ? 1 : 0);
+    document.getElementById("kpi-pumps").textContent = active;
   }
 
-  /* ============================
-     HELPERS
-  ============================ */
-  function countRunning(pumpData) {
-    return pumpData.filter(p => p.value > 0).length;
-  }
-
-  function showErrorState() {
-    kpiEnergy.textContent = "—";
-    kpiPumps.textContent = "—";
-    kpiTemp.textContent = "—";
-  }
-
-  /* ============================
-     INIT
-  ============================ */
   loadWWTPData();
-  setInterval(loadWWTPData, 60000); // refresh every 60s
-
+  setInterval(loadWWTPData, 60000);
 });
