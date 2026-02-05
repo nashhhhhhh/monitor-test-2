@@ -243,37 +243,39 @@ def cctv_log():
         return jsonify([])
 
 
-# =====================================================
-# WASTE WATER PLANT (WWTP) APIs
-# =====================================================
+# =========================
+# WWTP API ROUTES
+# =========================
 
-@app.route("/api/wwtp")
-def wwtp_sources():
-    return jsonify({"sources": list(WWTP_FILES.keys())})
-
-
-@app.route("/api/wwtp/health")
-def wwtp_health():
-    return jsonify({
-        k: "loaded" if v is not None else "error"
-        for k, v in wwtp_data.items()
-    })
+@app.route("/api/wwtp/effluent_pump")
+def effluent_pump():
+    return jsonify(read_csv("EffluentPump_Total.csv"))
 
 
-@app.route("/api/wwtp/<source>")
-def wwtp_data_source(source):
-    df = wwtp_data.get(source)
-    if df is None:
-        return jsonify({"error": "Invalid WWTP source"}), 404
-    return jsonify(wwtp_to_json(df))
+@app.route("/api/wwtp/raw_pump")
+def raw_pump():
+    return jsonify(read_csv("_RawWaterWastePump-01_Total.csv"))
 
 
-@app.route("/api/wwtp/<source>/summary")
-def wwtp_summary_api(source):
-    df = wwtp_data.get(source)
-    if df is None:
-        return jsonify({"error": "Invalid WWTP source"}), 404
-    return jsonify(wwtp_summary(df))
+@app.route("/api/wwtp/raw_temp")
+def raw_temp():
+    return jsonify(read_csv("_RawWasteWater_Temp.csv"))
+
+
+@app.route("/api/wwtp/control_energy")
+def control_energy():
+    return jsonify(read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv"))
+
+
+@app.route("/api/wwtp/pmg_energy")
+def pmg_energy():
+    return jsonify(read_csv("PMG-WWTP_Energy.csv"))
+
+
+@app.route("/api/wwtp/wg")
+def wg():
+    return jsonify(read_csv("WG-WWTP.csv"))
+
 
 # =====================================================
 # SPIRAL BLAST FREEZER API
@@ -328,7 +330,7 @@ def spiral_blast_freezer():
     # Metrics: Line capacity (Pieces/Minute)
     conveyor_lines = {
         "line_1": read_csv("sbf_convey1.csv", "Capacity (Pcs/Min)"),
-        "line_2": read_csv("sbf_convey2csv", "Capacity (Pcs/Min)"),
+        "line_2": read_csv("sbf_convey2.csv", "Capacity (Pcs/Min)"),
         "line_3": read_csv("sbf_convey3.csv", "Capacity (Pcs/Min)")
     }
 
