@@ -238,69 +238,121 @@ def wg():
 
 @app.route("/api/spiral_blast_freezer")
 def spiral_blast_freezer():
+    """
+    Returns ALL data from spiral blast freezer CSV files.
+    Each dataset includes both the full data and key metrics.
+    """
+    
     # --- 1. COMPRESSOR PERFORMANCE ---
-    # Metrics: Runtime, Frequency (Hz), and Current (Amp)
     comp01_data = {
-        "runtime": read_csv("sbf_comp1.csv", "RUNTIME"),
-        "freq": read_csv("sbf_comp1.csv", "FRQ"),
-        "current": read_csv("sbf_comp1.csv", "CURRENT")
+        "full_data": read_csv("sbf_comp1.csv"),
+        "metrics": {
+            "runtime": read_csv("sbf_comp1.csv", "RUNTIME"),
+            "freq": read_csv("sbf_comp1.csv", "FRQ"),
+            "current": read_csv("sbf_comp1.csv", "CURRENT")
+        }
     }
     comp02_data = {
-        "runtime": read_csv("sbf_comp2.csv", "RUNTIME"),
-        "freq": read_csv("sbf_comp2.csv", "FRQ"),
-        "current": read_csv("sbf_comp2.csv", "CURRENT")
+        "full_data": read_csv("sbf_comp2.csv"),
+        "metrics": {
+            "runtime": read_csv("sbf_comp2.csv", "RUNTIME"),
+            "freq": read_csv("sbf_comp2.csv", "FRQ"),
+            "current": read_csv("sbf_comp2.csv", "CURRENT")
+        }
     }
 
     # --- 2. SPIRAL FREEZER UNITS (01, 02, 03) ---
-    # Metrics: Internal Temps (TEF01) and Unit Runtimes
     spiral01 = {
-        "temp": read_csv("sbf_spiral1.csv", "TEF01"),
-        "runtime": read_csv("sbf_spiral1.csv", "Runtime")
+        "full_data": read_csv("sbf_spiral1.csv"),
+        "metrics": {
+            "temp": read_csv("sbf_spiral1.csv", "TEF01"),
+            "runtime": read_csv("sbf_spiral1.csv", "Runtime")
+        }
     }
     spiral02 = {
-        "temp": read_csv("sbf_spiral2.csv", "TEF01"),
-        "runtime": read_csv("sbf_spiral2.csv", "Runtime")
+        "full_data": read_csv("sbf_spiral2.csv"),
+        "metrics": {
+            "temp": read_csv("sbf_spiral2.csv", "TEF01"),
+            "runtime": read_csv("sbf_spiral2.csv", "Runtime")
+        }
     }
     spiral03 = {
-        "temp": read_csv("sbf_spiral3.csv", "TEF01"),
-        "runtime": read_csv("sbf_spiral3.csv", "Runtime")
+        "full_data": read_csv("sbf_spiral3.csv"),
+        "metrics": {
+            "temp": read_csv("sbf_spiral3.csv", "TEF01"),
+            "runtime": read_csv("sbf_spiral3.csv", "Runtime")
+        }
     }
 
     # --- 3. REFRIGERATION SYSTEM STATUS ---
-    # Metrics: Low Receiver Temperatures
     refrig_system = {
-        "receiver_01": read_csv("sbf_refrig.csv", "NO.1"),
-        "receiver_02": read_csv("sbf_refrig.csv", "NO.2"),
-        "receiver_03": read_csv("sbf_refrig.csv", "NO.3")
+        "full_data": read_csv("sbf_refrig.csv"),
+        "metrics": {
+            "receiver_01": read_csv("sbf_refrig.csv", "NO.1"),
+            "receiver_02": read_csv("sbf_refrig.csv", "NO.2"),
+            "receiver_03": read_csv("sbf_refrig.csv", "NO.3")
+        }
     }
 
     # --- 4. MULTI-LAYER FREEZERS (MLF) ENERGY ---
-    # Metrics: Total Energy Consumption (kWh)
     mlf_energy = {
-        "mlf01_kwh": read_csv("sbf_mlf1.csv", "kWh."),
-        "mlf02_kwh": read_csv("sbf_mlf2.csv", "kWh.")
+        "mlf01": {
+            "full_data": read_csv("sbf_mlf1.csv"),
+            "kwh": read_csv("sbf_mlf1.csv", "kWh.")
+        },
+        "mlf02": {
+            "full_data": read_csv("sbf_mlf2.csv"),
+            "kwh": read_csv("sbf_mlf2.csv", "kWh.")
+        }
     }
 
     # --- 5. CONVEYOR & PRODUCTION ---
-    # Metrics: Line capacity (Pieces/Minute)
     conveyor_lines = {
-        "line_1": read_csv("sbf_convey1.csv", "Capacity (Pcs/Min)"),
-        "line_2": read_csv("sbf_convey2.csv", "Capacity (Pcs/Min)"),
-        "line_3": read_csv("sbf_convey3.csv", "Capacity (Pcs/Min)")
+        "line_1": {
+            "full_data": read_csv("sbf_convey1.csv"),
+            "capacity": read_csv("sbf_convey1.csv", "Capacity (Pcs/Min)")
+        },
+        "line_2": {
+            "full_data": read_csv("sbf_convey2.csv"),
+            "capacity": read_csv("sbf_convey2.csv", "Capacity (Pcs/Min)")
+        },
+        "line_3": {
+            "full_data": read_csv("sbf_convey3.csv"),
+            "capacity": read_csv("sbf_convey3.csv", "Capacity (Pcs/Min)")
+        }
     }
 
     # --- 6. UTILITY / MDB POWER TOTALS ---
     mdb_power = {
-        "panel_01": read_csv("sbf_mdb1.csv", "kWh."),
-        "panel_02": read_csv("sbf_mdb2.csv", "kWh."),
-        "monthly_summary": read_csv("sbf_power_monthly.csv", "kWh")
+        "panel_01": {
+            "full_data": read_csv("sbf_mdb1.csv"),
+            "kwh": read_csv("sbf_mdb1.csv", "kWh.")
+        },
+        "panel_02": {
+            "full_data": read_csv("sbf_mdb2.csv"),
+            "kwh": read_csv("sbf_mdb2.csv", "kWh.")
+        },
+        "monthly_summary": {
+            "full_data": read_csv("sbf_power_monthly.csv"),
+            "kwh": read_csv("sbf_power_monthly.csv", "kWh")
+        }
     }
 
     return jsonify({
-        "compressors": {"c01": comp01_data, "c02": comp02_data},
-        "spiral_freezers": {"s01": spiral01, "s02": spiral02, "s03": spiral03},
+        "compressors": {
+            "c01": comp01_data,
+            "c02": comp02_data
+        },
+        "spiral_freezers": {
+            "s01": spiral01,
+            "s02": spiral02,
+            "s03": spiral03
+        },
         "refrigeration": refrig_system,
-        "energy_consumption": {"mlf": mlf_energy, "mdb": mdb_power},
+        "energy_consumption": {
+            "mlf": mlf_energy,
+            "mdb": mdb_power
+        },
         "production_output": conveyor_lines
     })
 
