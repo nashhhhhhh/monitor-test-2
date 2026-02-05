@@ -284,59 +284,59 @@ def spiral_blast_freezer():
     # --- 1. COMPRESSOR PERFORMANCE ---
     # Metrics: Runtime, Frequency (Hz), and Current (Amp)
     comp01_data = {
-        "runtime": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "RUNTIME"),
-        "freq": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "FRQ"),
-        "current": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "CURRENT")
+        "runtime": read_csv("sbf_comp1.csv", "RUNTIME"),
+        "freq": read_csv("sbf_comp1.csv", "FRQ"),
+        "current": read_csv("sbf_comp1.csv", "CURRENT")
     }
     comp02_data = {
-        "runtime": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "RUNTIME"),
-        "freq": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "FRQ"),
-        "current": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "CURRENT")
+        "runtime": read_csv("sbf_comp2.csv", "RUNTIME"),
+        "freq": read_csv("sbf_comp2.csv", "FRQ"),
+        "current": read_csv("sbf_comp2.csv", "CURRENT")
     }
 
     # --- 2. SPIRAL FREEZER UNITS (01, 02, 03) ---
     # Metrics: Internal Temps (TEF01) and Unit Runtimes
     spiral01 = {
-        "temp": read_csv("SPIRAL01 2025-11-28 (1 Min).xlsx - Data.csv", "TEF01"),
-        "runtime": read_csv("SPIRAL01 2025-11-28 (1 Min).xlsx - Data.csv", "Runtime")
+        "temp": read_csv("sbf_spiral1.csv", "TEF01"),
+        "runtime": read_csv("sbf_spiral1.csv", "Runtime")
     }
     spiral02 = {
-        "temp": read_csv("SPIRAL02 2025-11-28 (1 Min).xlsx - Data.csv", "TEF01"),
-        "runtime": read_csv("SPIRAL02 2025-11-28 (1 Min).xlsx - Data.csv", "Runtime")
+        "temp": read_csv("sbf_spiral2.csv", "TEF01"),
+        "runtime": read_csv("sbf_spiral2.csv", "Runtime")
     }
     spiral03 = {
-        "temp": read_csv("SPIRAL03 2025-11-28 (60 Min).xlsx - Data.csv", "TEF01"),
-        "runtime": read_csv("SPIRAL03 2025-11-28 (60 Min).xlsx - Data.csv", "Runtime")
+        "temp": read_csv("sbf_spiral3.csv", "TEF01"),
+        "runtime": read_csv("sbf_spiral3.csv", "Runtime")
     }
 
     # --- 3. REFRIGERATION SYSTEM STATUS ---
     # Metrics: Low Receiver Temperatures
     refrig_system = {
-        "receiver_01": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.1"),
-        "receiver_02": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.2"),
-        "receiver_03": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.3")
+        "receiver_01": read_csv("sbf_refrig.csv", "NO.1"),
+        "receiver_02": read_csv("sbf_refrig.csv", "NO.2"),
+        "receiver_03": read_csv("sbf_refrig.csv", "NO.3")
     }
 
     # --- 4. MULTI-LAYER FREEZERS (MLF) ENERGY ---
     # Metrics: Total Energy Consumption (kWh)
     mlf_energy = {
-        "mlf01_kwh": read_csv("MLF01 2025-11-28 (60 Min).xlsx - Data.csv", "kWh."),
-        "mlf02_kwh": read_csv("MLF02 2025-11-20 (60 Min).xlsx - Data.csv", "kWh.")
+        "mlf01_kwh": read_csv("sbf_mlf1.csv", "kWh."),
+        "mlf02_kwh": read_csv("sbf_mlf2.csv", "kWh.")
     }
 
     # --- 5. CONVEYOR & PRODUCTION ---
     # Metrics: Line capacity (Pieces/Minute)
     conveyor_lines = {
-        "line_1": read_csv("CONVE01 2025-11-28 (60 Min).xlsx - Data.csv", "Capacity (Pcs/Min)"),
-        "line_2": read_csv("CONVE02 2025-12-23 (1 Min).xlsx - Data.csv", "Capacity (Pcs/Min)"),
-        "line_3": read_csv("CONVE03 2025-11-28 (60 Min).xlsx - Data.csv", "Capacity (Pcs/Min)")
+        "line_1": read_csv("sbf_convey1.csv", "Capacity (Pcs/Min)"),
+        "line_2": read_csv("sbf_convey2csv", "Capacity (Pcs/Min)"),
+        "line_3": read_csv("sbf_convey3.csv", "Capacity (Pcs/Min)")
     }
 
     # --- 6. UTILITY / MDB POWER TOTALS ---
     mdb_power = {
-        "panel_01": read_csv("MDB01 2025-11-25 (60 Min).xlsx - Data.csv", "kWh."),
-        "panel_02": read_csv("MDB02 2025-11-26 (60 Min).xlsx - Data.csv", "kWh."),
-        "monthly_summary": read_csv("Power_Meter_Monthly & Utility Monthly (November-2025).xlsx - ENERGY.csv", "kWh")
+        "panel_01": read_csv("sbf_mdb1.csv", "kWh."),
+        "panel_02": read_csv("sbf_mdb2.csv", "kWh."),
+        "monthly_summary": read_csv("sbf_power_monthly.csv", "kWh")
     }
 
     return jsonify({
