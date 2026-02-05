@@ -275,6 +275,78 @@ def wwtp_summary_api(source):
         return jsonify({"error": "Invalid WWTP source"}), 404
     return jsonify(wwtp_summary(df))
 
+# =====================================================
+# SPIRAL BLAST FREEZER API
+# =====================================================
+
+@app.route("/api/spiral_blast_freezer")
+def spiral_blast_freezer():
+    # --- 1. COMPRESSOR PERFORMANCE ---
+    # Metrics: Runtime, Frequency (Hz), and Current (Amp)
+    comp01_data = {
+        "runtime": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "RUNTIME"),
+        "freq": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "FRQ"),
+        "current": read_csv("COMP01 2025-11-28 (60 Min).xlsx - Data.csv", "CURRENT")
+    }
+    comp02_data = {
+        "runtime": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "RUNTIME"),
+        "freq": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "FRQ"),
+        "current": read_csv("COMP02 2025-11-27 (60 Min).xlsx - Data.csv", "CURRENT")
+    }
+
+    # --- 2. SPIRAL FREEZER UNITS (01, 02, 03) ---
+    # Metrics: Internal Temps (TEF01) and Unit Runtimes
+    spiral01 = {
+        "temp": read_csv("SPIRAL01 2025-11-28 (1 Min).xlsx - Data.csv", "TEF01"),
+        "runtime": read_csv("SPIRAL01 2025-11-28 (1 Min).xlsx - Data.csv", "Runtime")
+    }
+    spiral02 = {
+        "temp": read_csv("SPIRAL02 2025-11-28 (1 Min).xlsx - Data.csv", "TEF01"),
+        "runtime": read_csv("SPIRAL02 2025-11-28 (1 Min).xlsx - Data.csv", "Runtime")
+    }
+    spiral03 = {
+        "temp": read_csv("SPIRAL03 2025-11-28 (60 Min).xlsx - Data.csv", "TEF01"),
+        "runtime": read_csv("SPIRAL03 2025-11-28 (60 Min).xlsx - Data.csv", "Runtime")
+    }
+
+    # --- 3. REFRIGERATION SYSTEM STATUS ---
+    # Metrics: Low Receiver Temperatures
+    refrig_system = {
+        "receiver_01": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.1"),
+        "receiver_02": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.2"),
+        "receiver_03": read_csv("REFRIG 2025-11-28 (60 Min).xlsx - Data.csv", "NO.3")
+    }
+
+    # --- 4. MULTI-LAYER FREEZERS (MLF) ENERGY ---
+    # Metrics: Total Energy Consumption (kWh)
+    mlf_energy = {
+        "mlf01_kwh": read_csv("MLF01 2025-11-28 (60 Min).xlsx - Data.csv", "kWh."),
+        "mlf02_kwh": read_csv("MLF02 2025-11-20 (60 Min).xlsx - Data.csv", "kWh.")
+    }
+
+    # --- 5. CONVEYOR & PRODUCTION ---
+    # Metrics: Line capacity (Pieces/Minute)
+    conveyor_lines = {
+        "line_1": read_csv("CONVE01 2025-11-28 (60 Min).xlsx - Data.csv", "Capacity (Pcs/Min)"),
+        "line_2": read_csv("CONVE02 2025-12-23 (1 Min).xlsx - Data.csv", "Capacity (Pcs/Min)"),
+        "line_3": read_csv("CONVE03 2025-11-28 (60 Min).xlsx - Data.csv", "Capacity (Pcs/Min)")
+    }
+
+    # --- 6. UTILITY / MDB POWER TOTALS ---
+    mdb_power = {
+        "panel_01": read_csv("MDB01 2025-11-25 (60 Min).xlsx - Data.csv", "kWh."),
+        "panel_02": read_csv("MDB02 2025-11-26 (60 Min).xlsx - Data.csv", "kWh."),
+        "monthly_summary": read_csv("Power_Meter_Monthly & Utility Monthly (November-2025).xlsx - ENERGY.csv", "kWh")
+    }
+
+    return jsonify({
+        "compressors": {"c01": comp01_data, "c02": comp02_data},
+        "spiral_freezers": {"s01": spiral01, "s02": spiral02, "s03": spiral03},
+        "refrigeration": refrig_system,
+        "energy_consumption": {"mlf": mlf_energy, "mdb": mdb_power},
+        "production_output": conveyor_lines
+    })
+
 
 # =====================================================
 # SERVER START
