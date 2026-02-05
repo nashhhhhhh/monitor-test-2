@@ -1,83 +1,97 @@
-/* Styles for Sub-pages */
-body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 20px; margin: 0; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-.card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-h2 { margin-top: 0; color: #1f2937; }
-
-
-/* Header Container */
-header { 
-    background: #0f172a; 
-    color: #fff; 
-    padding: 12px 24px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
+:root {
+    --bg-blue: #0f172a;
+    --card-bg: #1e293b;
+    --border: #334155;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --success: #10b981;
+    --danger: #ef4444;
 }
 
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand-title { margin: 0; font-size: 1.1rem; letter-spacing: -0.5px; }
-.brand-subtitle { font-weight: 300; opacity: 0.6; }
-
-/* The Green Pulse Animation */
-.pulse { 
-    width: 10px; height: 10px; 
-    background: #10b981; 
-    border-radius: 50%; 
-    animation: pulse-ring 2s infinite; 
+body {
+    background-color: var(--bg-blue);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
 }
 
-@keyframes pulse-ring {
-    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+.dashboard-content {
+    padding: 2.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
-/* Nav Bar */
-nav { 
-    display: flex; 
-    background: #1e293b; 
-    padding: 0 16px; 
-    position: sticky; 
-    top: 0; 
-    z-index: 1000; 
+.dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
 }
 
-.nav-item { position: relative; }
-
-.nav-btn { 
-    background: none; border: none; 
-    color: #94a3b8; padding: 16px 20px; 
-    cursor: pointer; font-size: 0.85rem; 
-    font-weight: 600; transition: all 0.2s; 
+.kpi-pill {
+    background: var(--card-bg);
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
 }
 
-.nav-btn:hover, .nav-btn.active { color: #fff; }
-.nav-btn.active { background: #3b82f6; }
+.kpi-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); }
+.kpi-value { font-size: 1.25rem; font-weight: 700; color: var(--success); }
 
-/* Dropdown Menu */
-.dropdown-menu { 
-    position: absolute; top: 100%; left: 0; 
-    background: #fff; min-width: 220px; 
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-    opacity: 0; visibility: hidden; 
-    transform: translateY(10px); 
-    transition: all 0.25s; border-radius: 0 0 8px 8px; 
+.camera-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
 }
 
-.nav-item:hover .dropdown-menu { 
-    opacity: 1; visibility: visible; 
-    transform: translateY(0); 
+.cam-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: transform 0.2s;
 }
 
-.dropdown-menu a { 
-    color: #475569; padding: 12px 20px; 
-    text-decoration: none; display: block; 
-    font-size: 0.85rem; 
+.cam-card:hover { transform: translateY(-4px); }
+
+.cam-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1rem;
 }
 
-.dropdown-menu a:hover { 
-    background: #f8fafc; 
-    color: #3b82f6; 
-    border-left: 4px solid #3b82f6; 
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
+.offline { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+
+.status-label {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.status-online { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.status-offline { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+.timestamp { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
+
+.status-msg {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
 }

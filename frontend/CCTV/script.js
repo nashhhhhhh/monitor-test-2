@@ -1,40 +1,54 @@
-// Boiler/script.js
-new Chart(document.getElementById('boilerEfficiencyGauge'), {
-    type: 'doughnut',
-    data: {
-        labels: ['Efficiency', 'Loss'],
-        datasets: [{ data: [88, 12], backgroundColor: ['#10b981', '#e5e7eb'] }]
-    },
-    options: { circumference: 180, rotation: 270 }
-});
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('camera-container');
+    const totalCountEl = document.getElementById('total-devices');
 
-new Chart(document.getElementById('boilerCorrelation'), {
-    type: 'line',
-    data: {
-        labels: ['Mon', 'Tue', 'Wed'],
-        datasets: [{ label: 'Steam Output', data: [85, 88, 90], borderColor: '#3b82f6' }]
+    async function fetchCCTVStatus() {
+        try {
+            console.log("Fetching CCTV data from API...");
+            const response = await fetch('/api/cctv/log');
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const devices = await response.json();
+            console.log("Devices received:", devices);
+
+            // 1. Check if data is empty
+            if (!devices || devices.length === 0) {
+                container.innerHTML = '<div class="status-msg">No camera data found in CSV log.</div>';
+                totalCountEl.innerText = '0';
+                return;
+            }
+
+            // 2. Update Total Count
+            totalCountEl.innerText = devices.length;
+
+            // 3. Generate Cards
+            container.innerHTML = devices.map(dev => {
+                const isOnline = dev.status.toLowerCase().trim() === 'online';
+                return `
+                    <div class="cam-card">
+                        <div class="cam-header">
+                            <span class="status-indicator ${isOnline ? 'online' : 'offline'}"></span>
+                            <h3>${dev.name}</h3>
+                        </div>
+                        <div class="cam-body">
+                            <div class="status-label ${isOnline ? 'status-online' : 'status-offline'}">
+                                ${dev.status.toUpperCase()}
+                            </div>
+                            <p class="timestamp">Last Activity: ${dev.time}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error("CCTV Script Error:", error);
+            container.innerHTML = `<div class="status-msg error">Connection Error: ${error.message}</div>`;
+        }
     }
+
+    // Initial run
+    fetchCCTVStatus();
+    // Auto refresh every 30 seconds
+    setInterval(fetchCCTVStatus, 30000);
 });
-
-function updateClock() {
-    const clockElement = document.getElementById('clock');
-    if (!clockElement) return;
-
-    const now = new Date();
-    const options = { 
-        weekday: 'short', 
-        day: '2-digit', 
-        month: 'short', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit', 
-        hour12: false 
-    };
-    
-    // Formats to: WED, 04 FEB, 08:49:03
-    clockElement.innerText = now.toLocaleString('en-GB', options).toUpperCase();
-}
-
-// Start clock and update every second
-setInterval(updateClock, 1000);
-updateClock();

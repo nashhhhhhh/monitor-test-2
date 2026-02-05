@@ -3,68 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>CCTV Monitoring | Stage 2</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/shared/navbar.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+    <div id="navbar"></div>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+    <main class="dashboard-content">
+        <header class="dash-header">
+            <div>
+                <h1>CCTV System Status</h1>
+                <p class="text-muted">Monitoring online/offline logs for security resources</p>
+            </div>
+            <div class="kpi-pill">
+                <span class="kpi-label">TOTAL DEVICES:</span>
+                <span class="kpi-value" id="total-devices">0</span>
+            </div>
+        </header>
 
-    <button class="nav-btn active" id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Spiral Blast Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+        <section class="camera-grid" id="camera-container">
+            <div class="status-msg">Initializing system...</div>
+        </section>
+    </main>
 
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
-        </div>
-    </div>
-
-    <div class="nav-item">
-        <button class="nav-btn">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
-        </div>
-    </div>
-</nav>
-
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
-    </div>
-
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-</main>
-
-<script src="/Overview/script.js"></script>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        // Load the shared navbar
+        fetch('/shared/navbar.html')
+            .then(res => res.text())
+            .then(html => document.getElementById('navbar').innerHTML = html)
+            .catch(err => console.error("Navbar Error:", err));
+    </script>
+    <script src="script.js" defer></script>
 </body>
 </html>
