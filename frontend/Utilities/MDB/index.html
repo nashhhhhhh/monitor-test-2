@@ -6,7 +6,6 @@
   <title>MDB & Generator Monitoring | Stage 2</title>
 
   <link rel="stylesheet" href="/shared/navbar.css" />
-
   <link rel="stylesheet" href="style.css">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,8 +51,8 @@
       </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">System Health</div>
-        <div class="kpi-value status-ok">OPTIMAL</div>
+        <div class="kpi-label">System Status</div>
+        <div class="kpi-value" id="kpi-system-status">NORMAL</div>
       </div>
     </section>
 
@@ -67,14 +66,20 @@
       </div>
 
       <div class="card">
-        <div class="card-title">EMDB-1 Consumption Trend</div>
+        <div class="card-title flex-header">
+          <span>EMDB-1 Consumption Trend</span>
+          <input type="date" id="emdb-date-picker" class="date-input">
+        </div>
         <div class="chart-container">
           <canvas id="emdbTrendChart"></canvas>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">Generator Runtime Hours (RT)</div>
+        <div class="card-title flex-header">
+          <span>Generator Runtime Hours (RT)</span>
+          <input type="date" id="gen-date-picker" class="date-input">
+        </div>
         <div class="chart-container">
           <canvas id="genRuntimeChart"></canvas>
         </div>
@@ -92,7 +97,7 @@
               </tr>
             </thead>
             <tbody id="gen-table-body">
-              </tbody>
+            </tbody>
           </table>
         </div>
       </div>
