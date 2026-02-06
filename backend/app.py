@@ -352,6 +352,58 @@ def spiral_blast_freezer():
         "production_output": conveyor_lines
     })
 
+def read_mdb_daily_consumption(file_name):
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return []
+
+    try:
+        # Skip the first 2 lines of metadata
+        df = pd.read_csv(path, skiprows=2)
+        df.columns = [c.strip() for c in df.columns]
+
+        # Clean the timestamp (Remove ' ICT') and parse
+        df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+        df['date'] = df['dt'].dt.strftime('%d-%b') # Format as "16-Dec"
+
+        # Identify the 'Value' column (could be 'Value (kW-hr)' or 'Value')
+        val_col = [c for c in df.columns if 'Value' in c][0]
+
+        # Calculate daily consumption: Max reading - Min reading for that day
+        # This gives the total kWh used within that 24-hour window
+        daily = df.groupby('date')[val_col].agg(['min', 'max']).reset_index()
+        daily['consumption'] = daily['max'] - daily['min']
+
+        # Sort by date (pandas grouping might scramble chronological order, 
+        # so we ensure it follows the original data sequence)
+        return daily.rename(columns={'date': 'time', 'consumption': 'kwh'}).to_dict(orient='records')
+    except Exception as e:
+        print(f"🔥 Daily Calc Error ({file_name}): {e}")
+        return []
+
+@app.route("/api/mdb")
+def mdb_data():
+    return jsonify({
+        "energy": {
+            # Use the daily aggregator for the trend chart
+            "emdb_1_daily": read_mdb_daily_consumption("mdb_emdb.csv"),
+            
+            # Keep raw readings for the distribution (pie/bar) charts
+            "emdb_1": read_csv("mdb_emdb.csv", "kwh"),
+            "mdb_6":  read_csv("mdb6_energy.csv", "kwh"),
+            "mdb_7":  read_csv("mdb7_energy.csv", "kwh"),
+            "mdb_8":  read_csv("mdb8_energy.csv", "kwh"),
+            "mdb_9":  read_csv("mdb9_energy.csv", "kwh"),
+            "mdb_10": read_csv("mdb10_energy.csv", "kwh")
+        },
+        "generators": {
+            "gen_1": read_csv("mdb_gen1_RT.csv", "runtime"),
+            "gen_2": read_csv("mdb_gen2_RT.csv", "runtime"),
+            "gen_3": read_csv("mdb_gen3_RT.csv", "runtime"),
+            "gen_4": read_csv("mdb_gen4_RT.csv", "runtime")
+        }
+    })
 
 # =====================================================
 # SERVER START

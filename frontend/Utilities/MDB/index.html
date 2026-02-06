@@ -1,120 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Boiler Monitoring</title>
-    
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MDB & Generator Monitoring | Stage 2</title>
 
-    <link rel="stylesheet" href="/shared/navbar.css">
+  <link rel="stylesheet" href="/shared/navbar.css" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
-    <div id="navbar"></div>
-    <script src="/shared/navbar.js"></script>
-    <script>
-        fetch('/shared/navbar.html')
-        .then(res => {
-            if (!res.ok) throw new Error('Navbar failed to load');
-            return res.text();
-        })
-        .then(html => {
-            document.getElementById('navbar').innerHTML = html;
-        })
-        .catch(err => console.error(err));
-    </script>
+  <div id="navbar"></div>
 
-    <main class="dashboard-content">
-        <header class="dash-header">
-            <div>
-                <h2>Power Distribution & Generator Analytics</h2>
-                <p class="text-muted">MDB Room Monitoring & Emergency Power Systems</p>
-            </div>
-            <div id="clock" class="clock-display">--:--:--</div>
-        </header>
+  <script src="/shared/navbar.js"></script>
+  <script>
+    fetch('/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html)
+      .catch(err => console.error(err));
+  </script>
 
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-power">
-                <div class="kpi-label">Total Facility Demand</div>
-                <div class="kpi-value" id="val-total-kw">0.0</div>
-                <div class="kpi-trend">Real-time Load (kW)</div>
-            </div>
-            <div class="kpi-card highlight-gen">
-                <div class="kpi-label">Generator Status</div>
-                <div id="status-gen-master" class="status-pill warning" style="margin-top:10px; display:inline-block;">STANDBY</div>
-                <div class="kpi-trend" id="val-gen-runtime">Total Run: 0 hrs</div>
-            </div>
-            <div class="kpi-card highlight-fuel">
-                <div class="kpi-label">Fuel Level</div>
-                <div class="kpi-value" id="val-fuel-pct">0%</div>
-                <div class="kpi-trend" id="val-fuel-liters">0 Liters Remaining</div>
-            </div>
-            <div class="kpi-card highlight-pf">
-                <div class="kpi-label">Average Power Factor</div>
-                <div class="kpi-value" id="val-avg-pf">0.00</div>
-                <div class="kpi-trend">System Efficiency (cos φ)</div>
-            </div>
-        </section>
+  <main class="dashboard-content">
+    
+    <header class="dash-header">
+      <h1>MDB & Generator Monitoring</h1>
+      <p class="subtitle">Real-time load distribution and backup power system status</p>
+    </header>
 
-        <section class="main-grid">
-            <div class="card">
-                <div class="card-title">MDB Breaker & Feeder Status</div>
-                <div class="diagnostic-container">
-                    <div class="diag-group">
-                        <h4>MDB Room 01 <span class="status-pill active">HEALTHY</span></h4>
-                        <div class="diag-item"><span>Main Incomer</span> <span id="dot-mdb1-main" class="dot active"></span></div>
-                        <div class="diag-item"><span>Capacitor Bank</span> <span id="dot-mdb1-cap" class="dot active"></span></div>
-                        <div class="diag-item"><span>AC Feeder</span> <span id="dot-mdb1-ac" class="dot active"></span></div>
-                    </div>
-                    <div class="diag-group" style="margin-top: 20px;">
-                        <h4>Generator Health <span id="status-gen-health" class="status-pill active">READY</span></h4>
-                        <div class="diag-item"><span>Battery Voltage</span> <span id="val-gen-batt">24.2V</span></div>
-                        <div class="diag-item"><span>Coolant Temp</span> <span id="val-gen-temp">45°C</span></div>
-                        <div class="diag-item"><span>Engine State</span> <span id="dot-gen-engine" class="dot offline"></span></div>
-                    </div>
-                </div>
-            </div>
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Main EMDB-1 (kWh)</div>
+        <div class="kpi-value" id="kpi-emdb">--</div>
+      </div>
 
-            <div class="card">
-                <div class="card-title">Power Source Distribution</div>
-                <div class="efficiency-report">
-                    <div class="eff-item">
-                        <div class="kpi-label">Utility Power (Grid)</div>
-                        <div class="kpi-value mini" id="val-util-load">0%</div>
-                        <div class="progress-bar"><div id="bar-utility" class="progress-fill" style="width: 100%; background: var(--accent);"></div></div>
-                    </div>
-                    <div class="eff-item" style="margin-top: 25px;">
-                        <div class="kpi-label">Generator Load Factor</div>
-                        <div class="kpi-value mini" id="val-gen-load">0%</div>
-                        <div class="progress-bar"><div id="bar-gen" class="progress-fill" style="width: 0%; background: var(--warning);"></div></div>
-                    </div>
-                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 15px;">Critical Threshold: 80% Gen Load.</p>
-                </div>
-            </div>
-        </section>
+      <div class="kpi-card">
+        <div class="kpi-label">Total MDB Load (kWh)</div>
+        <div class="kpi-value" id="kpi-total-mdb">--</div>
+      </div>
 
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card">
-                <div class="card-title">Power Consumption Profile (24h)</div>
-                <div class="chart-container">
-                    <canvas id="loadChart"></canvas>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-title">Phase Voltage Stability (V)</div>
-                <div class="chart-container">
-                    <canvas id="voltageChart"></canvas>
-                </div>
-            </div>
-        </section>
-    </main>
-    <script src="script.js"></script>
+      <div class="kpi-card">
+        <div class="kpi-label">Generator 1-4 Active</div>
+        <div class="kpi-value" id="kpi-gen-status">--</div>
+      </div>
+
+     <div class="kpi-card">
+       <div class="kpi-label">System Status</div>
+       <div class="kpi-value" id="kpi-system-status">NORMAL</div>
+     </div>
+    </section>
+
+    <section class="main-grid">
+      
+      <div class="card">
+        <div class="card-title">MDB Energy Distribution (Latest kWh)</div>
+        <div class="chart-container">
+          <canvas id="distributionChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">EMDB-1 Consumption Trend</div>
+        <div class="chart-container">
+          <canvas id="emdbTrendChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Generator Runtime Hours (RT)</div>
+        <div class="chart-container">
+          <canvas id="genRuntimeChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Generator Health Log</div>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Unit</th>
+                <th>Total Runtime</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="gen-table-body">
+              </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="script.js" defer></script>
+
 </body>
 </html>
