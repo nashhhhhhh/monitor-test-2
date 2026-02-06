@@ -36,7 +36,9 @@ function normalizeSpiralData(rows) {
     pt01: +r.pt01 || 0,
     pt02: +r.pt02 || 0,
     tef01: +r.tef01 || 0,
-    tef02: +r.tef02 || 0
+    tef02: +r.tef02 || 0,
+    pcs_min: +r.pcs_min_total || 0,
+    pcs_day: +r.pcs_day_total || 0
   }));
 }
 
@@ -96,6 +98,12 @@ function updateSpiralCard(prefix, s) {
 
   document.getElementById(`${prefix}-runtime`).textContent =
     (s.runtime / 60).toFixed(2);
+
+  document.getElementById(`${prefix}-pcsmin`).textContent =
+    s.pcs_min.toFixed(1);
+
+  document.getElementById(`${prefix}-pcsday`).textContent =
+    s.pcs_day.toFixed(0);
 
   const statusEl = document.getElementById(`status-${prefix}`);
   const status = s.runtime > 0 ? "RUNNING" : "STOPPED";
@@ -173,4 +181,4 @@ async function refreshDashboard() {
 }
 
 refreshDashboard();
-setInterval(refreshDashboard, 5000);
+setInterval(refreshDashboard, 60000);
