@@ -60,21 +60,30 @@
     <section class="main-grid">
       
       <div class="card">
-        <div class="card-title">Energy Consumption Trend</div>
+        <div class="card-title flex-header">
+          <span>Energy Consumption Trend</span>
+          <input type="date" id="energy-date-picker" class="date-input">
+        </div>
         <div class="chart-container">
           <canvas id="energyChart"></canvas>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">Pump Flow Operations (m³)</div>
+        <div class="card-title flex-header">
+          <span>Pump Flow Operations (m³)</span>
+          <input type="date" id="flow-date-picker" class="date-input">
+        </div>
         <div class="chart-container">
           <canvas id="flowChart"></canvas>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">Inflow Temperature Trend (°C)</div>
+        <div class="card-title flex-header">
+          <span>Inflow Temperature Trend (°C)</span>
+          <input type="date" id="temp-date-picker" class="date-input">
+        </div>
         <div class="chart-container">
           <canvas id="tempChart"></canvas>
         </div>
