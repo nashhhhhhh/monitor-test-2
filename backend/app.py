@@ -382,6 +382,61 @@ def mdb_data():
             "gen_4": read_csv("mdb_gen4_RT.csv", "runtime")
         }
     })
+@app.route("/api/mdb/history")
+def mdb_history():
+    date_str = request.args.get('date')
+    category = request.args.get('category')
+    
+    def get_filtered_mdb(file_name, value_key, normalize_gen=False):
+        path = os.path.join(DATA_DIR, file_name)
+        if not os.path.exists(path): return []
+        try:
+            df = pd.read_csv(path, skiprows=2)
+            df.columns = [c.strip() for c in df.columns]
+            df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+            
+            # --- IMPROVED FILTERING LOGIC ---
+            # If no date provided or date has no data, use the latest date in the file
+            available_dates = df['dt'].dt.strftime('%Y-%m-%d').unique()
+            
+            target_date = date_str
+            if not target_date or target_date not in available_dates:
+                target_date = available_dates[-1] # Auto-pick the last day in the log
+            
+            df_filtered = df[df['dt'].dt.strftime('%Y-%m-%d') == target_date]
+            
+            val_col = [c for c in df.columns if 'Value' in c][0]
+            header_low = val_col.lower()
+            multiplier = 1.0
+            if normalize_gen and ("/s" in header_low or "(s)" in header_low):
+                multiplier = 1 / 3600
+
+            return {
+                "date_used": target_date, # Tell the frontend which date we actually used
+                "points": [{
+                    "time": r['dt'].strftime('%H:%M'), 
+                    "value": round(float(r[val_col]) * multiplier, 2)
+                } for _, r in df_filtered.iterrows()]
+            }
+        except Exception as e:
+            print(f"Error: {e}")
+            return {"date_used": None, "points": []}
+
+    response_data = {}
+    if category == 'energy':
+        res = get_filtered_mdb("mdb_emdb.csv", "kwh")
+        response_data['emdb_1'] = res['points']
+        response_data['selected_date'] = res['date_used']
+    elif category == 'gens':
+        res1 = get_filtered_mdb("mdb_gen1_RT.csv", "runtime", True)
+        response_data['gen_1'] = res1['points']
+        response_data['gen_2'] = get_filtered_mdb("mdb_gen2_RT.csv", "runtime", True)['points']
+        response_data['gen_3'] = get_filtered_mdb("mdb_gen3_RT.csv", "runtime", True)['points']
+        response_data['gen_4'] = get_filtered_mdb("mdb_gen4_RT.csv", "runtime", True)['points']
+        response_data['selected_date'] = res1['date_used']
+            
+    return jsonify(response_data)
 
 # =====================================================
 # WATER TREATMENT PLANT (WTP) API
