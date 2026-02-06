@@ -89,6 +89,51 @@ def read_csv(file_name, value_key="value"):
 
     return data
 
+def read_sbf_csv(file_name):
+    """
+    Reader for Spiral Blast Freezer CSVs
+    Assumes FIRST column is time if no explicit time column exists
+    """
+    path = os.path.join(DATA_DIR, file_name)
+    data = []
+
+    if not os.path.exists(path):
+        print(f"❌ FILE MISSING: {path}")
+        return data
+
+    try:
+        df = pd.read_csv(path)
+        df.columns = [c.strip() for c in df.columns]
+
+        # 1️⃣ Try to find a time/timestamp column
+        time_col = None
+        for c in df.columns:
+            cl = c.lower()
+            if "time" in cl or "date" in cl or "timestamp" in cl:
+                time_col = c
+                break
+
+        # 2️⃣ Fallback: assume FIRST column is time
+        if not time_col:
+            time_col = df.columns[0]
+
+        for _, r in df.iterrows():
+            row = {"time": str(r[time_col])}
+
+            for c in df.columns:
+                if c == time_col:
+                    continue
+                try:
+                    row[c.lower()] = float(r[c])
+                except:
+                    row[c.lower()] = str(r[c])
+
+            data.append(row)
+
+    except Exception as e:
+        print(f"🔥 SBF CSV ERROR ({file_name}): {e}")
+
+    return data
 
 # =====================================================
 # FRONTEND ROUTES
@@ -239,119 +284,21 @@ def wg():
 
 @app.route("/api/spiral_blast_freezer")
 def spiral_blast_freezer():
-    
-    # --- 1. COMPRESSOR PERFORMANCE ---
-    comp01_data = {
-        "full_data": read_csv("sbf_comp1.csv"),
-        "metrics": {
-            "runtime": read_csv("sbf_comp1.csv", "RUNTIME"),
-            "freq": read_csv("sbf_comp1.csv", "FRQ"),
-            "current": read_csv("sbf_comp1.csv", "CURRENT")
-        }
-    }
-    comp02_data = {
-        "full_data": read_csv("sbf_comp2.csv"),
-        "metrics": {
-            "runtime": read_csv("sbf_comp2.csv", "RUNTIME"),
-            "freq": read_csv("sbf_comp2.csv", "FRQ"),
-            "current": read_csv("sbf_comp2.csv", "CURRENT")
-        }
-    }
-
-    # --- 2. SPIRAL FREEZER UNITS (01, 02, 03) ---
-    spiral01 = {
-        "full_data": read_csv("sbf_spiral1.csv"),
-        "metrics": {
-            "temp": read_csv("sbf_spiral1.csv", "TEF01"),
-            "runtime": read_csv("sbf_spiral1.csv", "Runtime")
-        }
-    }
-    spiral02 = {
-        "full_data": read_csv("sbf_spiral2.csv"),
-        "metrics": {
-            "temp": read_csv("sbf_spiral2.csv", "TEF01"),
-            "runtime": read_csv("sbf_spiral2.csv", "Runtime")
-        }
-    }
-    spiral03 = {
-        "full_data": read_csv("sbf_spiral3.csv"),
-        "metrics": {
-            "temp": read_csv("sbf_spiral3.csv", "TEF01"),
-            "runtime": read_csv("sbf_spiral3.csv", "Runtime")
-        }
-    }
-
-    # --- 3. REFRIGERATION SYSTEM STATUS ---
-    refrig_system = {
-        "full_data": read_csv("sbf_refrig.csv"),
-        "metrics": {
-            "receiver_01": read_csv("sbf_refrig.csv", "NO.1"),
-            "receiver_02": read_csv("sbf_refrig.csv", "NO.2"),
-            "receiver_03": read_csv("sbf_refrig.csv", "NO.3")
-        }
-    }
-
-    # --- 4. MULTI-LAYER FREEZERS (MLF) ENERGY ---
-    mlf_energy = {
-        "mlf01": {
-            "full_data": read_csv("sbf_mlf1.csv"),
-            "kwh": read_csv("sbf_mlf1.csv", "kWh.")
-        },
-        "mlf02": {
-            "full_data": read_csv("sbf_mlf2.csv"),
-            "kwh": read_csv("sbf_mlf2.csv", "kWh.")
-        }
-    }
-
-    # --- 5. CONVEYOR & PRODUCTION ---
-    conveyor_lines = {
-        "line_1": {
-            "full_data": read_csv("sbf_convey1.csv"),
-            "capacity": read_csv("sbf_convey1.csv", "Capacity (Pcs/Min)")
-        },
-        "line_2": {
-            "full_data": read_csv("sbf_convey2.csv"),
-            "capacity": read_csv("sbf_convey2.csv", "Capacity (Pcs/Min)")
-        },
-        "line_3": {
-            "full_data": read_csv("sbf_convey3.csv"),
-            "capacity": read_csv("sbf_convey3.csv", "Capacity (Pcs/Min)")
-        }
-    }
-
-    # --- 6. UTILITY / MDB POWER TOTALS ---
-    mdb_power = {
-        "panel_01": {
-            "full_data": read_csv("sbf_mdb1.csv"),
-            "kwh": read_csv("sbf_mdb1.csv", "kWh.")
-        },
-        "panel_02": {
-            "full_data": read_csv("sbf_mdb2.csv"),
-            "kwh": read_csv("sbf_mdb2.csv", "kWh.")
-        },
-        "monthly_summary": {
-            "full_data": read_csv("sbf_power_monthly.csv"),
-            "kwh": read_csv("sbf_power_monthly.csv", "kWh")
-        }
-    }
-
     return jsonify({
-        "compressors": {
-            "c01": comp01_data,
-            "c02": comp02_data
+        "system": "spiral_blast_freezer",
+        "status_data": {
+            "spiral_01": { "data": read_sbf_csv("sbf_spiral1_Data.csv") },
+            "spiral_02": { "data": read_sbf_csv("sbf_spiral2_Data.csv") },
+            "spiral_03": { "data": read_sbf_csv("sbf_spiral3_Data.csv") }
         },
-        "spiral_freezers": {
-            "s01": spiral01,
-            "s02": spiral02,
-            "s03": spiral03
-        },
-        "refrigeration": refrig_system,
-        "energy_consumption": {
-            "mlf": mlf_energy,
-            "mdb": mdb_power
-        },
-        "production_output": conveyor_lines
+        "energy": {
+            "monthly_energy": read_sbf_csv("sbf_power_monthly_ENERGY.csv")
+        }
     })
+
+# ================================================
+# MDB API
+# ================================================
 
 def read_mdb_daily_consumption(file_name):
     path = os.path.join(DATA_DIR, file_name)

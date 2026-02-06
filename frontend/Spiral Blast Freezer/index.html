@@ -3,99 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <title>Spiral Blast Freezer Monitoring</title>
+
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
-    <div id="navbar"></div>
+<div id="navbar"></div>
 
-    <main class="dashboard-content">
-        <header class="dash-header">
-            <h2>Spiral Blast Freezer System</h2>
-        </header>
+<main class="dashboard-content">
+    <header class="dash-header">
+        <h2>Spiral Blast Freezer System – Operational Overview</h2>
+    </header>
 
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-eff">
-                <div class="kpi-label">Production Today</div>
-                <div class="kpi-value" id="val-production">0</div>
-                <div class="kpi-trend pos" id="val-capacity">0 Pcs/Min</div>
-            </div>
-            <div class="kpi-card highlight-energy">
-                <div class="kpi-label">Total Consumption</div>
-                <div class="kpi-value" id="val-energy-total">0</div>
-                <div class="kpi-trend">Combined kWh</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Freezer Avg Temp</div>
-                <div class="kpi-value" id="val-temp-avg">--°C</div>
-                <div class="kpi-trend" id="val-temp-range">TEF01 / TEF02</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">System Efficiency</div>
-                <div class="kpi-value mini" id="val-eff-calc">0.00</div>
-                <div class="kpi-trend">Pcs / kWh</div>
-            </div>
-        </section>
+    <!-- ================= KPI SUMMARY ================= -->
+    <section class="kpi-grid">
+        <div class="kpi-card highlight-eff">
+            <div class="kpi-label">Active Freezers</div>
+            <div class="kpi-value" id="val-active-freezers">0 / 3</div>
+            <div class="kpi-trend pos">Runtime & Load Status</div>
+        </div>
 
-        <div class="main-grid">
-            <div class="card">
-                <div class="card-title">Drive Status & Diagnostics</div>
-                <div class="diag-group">
-                    <h4>Spiral Unit 01 <span id="status-sf01-master" class="status-pill warning">STANDBY</span></h4>
-                    <div class="diag-item">
-                        <span>Main Drive Frequency</span>
-                        <div><span id="sf1-main-hz">0</span> Hz <span id="dot-sf1-main" class="dot offline"></span></div>
-                    </div>
-                    <div class="diag-item">
-                        <span>Sub Drive Frequency</span>
-                        <div><span id="sf1-sub-hz">0</span> Hz <span id="dot-sf1-sub" class="dot offline"></span></div>
-                    </div>
+        <div class="kpi-card highlight-energy">
+            <div class="kpi-label">Monthly Energy Usage</div>
+            <div class="kpi-value" id="val-energy-total">0</div>
+            <div class="kpi-trend">kWh (Spiral System)</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Average Freezer Temperature</div>
+            <div class="kpi-value" id="val-temp-avg">-- °C</div>
+            <div class="kpi-trend">TEF Sensors</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Total Runtime (Today)</div>
+            <div class="kpi-value mini" id="val-runtime-total">0.0</div>
+            <div class="kpi-trend">Hours</div>
+        </div>
+    </section>
+
+    <!-- ================= MAIN GRID ================= -->
+    <div class="main-grid">
+        <!-- -------- STATUS CARD -------- -->
+        <div class="card">
+            <div class="card-title">Spiral Freezer Status</div>
+
+            <div class="diag-group">
+                <h4>
+                    Spiral Unit 01
+                    <span id="status-sf01" class="status-pill warning">UNKNOWN</span>
+                </h4>
+                <div class="diag-item">
+                    <span>Latest Temperature</span>
+                    <div><span id="sf01-temp">--</span> °C</div>
                 </div>
-                <div class="diag-group" style="margin-top: 20px;">
-                    <h4>Spiral Unit 02 <span id="status-sf02-master" class="status-pill warning">STANDBY</span></h4>
-                    <div class="diag-item">
-                        <span>Main Drive Frequency</span>
-                        <div><span id="sf2-main-hz">0</span> Hz <span id="dot-sf2-main" class="dot offline"></span></div>
-                    </div>
+                <div class="diag-item">
+                    <span>Runtime</span>
+                    <div><span id="sf01-runtime">0</span> hrs</div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-title">Temperature & Production Trends</div>
-                <div class="chart-container">
-                    <canvas id="performanceChart"></canvas>
+            <div class="diag-group" style="margin-top: 20px;">
+                <h4>
+                    Spiral Unit 02
+                    <span id="status-sf02" class="status-pill warning">UNKNOWN</span>
+                </h4>
+                <div class="diag-item">
+                    <span>Latest Temperature</span>
+                    <div><span id="sf02-temp">--</span> °C</div>
+                </div>
+                <div class="diag-item">
+                    <span>Runtime</span>
+                    <div><span id="sf02-runtime">0</span> hrs</div>
+                </div>
+            </div>
+
+            <div class="diag-group" style="margin-top: 20px;">
+                <h4>
+                    Spiral Unit 03
+                    <span id="status-sf03" class="status-pill warning">UNKNOWN</span>
+                </h4>
+                <div class="diag-item">
+                    <span>Latest Temperature</span>
+                    <div><span id="sf03-temp">--</span> °C</div>
+                </div>
+                <div class="diag-item">
+                    <span>Runtime</span>
+                    <div><span id="sf03-runtime">0</span> hrs</div>
                 </div>
             </div>
         </div>
 
-        <div class="card table-card">
-            <div class="card-title">Low Receiver Status (Refrigeration System)</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Receiver Unit</th>
-                        <th>Temperature (°C)</th>
-                        <th>Suction Pressure</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="refrig-table-body">
-                    </tbody>
-            </table>
+        <!-- -------- TREND CHART -------- -->
+        <div class="card">
+            <div class="card-title">Freezer Temperature Trend</div>
+            <div class="chart-container">
+                <canvas id="performanceChart"></canvas>
+            </div>
         </div>
-    </main>
+    </div>
 
-    <script src="/shared/navbar.js"></script>
-    <script>
-        fetch('/shared/navbar.html')
-        .then(res => res.ok ? res.text() : Promise.reject())
-        .then(html => document.getElementById('navbar').innerHTML = html);
-    </script>
-    <script src="script.js"></script>
+    <!-- ================= INFO TABLE ================= -->
+    <div class="card table-card">
+        <div class="card-title">Operational Summary</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Unit</th>
+                    <th>Latest Temp (°C)</th>
+                    <th>Runtime (hrs)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="summary-table-body">
+                <!-- JS injected -->
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script src="/shared/navbar.js"></script>
+<script>
+fetch('/shared/navbar.html')
+    .then(res => res.ok ? res.text() : Promise.reject())
+    .then(html => document.getElementById('navbar').innerHTML = html);
+</script>
+
+<script src="script.js"></script>
 </body>
 </html>
