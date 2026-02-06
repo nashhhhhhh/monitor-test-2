@@ -60,11 +60,14 @@
     <section class="main-grid">
       
       <div class="card">
-        <div class="card-title">System Pressure Trends (bar)</div>
-        <div class="chart-container">
-          <canvas id="pressureChart"></canvas>
-        </div>
-      </div>
+  <div class="card-title flex-header">
+    <span>System Pressure Trends (bar)</span>
+    <input type="date" id="pressure-date-picker" class="date-input">
+  </div>
+  <div class="chart-container">
+    <canvas id="pressureChart"></canvas>
+  </div>
+</div>
 
       <div class="card">
         <div class="card-title">Water Source Distribution (m³)</div>
@@ -75,7 +78,7 @@
 
       <div class="card">
         <div class="card-title flex-header">
-          <span>Residual Chlorine Monitoring (mg)</span>
+          <span>Chlorine Monitoring (mg)</span>
           <input type="date" id="chlorine-date-picker" class="date-input">
         </div>
         <div class="chart-container">

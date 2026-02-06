@@ -219,3 +219,64 @@ document.addEventListener("DOMContentLoaded", () => {
     loadWTPData();
     setInterval(loadWTPData, 60000);
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+    let charts = {};
+    const chlorineDatePicker = document.getElementById('chlorine-date-picker');
+    const pressureDatePicker = document.getElementById('pressure-date-picker');
+    
+    // Set default dates to today
+    if (chlorineDatePicker) chlorineDatePicker.valueAsDate = new Date();
+    if (pressureDatePicker) pressureDatePicker.valueAsDate = new Date();
+
+    async function loadWTPData() {
+        const response = await fetch("/api/wtp");
+        const data = await response.json();
+
+        updateKPIs(data);
+        updateFlowRateDisplay(data.flow_rates);
+        
+        // Distribution Chart...
+        renderBarChart('flowDistributionChart', { /* ... same as before ... */ });
+
+        // Load filtered charts
+        fetchChlorine(chlorineDatePicker.value);
+        fetchPressure(pressureDatePicker.value); // New call
+    }
+
+    // New Pressure Fetcher
+    async function fetchPressure(date) {
+        try {
+            const res = await fetch(`/api/wtp/pressure?date=${date}`);
+            const data = await res.json();
+            
+            renderChart('pressureChart', 'line', {
+                labels: data.ro_supply.map(d => d.time),
+                datasets: [
+                    { 
+                        label: `RO Supply (${date})`, 
+                        data: data.ro_supply.map(d => d.bar), 
+                        borderColor: '#3b82f6', 
+                        tension: 0.3 
+                    },
+                    { 
+                        label: `Soft Water (${date})`, 
+                        data: data.soft_water.map(d => d.bar), 
+                        borderColor: '#94a3b8', 
+                        borderDash: [5, 5],
+                        tension: 0.3 
+                    }
+                ]
+            });
+        } catch (err) {
+            console.error("Error fetching filtered pressure data:", err);
+        }
+    }
+
+    // Listener for Pressure Date Picker
+    if (pressureDatePicker) {
+        pressureDatePicker.addEventListener('change', (e) => fetchPressure(e.target.value));
+    }
+
+    // Existing functions (fetchChlorine, renderChart, etc.) ...
+});
