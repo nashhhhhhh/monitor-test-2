@@ -20,35 +20,38 @@
     </header>
 
     <section class="kpi-grid">
+
         <div class="kpi-card highlight-eff">
             <div class="kpi-label">Active Freezers</div>
             <div class="kpi-value" id="val-active-freezers">0 / 3</div>
             <div class="kpi-trend pos">Drive & Load Status</div>
         </div>
 
-        <div class="kpi-card highlight-energy">
-            <div class="kpi-label">Monthly Energy Usage</div>
-            <div class="kpi-value" id="val-energy-total">0</div>
-            <div class="kpi-trend">kWh (Total Consumption)</div>
+        <div class="kpi-card">
+            <div class="kpi-label">Spiral 01 Avg Runtime</div>
+            <div class="kpi-value mini" id="val-runtime-s1">0.0</div>
+            <div class="kpi-trend">Hours</div>
         </div>
 
         <div class="kpi-card">
-            <div class="kpi-label">Avg. Top Temperature</div>
-            <div class="kpi-value" id="val-temp-avg">-- °C</div>
-            <div class="kpi-trend">TEF01 Sensors</div>
+            <div class="kpi-label">Spiral 02 Avg Runtime</div>
+            <div class="kpi-value mini" id="val-runtime-s2">0.0</div>
+            <div class="kpi-trend">Hours</div>
         </div>
 
         <div class="kpi-card">
-            <div class="kpi-label">Total Runtime</div>
-            <div class="kpi-value mini" id="val-runtime-total">0.0</div>
-            <div class="kpi-trend">Cumulative Hours</div>
+            <div class="kpi-label">Spiral 03 Avg Runtime</div>
+            <div class="kpi-value mini" id="val-runtime-s3">0.0</div>
+            <div class="kpi-trend">Hours</div>
         </div>
+
     </section>
 
     <div class="main-grid">
         <div class="card">
             <div class="card-title">Real-time Diagnostics</div>
 
+            <!-- Spiral 01 -->
             <div class="diag-group">
                 <h4>
                     Spiral Unit 01
@@ -59,17 +62,18 @@
                     <div><span id="sf01-temp">--</span> °C</div>
                 </div>
                 <div class="diag-item">
-                    <span>Pressure (PT01)</span>
+                    <span>Pressure</span>
                     <div><span id="sf01-pressure">--</span> kg/cm²</div>
                 </div>
                 <div class="diag-item">
-                    <span>Total Runtime</span>
+                    <span>Runtime</span>
                     <div><span id="sf01-runtime">0</span> hrs</div>
                 </div>
             </div>
 
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+            <hr>
 
+            <!-- Spiral 02 -->
             <div class="diag-group">
                 <h4>
                     Spiral Unit 02
@@ -80,19 +84,41 @@
                     <div><span id="sf02-temp">--</span> °C</div>
                 </div>
                 <div class="diag-item">
-                    <span>Pressure (PT01)</span>
+                    <span>Pressure</span>
                     <div><span id="sf02-pressure">--</span> kg/cm²</div>
                 </div>
                 <div class="diag-item">
-                    <span>Total Runtime</span>
+                    <span>Runtime</span>
                     <div><span id="sf02-runtime">0</span> hrs</div>
                 </div>
             </div>
 
+            <hr>
+
+            <!-- Spiral 03 -->
+            <div class="diag-group">
+                <h4>
+                    Spiral Unit 03
+                    <span id="status-sf03" class="status-pill warning">UNKNOWN</span>
+                </h4>
+                <div class="diag-item">
+                    <span>Top / Bottom Temp</span>
+                    <div><span id="sf03-temp">--</span> °C</div>
+                </div>
+                <div class="diag-item">
+                    <span>Pressure</span>
+                    <div><span id="sf03-pressure">--</span> kg/cm²</div>
+                </div>
+                <div class="diag-item">
+                    <span>Runtime</span>
+                    <div><span id="sf03-runtime">0</span> hrs</div>
+                </div>
             </div>
 
+        </div>
+
         <div class="card">
-            <div class="card-title">Freezer Temperature Trend (TEF01)</div>
+            <div class="card-title">Freezer Temperature Trend (TEF01) – All Units</div>
             <div class="chart-container">
                 <canvas id="performanceChart"></canvas>
             </div>
@@ -105,15 +131,14 @@
             <thead>
                 <tr>
                     <th>Unit</th>
-                    <th>Temp Top/Bottom (°C)</th>
-                    <th>Pressure T/B (kg/cm²)</th>
+                    <th>Temp Top/Bottom</th>
+                    <th>Pressure T/B</th>
                     <th>Freezing Time</th>
                     <th>Runtime</th>
                     <th>Status</th>
                 </tr>
             </thead>
-            <tbody id="summary-table-body">
-                </tbody>
+            <tbody id="summary-table-body"></tbody>
         </table>
     </div>
 </main>

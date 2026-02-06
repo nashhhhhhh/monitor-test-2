@@ -16,19 +16,15 @@ async function fetchSpiralData() {
   }
 }
 
-
 function parseSpiralAPI(apiData) {
   const spirals = apiData.status_data || {};
-  const monthly = apiData.energy?.monthly_energy || [];
 
   return {
     s1: normalizeSpiralData(spirals.spiral_01?.data || []),
     s2: normalizeSpiralData(spirals.spiral_02?.data || []),
-    s3: normalizeSpiralData(spirals.spiral_03?.data || []),
-    energy: extractMonthlyEnergy(monthly)
+    s3: normalizeSpiralData(spirals.spiral_03?.data || [])
   };
 }
-
 
 function normalizeSpiralData(rows) {
   return rows.map(r => ({
@@ -44,20 +40,6 @@ function normalizeSpiralData(rows) {
   }));
 }
 
-
-function extractMonthlyEnergy(rows) {
-  let total = 0;
-
-  rows.forEach(r => {
-    if (r.remark === "TOTAL MONTH (kWh)") {
-      total = (+r.screw_compressor || 0) + (+r.spiral_freezer || 0);
-    }
-  });
-
-  return total;
-}
-
-
 /* ================= UI UPDATE ================= */
 
 function updateDashboard(data) {
@@ -67,39 +49,43 @@ function updateDashboard(data) {
   const s2 = data.s2.at(-1) || {};
   const s3 = data.s3.at(-1) || {};
 
-  updateKPIs(data, [s1, s2, s3]);
+  updateKPIs(data);
   updateDiagnostics(s1, s2, s3);
   updateSummaryTable(s1, s2, s3);
-  updateChart(data.s1);
+  updateChart(data.s1, data.s2, data.s3);
 }
 
+/* ================= KPI ================= */
 
-function updateKPIs(data, spirals) {
-  const active = spirals.filter(s => s.runtime > 0).length;
+function averageRuntime(dataset) {
+  if (!dataset.length) return 0;
+  return dataset.reduce((sum, r) => sum + r.runtime, 0) / dataset.length / 60;
+}
+
+function updateKPIs(data) {
+  const active =
+    [data.s1.at(-1), data.s2.at(-1), data.s3.at(-1)]
+      .filter(s => s && s.runtime > 0).length;
+
   document.getElementById("val-active-freezers").textContent = `${active} / 3`;
 
-  document.getElementById("val-energy-total").textContent =
-    data.energy.toLocaleString();
+  document.getElementById("val-runtime-s1").textContent =
+    averageRuntime(data.s1).toFixed(2);
 
-  const avgTemp =
-    spirals.reduce((sum, s) => sum + s.tef01, 0) / spirals.length || 0;
+  document.getElementById("val-runtime-s2").textContent =
+    averageRuntime(data.s2).toFixed(2);
 
-  document.getElementById("val-temp-avg").textContent =
-    avgTemp.toFixed(1) + " °C";
-
-  const totalRuntime =
-    spirals.reduce((sum, s) => sum + s.runtime, 0) / 60;
-
-  document.getElementById("val-runtime-total").textContent =
-    totalRuntime.toFixed(2);
+  document.getElementById("val-runtime-s3").textContent =
+    averageRuntime(data.s3).toFixed(2);
 }
 
+/* ================= DIAGNOSTICS ================= */
 
 function updateDiagnostics(s1, s2, s3) {
   updateSpiralCard("sf01", s1);
   updateSpiralCard("sf02", s2);
+  updateSpiralCard("sf03", s3);
 }
-
 
 function updateSpiralCard(prefix, s) {
   document.getElementById(`${prefix}-temp`).textContent =
@@ -118,6 +104,7 @@ function updateSpiralCard(prefix, s) {
   statusEl.className = `status-pill ${status === "RUNNING" ? "good" : "warning"}`;
 }
 
+/* ================= SUMMARY TABLE ================= */
 
 function updateSummaryTable(s1, s2, s3) {
   const tbody = document.getElementById("summary-table-body");
@@ -143,12 +130,10 @@ function updateSummaryTable(s1, s2, s3) {
   });
 }
 
-
 /* ================= CHART ================= */
 
-function updateChart(data) {
-  const labels = data.map(d => d.time);
-  const temps = data.map(d => d.tef01);
+function updateChart(d1, d2, d3) {
+  const labels = d1.map(d => d.time);
 
   if (!tempChart) {
     const ctx = document.getElementById("performanceChart");
@@ -156,33 +141,29 @@ function updateChart(data) {
     tempChart = new Chart(ctx, {
       type: "line",
       data: {
-        labels: labels,
-        datasets: [{
-          label: "Spiral 01 TEF01 (°C)",
-          data: temps,
-          borderWidth: 2,
-          tension: 0.4,
-          pointRadius: 0
-        }]
+        labels,
+        datasets: [
+          { label: "Spiral 01", data: d1.map(d => d.tef01), borderWidth: 2, tension: 0.4, pointRadius: 0 },
+          { label: "Spiral 02", data: d2.map(d => d.tef01), borderWidth: 2, tension: 0.4, pointRadius: 0 },
+          { label: "Spiral 03", data: d3.map(d => d.tef01), borderWidth: 2, tension: 0.4, pointRadius: 0 }
+        ]
       },
       options: {
         responsive: true,
         animation: false,
         scales: {
-          y: {
-            title: { display: true, text: "Temperature (°C)" }
-          }
+          y: { title: { display: true, text: "Temperature (°C)" } }
         }
       }
     });
-
   } else {
     tempChart.data.labels = labels;
-    tempChart.data.datasets[0].data = temps;
+    tempChart.data.datasets[0].data = d1.map(d => d.tef01);
+    tempChart.data.datasets[1].data = d2.map(d => d.tef01);
+    tempChart.data.datasets[2].data = d3.map(d => d.tef01);
     tempChart.update("none");
   }
 }
-
 
 /* ================= LIVE REFRESH ================= */
 
