@@ -131,6 +131,45 @@ def read_sbf_csv(file_path):
     except Exception as e:
         print(f"🔥 Error reading {file_path}: {e}")
         return []
+    
+def read_conveyor_csv(filepath):
+    if not os.path.exists(filepath):
+        return []
+
+    rows = []
+
+    with open(filepath, newline='', encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        headers = next(reader, None)  # Skip header
+
+        for row in reader:
+            try:
+                # Columns: B C D = pcs/min → total = C + D
+                c_val = float(row[2]) if row[2] else 0
+                d_val = float(row[3]) if row[3] else 0
+                total_min = c_val + d_val
+
+                # Columns: E F G = pcs/day → total = F + G
+                f_val = float(row[5]) if row[5] else 0
+                g_val = float(row[6]) if row[6] else 0
+                total_day = f_val + g_val
+
+                rows.append({
+                    "time": row[0],
+
+                    "pcs_min_total": total_min,
+                    "pcs_min_1": c_val,
+                    "pcs_min_2": d_val,
+
+                    "pcs_day_total": total_day,
+                    "pcs_day_1": f_val,
+                    "pcs_day_2": g_val
+                })
+
+            except (IndexError, ValueError):
+                continue
+
+    return rows
 
 # =====================================================
 # FRONTEND ROUTES
@@ -297,20 +336,23 @@ def wwtp_history():
             
     return jsonify(response_data)
 
-
-
 # =====================================================
 # SPIRAL BLAST FREEZER API
 # =====================================================
 
 @app.route("/api/spiral_blast_freezer")
 def spiral_blast_freezer():
-    # CRITICAL FIX: Use os.path.join(DATA_DIR, ...) so the function can find the files
+    # Spiral freezer datasets
     data_s1 = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral1_Data.csv"))
     data_s2 = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral2_Data.csv"))
     data_s3 = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral3_Data.csv"))
-    
-    # Try to read the monthly energy file if it exists
+
+    # Conveyor datasets (NEW LOGIC)
+    data_c1 = read_conveyor_csv(os.path.join(DATA_DIR, "sbf_conveyor1.csv"))
+    data_c2 = read_conveyor_csv(os.path.join(DATA_DIR, "sbf_conveyor2.csv"))
+    data_c3 = read_conveyor_csv(os.path.join(DATA_DIR, "sbf_conveyor3.csv"))
+
+    # Monthly energy
     energy_file = os.path.join(DATA_DIR, "sbf_power_monthly_ENERGY.csv")
     energy_data = read_sbf_csv(energy_file) if os.path.exists(energy_file) else []
 
@@ -321,10 +363,16 @@ def spiral_blast_freezer():
             "spiral_02": { "data": data_s2 },
             "spiral_03": { "data": data_s3 }
         },
+        "conveyor_data": {
+            "conveyor_01": { "data": data_c1 },
+            "conveyor_02": { "data": data_c2 },
+            "conveyor_03": { "data": data_c3 }
+        },
         "energy": {
             "monthly_energy": energy_data
         }
     })
+
 
 # ================================================
 # MDB API

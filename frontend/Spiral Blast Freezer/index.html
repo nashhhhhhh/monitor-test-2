@@ -1,154 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Spiral Blast Freezer Monitoring</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="/shared/navbar.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <title>Spiral Blast Freezer Monitoring</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/shared/navbar.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 <div id="navbar"></div>
 
 <main class="dashboard-content">
-    <header class="dash-header">
-        <h2>Spiral Blast Freezer System – Operational Overview</h2>
-    </header>
 
-    <section class="kpi-grid">
+<header class="dash-header">
+  <h2>Spiral Blast Freezer System – Operational Overview</h2>
+</header>
 
-        <div class="kpi-card highlight-eff">
-            <div class="kpi-label">Active Freezers</div>
-            <div class="kpi-value" id="val-active-freezers">0 / 3</div>
-            <div class="kpi-trend pos">Drive & Load Status</div>
-        </div>
+<section class="kpi-grid">
 
-        <div class="kpi-card">
-            <div class="kpi-label">Spiral 01 Avg Runtime</div>
-            <div class="kpi-value mini" id="val-runtime-s1">0.0</div>
-            <div class="kpi-trend">Hours</div>
-        </div>
+  <div class="kpi-card highlight-eff">
+    <div class="kpi-label">Active Freezers</div>
+    <div class="kpi-value" id="val-active-freezers">0 / 3</div>
+    <div class="kpi-trend pos">Current System Status</div>
+  </div>
 
-        <div class="kpi-card">
-            <div class="kpi-label">Spiral 02 Avg Runtime</div>
-            <div class="kpi-value mini" id="val-runtime-s2">0.0</div>
-            <div class="kpi-trend">Hours</div>
-        </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Spiral 01 Avg Runtime</div>
+    <div class="kpi-value mini" id="val-runtime-s1">0.0</div>
+    <div class="kpi-trend">Hours</div>
+  </div>
 
-        <div class="kpi-card">
-            <div class="kpi-label">Spiral 03 Avg Runtime</div>
-            <div class="kpi-value mini" id="val-runtime-s3">0.0</div>
-            <div class="kpi-trend">Hours</div>
-        </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Spiral 02 Avg Runtime</div>
+    <div class="kpi-value mini" id="val-runtime-s2">0.0</div>
+    <div class="kpi-trend">Hours</div>
+  </div>
 
-    </section>
+  <div class="kpi-card">
+    <div class="kpi-label">Spiral 03 Avg Runtime</div>
+    <div class="kpi-value mini" id="val-runtime-s3">0.0</div>
+    <div class="kpi-trend">Hours</div>
+  </div>
 
-    <div class="main-grid">
-        <div class="card">
-            <div class="card-title">Real-time Diagnostics</div>
+</section>
 
-            <!-- Spiral 01 -->
-            <div class="diag-group">
-                <h4>
-                    Spiral Unit 01
-                    <span id="status-sf01" class="status-pill warning">UNKNOWN</span>
-                </h4>
-                <div class="diag-item">
-                    <span>Top / Bottom Temp</span>
-                    <div><span id="sf01-temp">--</span> °C</div>
-                </div>
-                <div class="diag-item">
-                    <span>Pressure</span>
-                    <div><span id="sf01-pressure">--</span> kg/cm²</div>
-                </div>
-                <div class="diag-item">
-                    <span>Runtime</span>
-                    <div><span id="sf01-runtime">0</span> hrs</div>
-                </div>
-            </div>
+<div class="main-grid">
 
-            <hr>
+<div class="card">
+<div class="card-title">Real-time Diagnostics</div>
 
-            <!-- Spiral 02 -->
-            <div class="diag-group">
-                <h4>
-                    Spiral Unit 02
-                    <span id="status-sf02" class="status-pill warning">UNKNOWN</span>
-                </h4>
-                <div class="diag-item">
-                    <span>Top / Bottom Temp</span>
-                    <div><span id="sf02-temp">--</span> °C</div>
-                </div>
-                <div class="diag-item">
-                    <span>Pressure</span>
-                    <div><span id="sf02-pressure">--</span> kg/cm²</div>
-                </div>
-                <div class="diag-item">
-                    <span>Runtime</span>
-                    <div><span id="sf02-runtime">0</span> hrs</div>
-                </div>
-            </div>
+<div class="diag-group">
+  <h4>Spiral Unit 01 <span id="status-sf01" class="status-pill warning">UNKNOWN</span></h4>
+  <div class="diag-item"><span>Top / Bottom Temp</span><div><span id="sf01-temp">--</span> °C</div></div>
+  <div class="diag-item"><span>Pressure</span><div><span id="sf01-pressure">--</span> kg/cm²</div></div>
+  <div class="diag-item"><span>Runtime</span><div><span id="sf01-runtime">0</span> hrs</div></div>
+  <div class="diag-item"><span>PCS / Min</span><div><span id="sf01-pcsmin">0</span></div></div>
+  <div class="diag-item"><span>PCS / Day</span><div><span id="sf01-pcsday">0</span></div></div>
+</div>
 
-            <hr>
+<hr>
 
-            <!-- Spiral 03 -->
-            <div class="diag-group">
-                <h4>
-                    Spiral Unit 03
-                    <span id="status-sf03" class="status-pill warning">UNKNOWN</span>
-                </h4>
-                <div class="diag-item">
-                    <span>Top / Bottom Temp</span>
-                    <div><span id="sf03-temp">--</span> °C</div>
-                </div>
-                <div class="diag-item">
-                    <span>Pressure</span>
-                    <div><span id="sf03-pressure">--</span> kg/cm²</div>
-                </div>
-                <div class="diag-item">
-                    <span>Runtime</span>
-                    <div><span id="sf03-runtime">0</span> hrs</div>
-                </div>
-            </div>
+<div class="diag-group">
+  <h4>Spiral Unit 02 <span id="status-sf02" class="status-pill warning">UNKNOWN</span></h4>
+  <div class="diag-item"><span>Top / Bottom Temp</span><div><span id="sf02-temp">--</span> °C</div></div>
+  <div class="diag-item"><span>Pressure</span><div><span id="sf02-pressure">--</span> kg/cm²</div></div>
+  <div class="diag-item"><span>Runtime</span><div><span id="sf02-runtime">0</span> hrs</div></div>
+  <div class="diag-item"><span>PCS / Min</span><div><span id="sf02-pcsmin">0</span></div></div>
+  <div class="diag-item"><span>PCS / Day</span><div><span id="sf02-pcsday">0</span></div></div>
+</div>
 
-        </div>
+<hr>
 
-        <div class="card">
-            <div class="card-title">Freezer Temperature Trend (TEF01) – All Units</div>
-            <div class="chart-container">
-                <canvas id="performanceChart"></canvas>
-            </div>
-        </div>
-    </div>
+<div class="diag-group">
+  <h4>Spiral Unit 03 <span id="status-sf03" class="status-pill warning">UNKNOWN</span></h4>
+  <div class="diag-item"><span>Top / Bottom Temp</span><div><span id="sf03-temp">--</span> °C</div></div>
+  <div class="diag-item"><span>Pressure</span><div><span id="sf03-pressure">--</span> kg/cm²</div></div>
+  <div class="diag-item"><span>Runtime</span><div><span id="sf03-runtime">0</span> hrs</div></div>
+  <div class="diag-item"><span>PCS / Min</span><div><span id="sf03-pcsmin">0</span></div></div>
+  <div class="diag-item"><span>PCS / Day</span><div><span id="sf03-pcsday">0</span></div></div>
+</div>
 
-    <div class="card table-card">
-        <div class="card-title">Operational Data Summary</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Unit</th>
-                    <th>Temp Top/Bottom</th>
-                    <th>Pressure T/B</th>
-                    <th>Freezing Time</th>
-                    <th>Runtime</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="summary-table-body"></tbody>
-        </table>
-    </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Freezer Temperature Trend (TEF01)</div>
+  <canvas id="performanceChart"></canvas>
+</div>
+
+</div>
+
+<div class="card table-card">
+<div class="card-title">Operational Data Summary</div>
+<table>
+<thead>
+<tr>
+  <th>Unit</th>
+  <th>Temp T/B</th>
+  <th>Pressure T/B</th>
+  <th>Freezing Time</th>
+  <th>Runtime</th>
+  <th>Status</th>
+</tr>
+</thead>
+<tbody id="summary-table-body"></tbody>
+</table>
+</div>
+
 </main>
 
 <script src="/shared/navbar.js"></script>
-<script>
-    fetch('/shared/navbar.html')
-        .then(res => res.ok ? res.text() : Promise.reject())
-        .then(html => document.getElementById('navbar').innerHTML = html);
-</script>
 <script src="script.js"></script>
+
 </body>
 </html>
