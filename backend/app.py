@@ -89,72 +89,48 @@ def read_csv(file_name, value_key="value"):
 
     return data
 
-def read_sbf_csv(file_name):
+def read_sbf_csv(file_path):
     """
-    SAFE reader for Spiral Blast Freezer CSVs
-    - Removes NaN values
-    - Drops Excel 'Unnamed' columns
-    - Guarantees JSON-safe output
+    Reads Spiral Blast Freezer CSV files, handles metadata/units,
+    and normalizes headers for JSON output.
     """
-    path = os.path.join(DATA_DIR, file_name)
-    data = []
-
-    if not os.path.exists(path):
-        print(f"❌ FILE MISSING: {path}")
-        return data
+    if not os.path.exists(file_path):
+        print(f"⚠️ Warning: File not found at {file_path}")
+        return []
 
     try:
-        df = pd.read_csv(path)
-        df.columns = [c.strip() for c in df.columns]
+        # 1. Read CSV using 'latin1' to handle special symbols (², °)
+        # Skip row 1 (the units row like 'oC', 'kg/cm2')
+        df = pd.read_csv(file_path, skiprows=[1], encoding='latin1')
 
-        # Drop Excel junk columns
-        df = df.loc[:, ~df.columns.str.contains("^Unnamed", case=False)]
+        # 2. Clean and Normalize Column Names
+        # This transforms 'Main Drive' -> 'main_drive', 'TEF01' -> 'tef01', etc.
+        df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
 
-        # Drop completely empty rows
-        df = df.dropna(how="all")
+        # 3. Handle 'Unnamed' columns (often used for Energy in these files)
+        # If 'unnamed:_11' exists (where Use kWh is stored), rename it to 'energy_kwh'
+        if 'unnamed:_10' in df.columns: df.rename(columns={'unnamed:_10': 'energy_time'}, inplace=True)
+        if 'unnamed:_11' in df.columns: df.rename(columns={'unnamed:_11': 'use_kwh'}, inplace=True)
 
-        # Detect time column
-        time_col = None
-        for c in df.columns:
-            cl = c.lower()
-            if "time" in cl or "date" in cl or "timestamp" in cl:
-                time_col = c
-                break
+        # Remove any other empty unnamed columns
+        df = df.loc[:, ~df.columns.str.contains('^unnamed')]
 
-        # Fallback: first column
-        if not time_col:
-            time_col = df.columns[0]
+        # 4. Numeric Conversion
+        # Ensure values are floats so they can be graphed/calculated
+        numeric_cols = ['tef01', 'tef02', 'pt01', 'pt02', 'main_drive', 'sub_drive', 'freezing_time', 'runtime', 'use_kwh']
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        for _, r in df.iterrows():
-            row = {}
+        # 5. Fill NaNs with None (becomes null in JSON)
+        df = df.where(pd.notnull(df), None)
 
-            # Time (always string)
-            row["time"] = str(r[time_col])
-
-            for c in df.columns:
-                if c == time_col:
-                    continue
-
-                val = r[c]
-
-                # 🔒 HARD FILTER: no NaN allowed
-                if pd.isna(val):
-                    continue
-
-                # Convert safely
-                try:
-                    row[c.lower()] = float(val)
-                except:
-                    row[c.lower()] = str(val)
-
-            # Only append rows that have actual data
-            if len(row) > 1:
-                data.append(row)
+        # Return latest data (or all data if needed for charts)
+        return df.to_dict(orient='records')
 
     except Exception as e:
-        print(f"🔥 SBF CSV ERROR ({file_name}): {e}")
-
-    return data
+        print(f"🔥 Error reading {file_path}: {e}")
+        return []
 
 # =====================================================
 # FRONTEND ROUTES
@@ -329,15 +305,24 @@ def wwtp_history():
 
 @app.route("/api/spiral_blast_freezer")
 def spiral_blast_freezer():
+    # CRITICAL FIX: Use os.path.join(DATA_DIR, ...) so the function can find the files
+    data_s1 = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral1_Data.csv"))
+    data_s2 = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral2_Data.csv"))
+    data_s3 = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral3_Data.csv"))
+    
+    # Try to read the monthly energy file if it exists
+    energy_file = os.path.join(DATA_DIR, "sbf_power_monthly_ENERGY.csv")
+    energy_data = read_sbf_csv(energy_file) if os.path.exists(energy_file) else []
+
     return jsonify({
         "system": "spiral_blast_freezer",
         "status_data": {
-            "spiral_01": { "data": read_sbf_csv("sbf_spiral1_Data.csv") },
-            "spiral_02": { "data": read_sbf_csv("sbf_spiral2_Data.csv") },
-            "spiral_03": { "data": read_sbf_csv("sbf_spiral3_Data.csv") }
+            "spiral_01": { "data": data_s1 },
+            "spiral_02": { "data": data_s2 },
+            "spiral_03": { "data": data_s3 }
         },
         "energy": {
-            "monthly_energy": read_sbf_csv("sbf_power_monthly_ENERGY.csv")
+            "monthly_energy": energy_data
         }
     })
 
