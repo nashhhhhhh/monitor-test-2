@@ -162,3 +162,47 @@ th {
     background: #fef3c7;
     color: #92400e;
 }
+
+.flex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.date-input {
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+}
+
+.flow-rate-grid {
+    display: grid;
+    /* Changed to 3 columns to fit 5 items nicely */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+    gap: 16px;
+    padding: 10px 0;
+}
+
+.flow-item {
+    background: var(--bg);
+    padding: 16px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.flow-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.flow-val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+}

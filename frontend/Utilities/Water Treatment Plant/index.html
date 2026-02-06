@@ -14,12 +14,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 
 <body>
 
   <div id="navbar"></div>
-
   <script src="/shared/navbar.js"></script>
   <script>
     fetch('/shared/navbar.html')
@@ -32,7 +32,7 @@
     
     <header class="dash-header">
       <h1>Water Treatment Plant (WTP)</h1>
-      <p class="subtitle">Real-time monitoring of system pressure, chlorine levels, and water flow totals</p>
+      <p class="subtitle">Live analysis of system pressure, chlorine safety, and real-time flow rates</p>
     </header>
 
     <section class="kpi-grid">
@@ -74,43 +74,40 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Residual Chlorine Monitoring (mg)</div>
+        <div class="card-title flex-header">
+          <span>Residual Chlorine Monitoring (mg)</span>
+          <input type="date" id="chlorine-date-picker" class="date-input">
+        </div>
         <div class="chart-container">
           <canvas id="chlorineChart"></canvas>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">WTP Operational Summary</div>
-        <div class="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Resource</th>
-                <th>Daily Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="wtp-table-body">
-              <tr>
-                <td>Deep Well Water</td>
-                <td id="table-well-val">-- m³</td>
-                <td><span class="status-pill active">STABLE</span></td>
-              </tr>
-              <tr>
-                <td>Soft Water (Total)</td>
-                <td id="table-soft-val">-- m³</td>
-                <td><span class="status-pill active">STABLE</span></td>
-              </tr>
-              <tr>
-                <td>Fire Water Tank</td>
-                <td id="table-fire-val">-- m³</td>
-                <td><span class="status-pill warning">RESERVE</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <div class="card-title">Real-time Flow Rates (m³/hr)</div>
+  <div class="flow-rate-grid">
+    <div class="flow-item">
+      <span class="flow-label">Deep Well</span>
+      <span class="flow-val" id="rate-well">0.00</span>
+    </div>
+    <div class="flow-item">
+      <span class="flow-label">Soft Water 1</span>
+      <span class="flow-val" id="rate-soft1">0.00</span>
+    </div>
+    <div class="flow-item">
+      <span class="flow-label">Soft Water 2</span>
+      <span class="flow-val" id="rate-soft2">0.00</span>
+    </div>
+    <div class="flow-item">
+      <span class="flow-label">RO Supply</span>
+      <span class="flow-val" id="rate-ro">0.00</span>
+    </div>
+    <div class="flow-item">
+      <span class="flow-label">Fire Water Tank</span>
+      <span class="flow-val" id="rate-fire">0.00</span>
+    </div>
+  </div>
+</div>
 
     </section>
   </main>

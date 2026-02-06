@@ -1,9 +1,10 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 import sqlite3
 import csv
 import os
 import io
 import pandas as pd
+from datetime import datetime
 
 # =====================================================
 # PATH CONFIGURATION
@@ -409,6 +410,52 @@ def mdb_data():
 # WATER TREATMENT PLANT (WTP) API
 # =====================================================
 
+def get_flow_rate(file_name):
+    """Calculates flow rate (m3/hr) from 15-minute totalizer logs."""
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path): return 0
+    try:
+        df = pd.read_csv(path, skiprows=2)
+        df.columns = [c.strip() for c in df.columns]
+        val_col = [c for c in df.columns if 'Value' in c][0]
+        last_two = df.tail(2)
+        if len(last_two) == 2:
+            # (Latest Total - Previous Total) / 0.25 hours = m3/hr
+            diff = float(last_two.iloc[1][val_col]) - float(last_two.iloc[0][val_col])
+            return round(diff * 4, 2)
+    except: pass
+    return 0
+
+@app.route("/api/wtp/chlorine")
+def wtp_chlorine():
+    date_str = request.args.get('date') # Expected format: YYYY-MM-DD
+    file_name = "RES102ROWaterSupply_ResCl2.csv"
+    path = os.path.join(DATA_DIR, file_name)
+    data = []
+    
+    if not os.path.exists(path): return jsonify([])
+
+    try:
+        df = pd.read_csv(path, skiprows=2)
+        df.columns = [c.strip() for c in df.columns]
+        df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+        
+        # Filter by date if provided, otherwise show latest 50 points
+        if date_str:
+            df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
+        else:
+            df = df.tail(50)
+
+        for _, row in df.iterrows():
+            data.append({
+                "time": row['dt'].strftime('%H:%M'),
+                "mg": float(row.get('Value (mg)', row.get('Value', 0)))
+            })
+    except Exception as e:
+        print(f"Chlorine Filter Error: {e}")
+    return jsonify(data)
+
 @app.route("/api/wtp")
 def wtp_data():
     return jsonify({
@@ -418,6 +465,13 @@ def wtp_data():
             "soft_water_2":  read_csv("_FIT-104-SoftWaterSupply-02_Total.csv", "m3"),
             "ro_water":      read_csv("FIT-103-ROWaterSupply_Total.csv", "m3"),
             "fire_water":    read_csv("FIT-105-FireWaterTank_Total.csv", "m3")
+        },
+        "flow_rates": {
+            "deep_well":    get_flow_rate("FIT-101-DeepWellWater_Total.csv"),
+            "soft_water_1": get_flow_rate("FIT-102-SoftWaterSupply-01_Total.csv"),
+            "soft_water_2": get_flow_rate("_FIT-104-SoftWaterSupply-02_Total.csv"),
+            "ro_water":     get_flow_rate("FIT-103-ROWaterSupply_Total.csv"),
+            "fire_water":   get_flow_rate("FIT-105-FireWaterTank_Total.csv") # Added this
         },
         "pressure": {
             "soft_water":    read_csv("PT101SoftWaterSupplyNo1_Pres.csv", "bar"),
