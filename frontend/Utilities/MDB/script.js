@@ -119,6 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
+  
+
   loadMDBData();
   setInterval(loadMDBData, 60000);
 });
