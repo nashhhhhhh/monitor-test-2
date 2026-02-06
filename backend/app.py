@@ -403,6 +403,36 @@ def wtp_chlorine():
         print(f"Chlorine Filter Error: {e}")
     return jsonify(data)
 
+@app.route("/api/wtp/pressure")
+def wtp_pressure():
+    date_str = request.args.get('date') # Format: YYYY-MM-DD
+    # We have two files for pressure
+    file_ro = "PT102ROWaterSupply_Pres.csv"
+    file_soft = "PT101SoftWaterSupplyNo1_Pres.csv"
+    
+    def get_filtered_data(file_name, value_key):
+        path = os.path.join(DATA_DIR, file_name)
+        if not os.path.exists(path): return []
+        try:
+            df = pd.read_csv(path, skiprows=2)
+            df.columns = [c.strip() for c in df.columns]
+            df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+            
+            if date_str:
+                df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
+            else:
+                df = df.tail(50)
+
+            val_col = [c for c in df.columns if 'Value' in c][0]
+            return [{"time": r['dt'].strftime('%H:%M'), value_key: float(r[val_col])} for _, r in df.iterrows()]
+        except: return []
+
+    return jsonify({
+        "ro_supply": get_filtered_data(file_ro, "bar"),
+        "soft_water": get_filtered_data(file_soft, "bar")
+    })
+
 @app.route("/api/wtp")
 def wtp_data():
     return jsonify({
