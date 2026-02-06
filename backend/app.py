@@ -91,8 +91,10 @@ def read_csv(file_name, value_key="value"):
 
 def read_sbf_csv(file_name):
     """
-    Reader for Spiral Blast Freezer CSVs
-    Assumes FIRST column is time if no explicit time column exists
+    SAFE reader for Spiral Blast Freezer CSVs
+    - Removes NaN values
+    - Drops Excel 'Unnamed' columns
+    - Guarantees JSON-safe output
     """
     path = os.path.join(DATA_DIR, file_name)
     data = []
@@ -105,7 +107,13 @@ def read_sbf_csv(file_name):
         df = pd.read_csv(path)
         df.columns = [c.strip() for c in df.columns]
 
-        # 1️⃣ Try to find a time/timestamp column
+        # Drop Excel junk columns
+        df = df.loc[:, ~df.columns.str.contains("^Unnamed", case=False)]
+
+        # Drop completely empty rows
+        df = df.dropna(how="all")
+
+        # Detect time column
         time_col = None
         for c in df.columns:
             cl = c.lower()
@@ -113,22 +121,35 @@ def read_sbf_csv(file_name):
                 time_col = c
                 break
 
-        # 2️⃣ Fallback: assume FIRST column is time
+        # Fallback: first column
         if not time_col:
             time_col = df.columns[0]
 
         for _, r in df.iterrows():
-            row = {"time": str(r[time_col])}
+            row = {}
+
+            # Time (always string)
+            row["time"] = str(r[time_col])
 
             for c in df.columns:
                 if c == time_col:
                     continue
-                try:
-                    row[c.lower()] = float(r[c])
-                except:
-                    row[c.lower()] = str(r[c])
 
-            data.append(row)
+                val = r[c]
+
+                # 🔒 HARD FILTER: no NaN allowed
+                if pd.isna(val):
+                    continue
+
+                # Convert safely
+                try:
+                    row[c.lower()] = float(val)
+                except:
+                    row[c.lower()] = str(val)
+
+            # Only append rows that have actual data
+            if len(row) > 1:
+                data.append(row)
 
     except Exception as e:
         print(f"🔥 SBF CSV ERROR ({file_name}): {e}")
