@@ -257,46 +257,70 @@ def cctv_log():
         return jsonify([])
 
 
-# =========================
-# WWTP API ROUTES
-# =========================
+# =====================================================
+# WWTP API ROUTES (REFINED)
+# =====================================================
 
-@app.route("/api/wwtp/summary")
-def wwtp_dashboard_data():
-    """Consolidated endpoint for the WWTP Dashboard"""
+@app.route("/api/wwtp/latest")
+def wwtp_latest():
+    """Provides the most recent data points for KPI cards and dashboard sync"""
     return jsonify({
-        "effluent_flow": read_csv("EffluentPump_Total.csv", "m3"),
-        "raw_pump_flow": read_csv("_RawWaterWastePump-01_Total.csv", "m3"),
-        "raw_temp": read_csv("_RawWasteWater_Temp.csv", "temp"),
-        "control_energy": read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv", "kwh"),
-        "plant_energy": read_csv("PMG-WWTP_Energy.csv", "kwh"),
-        "solid_waste": read_csv("WG-WWTP.csv", "m3")
+        "effluent":     read_csv("EffluentPump_Total.csv", "value"),
+        "rawPump":      read_csv("_RawWaterWastePump-01_Total.csv", "value"),
+        "rawTemp":      read_csv("_RawWasteWater_Temp.csv", "value"),
+        "pmgEnergy":    read_csv("PMG-WWTP_Energy.csv", "value"),
+        "ctrlEnergy":   read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv", "value")
     })
 
-# Individual endpoints for specific chart updates
-@app.route("/api/wwtp/effluent_pump")
-def effluent_pump():
-    return jsonify(read_csv("EffluentPump_Total.csv", "value"))
+@app.route("/api/wwtp/history")
+def wwtp_history():
+    """Handles date-filtered requests for specific chart categories"""
+    date_str = request.args.get('date')
+    category = request.args.get('category')
+    
+    # Mapping logic for different chart sections
+    category_files = {
+        'energy': [("PMG-WWTP_Energy.csv", "pmg"), ("_PM-WWTP-CONTROL-PANEL_Energy.csv", "ctrl")],
+        'flow':   [("EffluentPump_Total.csv", "effluent"), ("_RawWaterWastePump-01_Total.csv", "raw")],
+        'temp':   [("_RawWasteWater_Temp.csv", "temp")]
+    }
 
-@app.route("/api/wwtp/raw_pump")
-def raw_pump():
-    return jsonify(read_csv("_RawWaterWastePump-01_Total.csv", "value"))
+    def get_filtered_data(file_name, key):
+        path = os.path.join(DATA_DIR, file_name)
+        if not os.path.exists(path): return []
+        try:
+            # Skip metadata lines 1 & 2
+            df = pd.read_csv(path, skiprows=2)
+            df.columns = [c.strip() for c in df.columns]
+            
+            # Clean ' ICT' and parse timestamps
+            df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+            
+            # Filter by the user-selected date
+            if date_str:
+                df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
+            else:
+                df = df.tail(50)
 
-@app.route("/api/wwtp/raw_temp")
-def raw_temp():
-    return jsonify(read_csv("_RawWasteWater_Temp.csv", "value"))
+            # Identify the Value column dynamically
+            val_col = [c for c in df.columns if 'Value' in c][0]
+            
+            return [{
+                "time": r['dt'].strftime('%H:%M'), 
+                "value": float(r[val_col])
+            } for _, r in df.iterrows()]
+        except Exception as e:
+            print(f"Error filtering {file_name}: {e}")
+            return []
 
-@app.route("/api/wwtp/control_energy")
-def control_energy():
-    return jsonify(read_csv("_PM-WWTP-CONTROL-PANEL_Energy.csv", "value"))
+    response_data = {}
+    if category in category_files:
+        for file_name, key in category_files[category]:
+            response_data[key] = get_filtered_data(file_name, key)
+            
+    return jsonify(response_data)
 
-@app.route("/api/wwtp/pmg_energy")
-def pmg_energy():
-    return jsonify(read_csv("PMG-WWTP_Energy.csv", "value"))
-
-@app.route("/api/wwtp/wg")
-def wg():
-    return jsonify(read_csv("WG-WWTP.csv", "value"))
 
 
 # =====================================================
