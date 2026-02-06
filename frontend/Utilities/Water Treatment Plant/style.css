@@ -1,5 +1,164 @@
-/* Styles for Sub-pages */
-body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 20px; margin: 0; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-.card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-h2 { margin-top: 0; color: #1f2937; }
+/* =========================================
+   DESIGN SYSTEM (ALIGNED WITH ALL TABS)
+   ========================================= */
+:root {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text-dark: #0f172a;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;   /* Water Blue */
+    --success: #10b981;  /* Normal Flow */
+    --warning: #f59e0b;  /* Low Level/Chlorine Alert */
+    --danger: #ef4444;   /* High Pressure Alert */
+}
+
+/* =========================================
+   BASE STYLES
+   ========================================= */
+body {
+    margin: 0;
+    background: var(--bg);
+    font-family: 'Inter', sans-serif;
+    color: var(--text-dark);
+    -webkit-font-smoothing: antialiased;
+}
+
+.dashboard-content {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 32px;
+}
+
+.dash-header {
+    margin-bottom: 28px;
+}
+
+.dash-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-size: 0.95rem;
+}
+
+/* =========================================
+   KPI SECTION
+   ========================================= */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.kpi-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.kpi-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-top: 6px;
+    color: var(--text-dark);
+}
+
+/* Dynamic Classes for System Status */
+.kpi-value.pos { color: var(--success); }
+.kpi-value.neg { color: var(--danger); animation: pulse-red 2s infinite; }
+
+@keyframes pulse-red {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* =========================================
+   MAIN CHART GRID
+   ========================================= */
+.main-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 24px;
+}
+
+.card {
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 24px;
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--accent);
+    padding-left: 12px;
+}
+
+.chart-container {
+    height: 320px;
+    position: relative;
+}
+
+/* =========================================
+   TABLE STYLES
+   ========================================= */
+.table-card {
+    margin-top: 8px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+th {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* =========================================
+   STATUS PILLS
+   ========================================= */
+.status-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.status-pill.active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-pill.warning {
+    background: #fef3c7;
+    color: #92400e;
+}

@@ -1,70 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WTP Monitoring | Stage 2</title>
+
+  <link rel="stylesheet" href="/shared/navbar.css" />
+
+  <link rel="stylesheet" href="style.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+  <div id="navbar"></div>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
+  <script src="/shared/navbar.js"></script>
+  <script>
+    fetch('/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html)
+      .catch(err => console.error(err));
+  </script>
 
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
+  <main class="dashboard-content">
+    
+    <header class="dash-header">
+      <h1>Water Treatment Plant (WTP)</h1>
+      <p class="subtitle">Real-time monitoring of system pressure, chlorine levels, and water flow totals</p>
+    </header>
 
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">RO Water Supply (m³)</div>
+        <div class="kpi-value" id="kpi-ro-total">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">RO Supply Pressure (bar)</div>
+        <div class="kpi-value" id="kpi-ro-pres">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Residual Chlorine (mg)</div>
+        <div class="kpi-value" id="kpi-chlorine">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">System Status</div>
+        <div class="kpi-value" id="kpi-wtp-status">NORMAL</div>
+      </div>
+    </section>
+
+    <section class="main-grid">
+      
+      <div class="card">
+        <div class="card-title">System Pressure Trends (bar)</div>
+        <div class="chart-container">
+          <canvas id="pressureChart"></canvas>
         </div>
-    </div>
+      </div>
 
-    <div class="nav-item">
-        <button class="nav-btn active">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
+      <div class="card">
+        <div class="card-title">Water Source Distribution (m³)</div>
+        <div class="chart-container">
+          <canvas id="flowDistributionChart"></canvas>
         </div>
-    </div>
-</nav>
+      </div>
 
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
-    </div>
-
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
+      <div class="card">
+        <div class="card-title">Residual Chlorine Monitoring (mg)</div>
+        <div class="chart-container">
+          <canvas id="chlorineChart"></canvas>
         </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-</main>
+      </div>
 
-<script src="/Overview/script.js"></script>
+      <div class="card">
+        <div class="card-title">WTP Operational Summary</div>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>Daily Total</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="wtp-table-body">
+              <tr>
+                <td>Deep Well Water</td>
+                <td id="table-well-val">-- m³</td>
+                <td><span class="status-pill active">STABLE</span></td>
+              </tr>
+              <tr>
+                <td>Soft Water (Total)</td>
+                <td id="table-soft-val">-- m³</td>
+                <td><span class="status-pill active">STABLE</span></td>
+              </tr>
+              <tr>
+                <td>Fire Water Tank</td>
+                <td id="table-fire-val">-- m³</td>
+                <td><span class="status-pill warning">RESERVE</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="script.js" defer></script>
+
 </body>
 </html>

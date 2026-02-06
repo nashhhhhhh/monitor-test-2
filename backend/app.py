@@ -406,6 +406,29 @@ def mdb_data():
     })
 
 # =====================================================
+# WATER TREATMENT PLANT (WTP) API
+# =====================================================
+
+@app.route("/api/wtp")
+def wtp_data():
+    return jsonify({
+        "flow_totals": {
+            "deep_well":     read_csv("FIT-101-DeepWellWater_Total.csv", "m3"),
+            "soft_water_1":  read_csv("FIT-102-SoftWaterSupply-01_Total.csv", "m3"),
+            "soft_water_2":  read_csv("_FIT-104-SoftWaterSupply-02_Total.csv", "m3"),
+            "ro_water":      read_csv("FIT-103-ROWaterSupply_Total.csv", "m3"),
+            "fire_water":    read_csv("FIT-105-FireWaterTank_Total.csv", "m3")
+        },
+        "pressure": {
+            "soft_water":    read_csv("PT101SoftWaterSupplyNo1_Pres.csv", "bar"),
+            "ro_supply":     read_csv("PT102ROWaterSupply_Pres.csv", "bar")
+        },
+        "quality": {
+            "ro_chlorine":   read_csv("RES102ROWaterSupply_ResCl2.csv", "mg")
+        }
+    })
+
+# =====================================================
 # SERVER START
 # =====================================================
 
