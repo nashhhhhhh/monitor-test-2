@@ -1,56 +1,70 @@
 document.addEventListener("DOMContentLoaded", () => {
     let charts = {};
+
+    // Reference the Date Pickers
     const emdbPicker = document.getElementById('emdb-date-picker');
     const genPicker = document.getElementById('gen-date-picker');
 
-    // Set default dates to today
+    // Initialize pickers with today's date
     if (emdbPicker) emdbPicker.valueAsDate = new Date();
     if (genPicker) genPicker.valueAsDate = new Date();
 
+    /**
+     * Main data loader for Real-time KPIs and Distribution
+     */
     async function loadMDBData() {
         try {
             console.log("⚡ Syncing MDB Real-time Data...");
             const response = await fetch("/api/mdb");
             const data = await response.json();
 
-            // 1. Update KPIs & Status (Includes Outlier Detection)
+            // 1. Update KPIs (Real-time)
             updateKPIs(data);
             
-            // 2. Update Generator Table
+            // 2. Update Generator Status Table (Real-time)
             updateGenTable(data.generators);
 
-            // 3. MDB Distribution Chart (Latest values)
+            // 3. MDB Distribution Chart (Latest Load)
             const mdbKeys = ['mdb_6', 'mdb_7', 'mdb_8', 'mdb_9', 'mdb_10'];
-            const distValues = mdbKeys.map(k => data.energy[k]?.slice(-1)[0]?.kwh || 0);
-            
+            const distributionData = mdbKeys.map(key => {
+                const list = data.energy[key];
+                return list.length > 0 ? list[list.length - 1].kwh : 0;
+            });
+
             renderChart('distributionChart', 'bar', {
                 labels: ['MDB-6', 'MDB-7', 'MDB-8', 'MDB-9', 'MDB-10'],
                 datasets: [{
-                    label: 'Latest Energy (kWh)',
-                    data: distValues,
+                    label: 'Energy (kWh)',
+                    data: distributionData,
                     backgroundColor: '#3b82f6',
-                    borderRadius: 4
+                    borderRadius: 6
                 }]
             });
 
-            // 4. Initial load of Historical Charts
+            // 4. Trigger initial historical fetch for the trends
             fetchEMDBHistory(emdbPicker.value);
             fetchGenHistory(genPicker.value);
 
         } catch (err) {
-            console.error("🔥 MDB load error:", err);
+            console.error("🔥 MDB real-time load error:", err);
         }
     }
 
+    /**
+     * Fetches EMDB-1 line profile for a specific date
+     */
     async function fetchEMDBHistory(date) {
         try {
             const res = await fetch(`/api/mdb/history?category=energy&date=${date}`);
             const data = await res.json();
             
+            // If the backend auto-corrected the date (to latest available), update the picker
+            if (data.selected_date) emdbPicker.value = data.selected_date;
+
             renderChart('emdbTrendChart', 'line', {
                 labels: data.emdb_1.map(d => d.time),
                 datasets: [{
-                    label: `EMDB-1 Load (${date})`,
+                    label: `EMDB-1 Energy Profile (kWh)`,
                     data: data.emdb_1.map(d => d.value),
                     borderColor: '#10b981',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -58,104 +72,114 @@ document.addEventListener("DOMContentLoaded", () => {
                     tension: 0.3
                 }]
             });
-        } catch (err) { console.error("EMDB History Error:", err); }
+        } catch (err) {
+            console.error("EMDB History Error:", err);
+        }
     }
 
+    /**
+     * Fetches all 4 Generator runtimes for a specific date
+     */
     async function fetchGenHistory(date) {
         try {
             const res = await fetch(`/api/mdb/history?category=gens&date=${date}`);
             const data = await res.json();
             
+            if (data.selected_date) genPicker.value = data.selected_date;
+
             renderChart('genRuntimeChart', 'line', {
                 labels: data.gen_1.map(d => d.time),
                 datasets: [
-                    { label: 'Gen 1', data: data.gen_1.map(d => d.value), borderColor: '#f59e0b', tension: 0.1 },
-                    { label: 'Gen 2', data: data.gen_2.map(d => d.value), borderColor: '#ef4444', tension: 0.1 },
-                    { label: 'Gen 3', data: data.gen_3.map(d => d.value), borderColor: '#3b82f6', tension: 0.1 },
-                    { label: 'Gen 4', data: data.gen_4.map(d => d.value), borderColor: '#94a3b8', tension: 0.1 }
+                    { label: 'Gen-1', data: data.gen_1.map(d => d.value), borderColor: '#f59e0b', tension: 0.1 },
+                    { label: 'Gen-2', data: data.gen_2.map(d => d.value), borderColor: '#ef4444', tension: 0.1 },
+                    { label: 'Gen-3', data: data.gen_3.map(d => d.value), borderColor: '#3b82f6', tension: 0.1 },
+                    { label: 'Gen-4', data: data.gen_4.map(d => d.value), borderColor: '#94a3b8', tension: 0.1 }
                 ]
             });
-        } catch (err) { console.error("Gen History Error:", err); }
+        } catch (err) {
+            console.error("Generator History Error:", err);
+        }
     }
 
+    /**
+     * Universal Chart Renderer
+     */
     function renderChart(id, type, data) {
         const ctx = document.getElementById(id);
-        if (charts[id]) charts[id].destroy();
+        if (!ctx) return;
+        if (charts[id]) { charts[id].destroy(); }
         charts[id] = new Chart(ctx, {
             type: type,
             data: data,
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: { x: { grid: { display: false } } }
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Inter', size: 11 } } } },
+                scales: { 
+                    y: { beginAtZero: false }, 
+                    x: { grid: { display: false } } 
+                }
             }
         });
     }
 
+    /**
+     * Updates KPI cards (Latest values)
+     */
     function updateKPIs(data) {
         const emdbVal = data.energy.emdb_1.slice(-1)[0]?.kwh || 0;
         document.getElementById("kpi-emdb").textContent = emdbVal.toLocaleString();
 
         let totalMdb = 0;
-        let mdbVals = [];
-        ['mdb_6', 'mdb_7', 'mdb_8', 'mdb_9', 'mdb_10'].forEach(k => {
-            const val = data.energy[k]?.slice(-1)[0]?.kwh || 0;
-            totalMdb += val;
-            mdbVals.push(val);
+        ['mdb_6', 'mdb_7', 'mdb_8', 'mdb_9', 'mdb_10'].forEach(key => {
+            totalMdb += data.energy[key].slice(-1)[0]?.kwh || 0;
         });
         document.getElementById("kpi-total-mdb").textContent = totalMdb.toLocaleString();
-
-        // Generator Active Logic
-        let runtimes = [1,2,3,4].map(n => {
-            const list = data.generators[`gen_${n}`];
-            return list.slice(-1)[0]?.runtime || 0;
-        });
 
         let activeGens = 0;
         [1,2,3,4].forEach(n => {
             const list = data.generators[`gen_${n}`];
-            if (list.length >= 2 && list[list.length-1].runtime > list[list.length-2].runtime) activeGens++;
+            if (list.length >= 2) {
+                if (list[list.length-1].runtime > list[list.length-2].runtime) activeGens++;
+            }
         });
         document.getElementById("kpi-gen-status").textContent = `${activeGens} / 4`;
-
-        // System Status Outlier Logic
-        const statusEl = document.getElementById("kpi-system-status");
-        const isAbnormal = detectOutlier(runtimes) || detectOutlier(mdbVals);
-        
-        statusEl.textContent = isAbnormal ? "ATTENTION" : "NORMAL";
-        statusEl.className = isAbnormal ? "kpi-value neg" : "kpi-value pos";
     }
 
-    function detectOutlier(arr) {
-        if (arr.length < 2) return false;
-        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-        if (mean === 0) return false;
-        return arr.some(v => v > (mean * 2)); // Trigger alert if any value is 2x the average
-    }
-
+    /**
+     * Updates Generator Table (Latest values)
+     */
     function updateGenTable(gens) {
         const tbody = document.getElementById('gen-table-body');
+        if (!tbody) return;
         tbody.innerHTML = '';
         [1,2,3,4].forEach(n => {
-            const list = gens[`gen_${n}`];
-            const latest = list.slice(-1)[0]?.runtime || 0;
-            const prev = list.slice(-2)[0]?.runtime || 0;
-            const running = latest > prev && prev !== 0;
+            const key = `gen_${n}`;
+            const latest = gens[key].slice(-1)[0]?.runtime || 0;
+            const prev = gens[key].slice(-2)[0]?.runtime || 0;
+            const isRunning = latest > prev && prev !== 0;
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>Generator ${n}</td>
                 <td>${latest.toFixed(1)} hrs</td>
-                <td><span class="status-pill ${running ? 'active' : 'warning'}">${running ? 'RUNNING' : 'STANDBY'}</span></td>
+                <td><span class="status-pill ${isRunning ? 'active' : 'warning'}">${isRunning ? 'RUNNING' : 'STANDBY'}</span></td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    // Listeners
-    if (emdbPicker) emdbPicker.addEventListener('change', (e) => fetchEMDBHistory(e.target.value));
-    if (genPicker) genPicker.addEventListener('change', (e) => fetchGenHistory(e.target.value));
+    // --- Listeners for Date Pickers ---
+    if (emdbPicker) {
+        emdbPicker.addEventListener('change', (e) => fetchEMDBHistory(e.target.value));
+    }
+    if (genPicker) {
+        genPicker.addEventListener('change', (e) => fetchGenHistory(e.target.value));
+    }
 
+    // Initial Load
     loadMDBData();
+
+    // Refresh real-time data every 60 seconds
     setInterval(loadMDBData, 60000);
 });
