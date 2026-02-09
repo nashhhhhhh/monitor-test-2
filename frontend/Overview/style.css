@@ -1,18 +1,19 @@
 /* =========================================
-   UNIFIED COMMAND CENTER - CORE STYLES
+   SYSTEM HEALTH OVERVIEW STYLES
    ========================================= */
 
 :root {
-    --bg-color: #f0f4f8;
+    --bg-color: #f0f2f5;
     --card-bg: #ffffff;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --border-color: #cbd5e1;
+    --text-main: #1a202c;
+    --text-muted: #718096;
+    --border-color: #e2e8f0;
     
-    /* System Status Palette */
+    /* Status Palette */
     --status-ok: #10b981;
     --status-warn: #f59e0b;
     --status-crit: #ef4444;
+    --status-off: #94a3b8;
 }
 
 body {
@@ -23,191 +24,180 @@ body {
 }
 
 .dashboard-content {
-    max-width: 1600px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 30px 20px;
+    padding: 40px 20px;
 }
 
 /* =========================================
-   HEADER & KPI PILLS
+   SYSTEM STATUS HEADER
    ========================================= */
 
-.dash-header {
+.system-status-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--border-color);
+    align-items: center;
+    background: white;
+    padding: 30px 40px;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 40px;
 }
 
-.dash-header h1 {
-    font-size: 2.2rem;
+.header-left h1 {
+    font-size: 1.8rem;
     font-weight: 800;
     margin: 0;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
 }
 
-.stat-pill {
-    background: white;
-    padding: 10px 20px;
-    border-radius: 50px;
-    border: 1px solid var(--border-color);
-    font-size: 0.9rem;
-    font-weight: 600;
+.header-left p {
+    color: var(--text-muted);
+    margin: 5px 0 0 0;
 }
 
-.stat-pill .label { color: var(--text-muted); margin-right: 8px; }
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.sync-info {
+    text-align: right;
+    font-size: 0.85rem;
+}
+
+.sync-info .label { color: var(--text-muted); display: block; }
+.sync-info .value { font-weight: 700; }
+
+/* Status Light & Animations */
+.status-light {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 0 1px #ddd;
+}
+
+.status-light.ok { background-color: var(--status-ok); }
+.status-light.critical { 
+    background-color: var(--status-crit); 
+    animation: pulse-red 1.5s infinite;
+}
 
 /* =========================================
-   GLOBAL ALERT BANNER
+   HEALTH GRID & CARDS
+   ========================================= */
+
+.health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+}
+
+.status-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid var(--border-color);
+    border-left: 8px solid var(--status-off);
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 180px;
+}
+
+.status-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Border Colors */
+.status-card.normal { border-left-color: var(--status-ok); }
+.status-card.critical { border-left-color: var(--status-crit); background: #fff5f5; }
+.status-card.warning { border-left-color: var(--status-warn); }
+.status-card.offline { border-left-color: var(--status-off); opacity: 0.7; }
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.card-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    max-width: 70%;
+}
+
+.badge {
+    font-size: 0.7rem;
+    font-weight: 900;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
+
+.normal .badge { background: #d1fae5; color: #065f46; }
+.critical .badge { background: #fee2e2; color: #991b1b; }
+
+.status-msg {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.metric-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 10px 0 0 0;
+}
+
+.metric-val small {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.card-footer {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+/* =========================================
+   MISC ELEMENTS
    ========================================= */
 
 .alert-banner {
     background: var(--status-crit);
     color: white;
-    padding: 20px;
+    padding: 15px 25px;
     border-radius: 12px;
+    margin-bottom: 30px;
+    font-weight: 700;
     display: flex;
     align-items: center;
     gap: 15px;
-    font-weight: 700;
-    margin-bottom: 30px;
-    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
-    animation: slideDown 0.4s ease-out;
 }
 
 .hidden { display: none; }
 
-/* =========================================
-   THE 8-TILE GRID
-   ========================================= */
-
-.overview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 24px;
-}
-
-.health-tile {
-    background: var(--card-bg);
-    border-radius: 20px;
-    padding: 24px;
-    border: 1px solid var(--border-color);
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    min-height: 200px;
-    position: relative;
-    overflow: hidden;
-}
-
-.health-tile:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.1);
-    border-color: #94a3b8;
-}
-
-/* Status Styling */
-.health-tile.normal { border-left: 10px solid var(--status-ok); }
-.health-tile.warning { border-left: 10px solid var(--status-warn); background: #fffdf5; }
-.health-tile.critical { 
-    border-left: 10px solid var(--status-crit); 
-    background: #fff5f5;
-    animation: pulse-red 2s infinite;
-}
-
-/* Tile Header */
-.tile-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.sys-name {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-main);
-}
-
-.status-badge {
-    font-size: 0.7rem;
-    font-weight: 800;
-    padding: 4px 12px;
-    border-radius: 20px;
-    text-transform: uppercase;
-}
-
-.normal .status-badge { background: #dcfce7; color: #166534; }
-.warning .status-badge { background: #fef3c7; color: #92400e; }
-.critical .status-badge { background: #fee2e2; color: #991b1b; }
-
-/* Tile Body (Metrics) */
-.metric-group {
-    margin-bottom: 10px;
-}
-
-.metric-label {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    font-weight: 500;
-}
-
-.metric-value {
-    display: block;
-    font-size: 2.2rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin: 4px 0;
-}
-
-.metric-value small {
-    font-size: 1rem;
-    color: var(--text-muted);
-    font-weight: 400;
-}
-
-.metric-subline {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-main);
-    padding-top: 8px;
-    border-top: 1px solid #f1f5f9;
-}
-
-/* Tile Footer */
-.tile-footer {
-    margin-top: auto;
-    padding-top: 15px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-}
-
-/* =========================================
-   ANIMATIONS
-   ========================================= */
-
 @keyframes pulse-red {
-    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-    70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-@keyframes slideDown {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .loading-state {
     grid-column: 1 / -1;
     text-align: center;
-    padding: 60px;
+    padding: 100px;
     font-weight: 600;
     color: var(--text-muted);
 }
