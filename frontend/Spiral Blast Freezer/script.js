@@ -4,10 +4,22 @@ let tempChart;
 
 async function fetchSpiralData() {
   try {
-    const res = await fetch("/api/spiral_blast_freezer");
-    if (!res.ok) throw new Error("API fetch failed");
+    const res = await fetch("/api/spiral_blast_freezer", { cache: "no-store" });
+    if (!res.ok) throw new Error(`API Error ${res.status}`);
 
-    const apiData = await res.json();
+    // ---- FIX: Read as text first ----
+    let rawText = await res.text();
+
+    // Replace invalid JSON values
+    rawText = rawText
+      .replace(/\bNaN\b/g, "null")
+      .replace(/\bInfinity\b/g, "null")
+      .replace(/\b-Infinity\b/g, "null");
+
+    const apiData = JSON.parse(rawText);
+
+    console.log("SANITIZED API:", apiData);
+
     return parseSpiralAPI(apiData);
 
   } catch (err) {
@@ -16,46 +28,70 @@ async function fetchSpiralData() {
   }
 }
 
+
+/* ================= DATA NORMALIZATION ================= */
+
 function parseSpiralAPI(apiData) {
-  const spirals = apiData.status_data || {};
+
+  const spirals =
+    apiData?.status_data ||
+    apiData?.data ||
+    apiData ||
+    {};
 
   return {
-    s1: normalizeSpiralData(spirals.spiral_01?.data || []),
-    s2: normalizeSpiralData(spirals.spiral_02?.data || []),
-    s3: normalizeSpiralData(spirals.spiral_03?.data || [])
+    s1: normalizeSpiralData(
+      spirals.spiral_01?.data || spirals.spiral_01 || []
+    ),
+    s2: normalizeSpiralData(
+      spirals.spiral_02?.data || spirals.spiral_02 || []
+    ),
+    s3: normalizeSpiralData(
+      spirals.spiral_03?.data || spirals.spiral_03 || []
+    )
   };
 }
 
+
 function normalizeSpiralData(rows) {
+  if (!Array.isArray(rows)) return [];
+
   return rows.map(r => ({
-    time: r.energy_time || r.time || "",
-    freezing_time: +r.freezing_time || 0,
-    runtime: +r.runtime || 0,
-    main_drive: +r.main_drive || 0,
-    sub_drive: +r.sub_drive || 0,
-    pt01: +r.pt01 || 0,
-    pt02: +r.pt02 || 0,
-    tef01: +r.tef01 || 0,
-    tef02: +r.tef02 || 0,
-    pcs_min: +r.pcs_min_total || 0,
-    pcs_day: +r.pcs_day_total || 0
+    time: r.energy_time || r.time || r.timestamp || "",
+    freezing_time: Number(r.freezing_time) || 0,
+    runtime: Number(r.runtime) || 0,
+    main_drive: Number(r.main_drive) || 0,
+    sub_drive: Number(r.sub_drive) || 0,
+    pt01: Number(r.pt01) || 0,
+    pt02: Number(r.pt02) || 0,
+    tef01: Number(r.tef01) || 0,
+    tef02: Number(r.tef02) || 0,
+    pcs_min: Number(r.pcs_min_total) || 0,
+    pcs_day: Number(r.pcs_day_total) || 0
   }));
 }
+
 
 /* ================= UI UPDATE ================= */
 
 function updateDashboard(data) {
   if (!data) return;
 
-  const s1 = data.s1.length ? data.s1[data.s1.length - 1] : {};
-  const s2 = data.s2.length ? data.s2[data.s2.length - 1] : {};
-  const s3 = data.s3.length ? data.s3[data.s3.length - 1] : {};
+  const s1 = getLast(data.s1);
+  const s2 = getLast(data.s2);
+  const s3 = getLast(data.s3);
 
   updateKPIs(data);
   updateDiagnostics(s1, s2, s3);
   updateSummaryTable(s1, s2, s3);
   updateChart(data.s1, data.s2, data.s3);
 }
+
+
+function getLast(arr) {
+  return arr.length ? arr[arr.length - 1] : {};
+}
+
 
 /* ================= KPI ================= */
 
@@ -64,23 +100,18 @@ function averageRuntime(dataset) {
   return dataset.reduce((sum, r) => sum + r.runtime, 0) / dataset.length / 60;
 }
 
+
 function updateKPIs(data) {
-  const active =
-    [data.s1, data.s2, data.s3]
-      .map(d => d.length ? d[d.length - 1] : null)
-      .filter(s => s && s.runtime > 0).length;
+  const active = [data.s1, data.s2, data.s3]
+    .map(getLast)
+    .filter(s => s.runtime > 0).length;
 
-  document.getElementById("val-active-freezers").textContent = `${active} / 3`;
-
-  document.getElementById("val-runtime-s1").textContent =
-    averageRuntime(data.s1).toFixed(2);
-
-  document.getElementById("val-runtime-s2").textContent =
-    averageRuntime(data.s2).toFixed(2);
-
-  document.getElementById("val-runtime-s3").textContent =
-    averageRuntime(data.s3).toFixed(2);
+  setText("val-active-freezers", `${active} / 3`);
+  setText("val-runtime-s1", averageRuntime(data.s1).toFixed(2));
+  setText("val-runtime-s2", averageRuntime(data.s2).toFixed(2));
+  setText("val-runtime-s3", averageRuntime(data.s3).toFixed(2));
 }
+
 
 /* ================= DIAGNOSTICS ================= */
 
@@ -90,46 +121,39 @@ function updateDiagnostics(s1, s2, s3) {
   updateSpiralCard("sf03", s3);
 }
 
-function updateSpiralCard(prefix, s = {}) {
-  const safe = v => (Number.isFinite(v) ? v : 0);
 
-  document.getElementById(`${prefix}-temp`).textContent =
-    `${safe(s.tef01).toFixed(1)} / ${safe(s.tef02).toFixed(1)}`;
+function updateSpiralCard(prefix, s) {
+  const safe = v => Number.isFinite(v) ? v : 0;
 
-  document.getElementById(`${prefix}-pressure`).textContent =
-    safe(s.pt01).toFixed(2);
+  setText(`${prefix}-temp`,
+    `${safe(s.tef01).toFixed(1)} / ${safe(s.tef02).toFixed(1)}`);
 
-  document.getElementById(`${prefix}-runtime`).textContent =
-    (safe(s.runtime) / 60).toFixed(2);
+  setText(`${prefix}-pressure`, safe(s.pt01).toFixed(2));
+  setText(`${prefix}-runtime`, (safe(s.runtime) / 60).toFixed(2));
 
-  if (document.getElementById(`${prefix}-pcsmin`)) {
-    document.getElementById(`${prefix}-pcsmin`).textContent =
-      safe(s.pcs_min).toFixed(1);
-  }
-
-  if (document.getElementById(`${prefix}-pcsday`)) {
-    document.getElementById(`${prefix}-pcsday`).textContent =
-      safe(s.pcs_day).toFixed(0);
-  }
-
-  const statusEl = document.getElementById(`status-${prefix}`);
   const status = safe(s.runtime) > 0 ? "RUNNING" : "STOPPED";
+  const pill = document.getElementById(`status-${prefix}`);
 
-  statusEl.textContent = status;
-  statusEl.className = `status-pill ${status === "RUNNING" ? "active" : "warning"}`;
+  if (pill) {
+    pill.textContent = status;
+    pill.className = `status-pill ${status === "RUNNING" ? "good" : "warning"}`;
+  }
 }
+
 
 /* ================= SUMMARY TABLE ================= */
 
 function updateSummaryTable(s1, s2, s3) {
   const tbody = document.getElementById("summary-table-body");
+  if (!tbody) return;
+
   tbody.innerHTML = "";
 
   [
     ["Spiral 01", s1],
     ["Spiral 02", s2],
     ["Spiral 03", s3]
-  ].forEach(([name, s = {}]) => {
+  ].forEach(([name, s]) => {
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
@@ -145,14 +169,17 @@ function updateSummaryTable(s1, s2, s3) {
   });
 }
 
+
 /* ================= CHART ================= */
 
 function updateChart(d1, d2, d3) {
-  if (!d1.length) return;
+  if (!d1.length && !d2.length && !d3.length) return;
 
-  const labels = d1.map(d => d.time);
+  const labels = (d1.length ? d1 : d2.length ? d2 : d3)
+    .map(d => d.time);
 
-  const ctx = document.getElementById("performanceChart").getContext("2d");
+  const ctx = document.getElementById("performanceChart");
+  if (!ctx) return;
 
   if (!tempChart) {
     tempChart = new Chart(ctx, {
@@ -160,9 +187,9 @@ function updateChart(d1, d2, d3) {
       data: {
         labels,
         datasets: [
-          { label: "Spiral 01", data: d1.map(d => d.tef01), borderWidth: 2, tension: 0.4, pointRadius: 0 },
-          { label: "Spiral 02", data: d2.map(d => d.tef01), borderWidth: 2, tension: 0.4, pointRadius: 0 },
-          { label: "Spiral 03", data: d3.map(d => d.tef01), borderWidth: 2, tension: 0.4, pointRadius: 0 }
+          buildDataset("Spiral 01", d1),
+          buildDataset("Spiral 02", d2),
+          buildDataset("Spiral 03", d3)
         ]
       },
       options: {
@@ -185,6 +212,26 @@ function updateChart(d1, d2, d3) {
     tempChart.update("none");
   }
 }
+
+
+function buildDataset(label, data) {
+  return {
+    label,
+    data: data.map(d => d.tef01),
+    borderWidth: 2,
+    tension: 0.4,
+    pointRadius: 0
+  };
+}
+
+
+/* ================= UTIL ================= */
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
 
 /* ================= LIVE REFRESH ================= */
 

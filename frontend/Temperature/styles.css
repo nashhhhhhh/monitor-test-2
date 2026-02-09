@@ -208,3 +208,34 @@ header p {
     margin-left: 0;
   }
 }
+
+/* =========================
+   TOP RIGHT HISTORY BUTTON
+========================= */
+
+.top-actions {
+  position: sticky;
+  top: 64px; /* adjust if navbar height changes */
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  z-index: 20;
+}
+
+.history-btn {
+  background: #6366f1;
+  color: white;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.25);
+}
+
+.history-btn:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(99,102,241,0.35);
+}
+
