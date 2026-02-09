@@ -45,8 +45,6 @@ def ingest():
         diff = row["temp_diff"]
         if diff >= 2:
             return "CRITICAL"
-        elif diff >= 1:
-            return "WARNING"
         else:
             return "OK"
 

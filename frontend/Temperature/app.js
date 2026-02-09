@@ -79,7 +79,6 @@ function applyDataToSVG(data) {
     // Decide colour
     let colour;
     if (room.status === 'CRITICAL') colour = '#ef4444';
-    else if (room.status === 'WARNING') colour = '#f59e0b';
     else colour = '#22c55e';
 
     // Force override ALL styling
