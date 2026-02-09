@@ -123,12 +123,10 @@ function updateSummary(data) {
 
   data.forEach(room => {
     if (room.status === 'OK') req++;
-    else if (room.status === 'WARNING') tol++;
     else out++;
   });
 
   document.getElementById('count-req').textContent = req;
-  document.getElementById('count-tol').textContent = tol;
   document.getElementById('count-out').textContent = out;
 }
 
