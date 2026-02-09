@@ -18,7 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
     ];
 
     async function updateHeartbeat() {
-        let criticalCount = 0;
         let processedData = [];
 
         // Safe fetch helper to catch NaN errors from Flask
@@ -43,7 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         processedData.forEach(sys => {
             const health = evaluateHealth(sys);
-            if (health.status === 'CRITICAL') criticalCount++;
 
             const tile = document.createElement("div");
             tile.className = `status-card ${health.status.toLowerCase()}`;
@@ -67,55 +65,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Update Header and Blinking Light
         lastSyncEl.textContent = new Date().toLocaleTimeString();
-        if (criticalCount > 0) {
-            statusLight.className = "status-light critical";
-            statusText.textContent = `${criticalCount} Systems require attention!`;
-            alertBox.classList.remove("hidden");
-        } else {
-            statusLight.className = "status-light ok";
-            statusText.textContent = "All systems operational";
-            alertBox.classList.add("hidden");
-        }
+        
+        // Forced "Normal" state for the global header
+        statusLight.className = "status-light ok";
+        statusText.textContent = "All systems operational";
+        alertBox.classList.add("hidden");
     }
 
     /**
-     * HEALTH ENGINE
-     * Analyzes the data from app.py and assigns a status
+     * HEALTH ENGINE - RESET TO NORMAL
+     * Reports NORMAL as long as the system is reachable.
      */
     function evaluateHealth(sys) {
-        if (sys.error || !sys.data) return { status: 'OFFLINE', message: 'System Unreachable', value: '' };
-
-        const d = sys.data;
-
-        // Domain Specific Logic
-        switch(sys.id) {
-            case 'wtp':
-                const cl2 = d.quality?.ro_chlorine?.slice(-1)[0]?.mg || 0;
-                return cl2 < 0.2 ? 
-                    { status: 'CRITICAL', message: 'Chlorine Level Low', value: cl2.toFixed(2) + ' mg' } : 
-                    { status: 'NORMAL', message: 'Stable Quality', value: cl2.toFixed(2) + ' mg' };
-
-            case 'temp':
-                const highTemps = d.filter(r => (r.temperature || 0) > 5).length;
-                return highTemps > 0 ? 
-                    { status: 'CRITICAL', message: `${highTemps} Rooms Over Limit`, value: '' } : 
-                    { status: 'NORMAL', message: 'Cooling Stable', value: '' };
-
-            case 'mdb':
-                const load = d.energy?.emdb_1?.slice(-1)[0]?.kwh || 0;
-                return load > 280000 ? 
-                    { status: 'CRITICAL', message: 'Peak Load Warning', value: load.toLocaleString() + ' kWh' } : 
-                    { status: 'NORMAL', message: 'Power Nominal', value: load.toLocaleString() + ' kWh' };
-
-            case 'cctv':
-                const off = d.filter(c => c.status?.toLowerCase() !== "online").length;
-                return off > 0 ? 
-                    { status: 'CRITICAL', message: `${off} Cameras Offline`, value: '' } : 
-                    { status: 'NORMAL', message: 'Security Active', value: 'All Online' };
-
-            default:
-                return { status: 'NORMAL', message: 'System Active', value: '' };
+        // If the API is down or file is missing, we still show OFFLINE to help you debug paths
+        if (sys.error || !sys.data) {
+            return { status: 'OFFLINE', message: 'System Unreachable', value: 'Check Data Source' };
         }
+
+        // All systems return NORMAL regardless of values for now
+        let displayValue = 'Online';
+
+        // We still extract the values just so you can see the data is flowing
+        try {
+            const d = sys.data;
+            if (sys.id === 'wtp') {
+                const cl2 = d.quality?.ro_chlorine?.slice(-1)[0]?.mg || 0;
+                displayValue = cl2.toFixed(2) + ' mg';
+            } else if (sys.id === 'mdb') {
+                const load = d.energy?.emdb_1?.slice(-1)[0]?.kwh || 0;
+                displayValue = load.toLocaleString() + ' kWh';
+            } else if (sys.id === 'temp') {
+                displayValue = d.length + ' Rooms Monitored';
+            } else if (sys.id === 'wwtp') {
+                const temp = d.rawTemp?.slice(-1)[0]?.value || 0;
+                displayValue = temp.toFixed(1) + ' °C';
+            }
+        } catch (e) {
+            displayValue = 'Connected';
+        }
+
+        return { 
+            status: 'NORMAL', 
+            message: 'System Operational', 
+            value: displayValue 
+        };
     }
 
     updateHeartbeat();
