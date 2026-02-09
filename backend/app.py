@@ -203,6 +203,20 @@ def temperature_rooms():
         return jsonify([dict(r) for r in rows])
     except:
         return jsonify([])
+    
+# =====================================================
+# REFRIGERATION API
+# =====================================================
+
+@app.route("/api/refrigeration")
+def refrigeration():
+    return jsonify({
+        "energy": read_csv("temp_energy.csv", "energy"),
+        "hr": read_csv("temp_HR.csv", "hr"),
+        "iw": read_csv("temp_IW.csv", "iw"),
+        "lr": read_csv("temp_LR.csv", "lr"),
+        "ow": read_csv("temp_OW.csv", "ow")
+    })
 
 
 # =====================================================
