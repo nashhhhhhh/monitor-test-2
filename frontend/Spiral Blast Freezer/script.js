@@ -47,9 +47,9 @@ function normalizeSpiralData(rows) {
 function updateDashboard(data) {
   if (!data) return;
 
-  const s1 = data.s1.at(-1) || {};
-  const s2 = data.s2.at(-1) || {};
-  const s3 = data.s3.at(-1) || {};
+  const s1 = data.s1.length ? data.s1[data.s1.length - 1] : {};
+  const s2 = data.s2.length ? data.s2[data.s2.length - 1] : {};
+  const s3 = data.s3.length ? data.s3[data.s3.length - 1] : {};
 
   updateKPIs(data);
   updateDiagnostics(s1, s2, s3);
@@ -66,7 +66,8 @@ function averageRuntime(dataset) {
 
 function updateKPIs(data) {
   const active =
-    [data.s1.at(-1), data.s2.at(-1), data.s3.at(-1)]
+    [data.s1, data.s2, data.s3]
+      .map(d => d.length ? d[d.length - 1] : null)
       .filter(s => s && s.runtime > 0).length;
 
   document.getElementById("val-active-freezers").textContent = `${active} / 3`;
@@ -89,27 +90,33 @@ function updateDiagnostics(s1, s2, s3) {
   updateSpiralCard("sf03", s3);
 }
 
-function updateSpiralCard(prefix, s) {
+function updateSpiralCard(prefix, s = {}) {
+  const safe = v => (Number.isFinite(v) ? v : 0);
+
   document.getElementById(`${prefix}-temp`).textContent =
-    `${s.tef01.toFixed(1)} / ${s.tef02.toFixed(1)}`;
+    `${safe(s.tef01).toFixed(1)} / ${safe(s.tef02).toFixed(1)}`;
 
   document.getElementById(`${prefix}-pressure`).textContent =
-    s.pt01.toFixed(2);
+    safe(s.pt01).toFixed(2);
 
   document.getElementById(`${prefix}-runtime`).textContent =
-    (s.runtime / 60).toFixed(2);
+    (safe(s.runtime) / 60).toFixed(2);
 
-  document.getElementById(`${prefix}-pcsmin`).textContent =
-    s.pcs_min.toFixed(1);
+  if (document.getElementById(`${prefix}-pcsmin`)) {
+    document.getElementById(`${prefix}-pcsmin`).textContent =
+      safe(s.pcs_min).toFixed(1);
+  }
 
-  document.getElementById(`${prefix}-pcsday`).textContent =
-    s.pcs_day.toFixed(0);
+  if (document.getElementById(`${prefix}-pcsday`)) {
+    document.getElementById(`${prefix}-pcsday`).textContent =
+      safe(s.pcs_day).toFixed(0);
+  }
 
   const statusEl = document.getElementById(`status-${prefix}`);
-  const status = s.runtime > 0 ? "RUNNING" : "STOPPED";
+  const status = safe(s.runtime) > 0 ? "RUNNING" : "STOPPED";
 
   statusEl.textContent = status;
-  statusEl.className = `status-pill ${status === "RUNNING" ? "good" : "warning"}`;
+  statusEl.className = `status-pill ${status === "RUNNING" ? "active" : "warning"}`;
 }
 
 /* ================= SUMMARY TABLE ================= */
@@ -122,16 +129,16 @@ function updateSummaryTable(s1, s2, s3) {
     ["Spiral 01", s1],
     ["Spiral 02", s2],
     ["Spiral 03", s3]
-  ].forEach(([name, s]) => {
+  ].forEach(([name, s = {}]) => {
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
       <td>${name}</td>
-      <td>${s.tef01.toFixed(1)} / ${s.tef02.toFixed(1)}</td>
-      <td>${s.pt01.toFixed(2)} / ${s.pt02.toFixed(2)}</td>
-      <td>${s.freezing_time} min</td>
-      <td>${(s.runtime / 60).toFixed(2)} hrs</td>
-      <td>${s.runtime > 0 ? "RUNNING" : "STOPPED"}</td>
+      <td>${(s.tef01 || 0).toFixed(1)} / ${(s.tef02 || 0).toFixed(1)}</td>
+      <td>${(s.pt01 || 0).toFixed(2)} / ${(s.pt02 || 0).toFixed(2)}</td>
+      <td>${s.freezing_time || 0} min</td>
+      <td>${((s.runtime || 0) / 60).toFixed(2)} hrs</td>
+      <td>${(s.runtime || 0) > 0 ? "RUNNING" : "STOPPED"}</td>
     `;
 
     tbody.appendChild(tr);
@@ -141,11 +148,13 @@ function updateSummaryTable(s1, s2, s3) {
 /* ================= CHART ================= */
 
 function updateChart(d1, d2, d3) {
+  if (!d1.length) return;
+
   const labels = d1.map(d => d.time);
 
-  if (!tempChart) {
-    const ctx = document.getElementById("performanceChart");
+  const ctx = document.getElementById("performanceChart").getContext("2d");
 
+  if (!tempChart) {
     tempChart = new Chart(ctx, {
       type: "line",
       data: {
@@ -158,9 +167,13 @@ function updateChart(d1, d2, d3) {
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         animation: false,
+        interaction: { mode: "index", intersect: false },
         scales: {
-          y: { title: { display: true, text: "Temperature (°C)" } }
+          y: {
+            title: { display: true, text: "Temperature (°C)" }
+          }
         }
       }
     });
@@ -177,7 +190,7 @@ function updateChart(d1, d2, d3) {
 
 async function refreshDashboard() {
   const data = await fetchSpiralData();
-  updateDashboard(data);
+  if (data) updateDashboard(data);
 }
 
 refreshDashboard();
