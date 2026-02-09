@@ -1,176 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SATS Stage 2 | Unified Command Center</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SATS Stage 2 | Unified Command Center</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="stylesheet" href="/shared/navbar.css">
 
-  <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <div id="navbar"></div>
+    <div id="navbar"></div>
 
-  <main class="dashboard-content">
-    
-    <header class="dash-header">
-      <div class="header-main">
-        <h1>Unified Command Center</h1>
-        <p class="subtitle">Real-time health monitoring for all Stage 2 factory subsystems</p>
-      </div>
-      <div class="header-stats">
-        <div class="stat-pill">
-            <span class="label">Last Heartbeat:</span>
-            <span id="last-sync" class="value">--:--:--</span>
-        </div>
-      </div>
-    </header>
-
-    <div id="global-alert-box" class="alert-banner hidden">
-      <span class="alert-icon">⚠️</span>
-      <span id="alert-msg">SYSTEM ALERT: Critical parameters detected in subsystems.</span>
-    </div>
-
-    <section class="overview-grid" id="health-tiles">
-      
-      <div class="health-tile" id="tile-mdb" onclick="window.location.href='/MDB'">
-        <div class="tile-header">
-            <span class="sys-name">Power & MDB</span>
-            <span class="status-badge" id="status-mdb">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">Main Load (EMDB-1)</span>
-                <span class="metric-value" id="val-mdb">-- <small>kWh</small></span>
+    <main class="dashboard-content">
+        
+        <header class="system-status-header">
+            <div class="header-left">
+                <h1>System Status Overview</h1>
+                <p id="overall-status-text">Synchronizing with Stage 2 Subsystems...</p>
             </div>
-            <div class="metric-subline">Gens Active: <span id="val-gens">--</span></div>
-        </div>
-        <div class="tile-footer">View Power Distribution →</div>
-      </div>
-
-      <div class="health-tile" id="tile-temp" onclick="window.location.href='/Temperature'">
-        <div class="tile-header">
-            <span class="sys-name">Room Temperatures</span>
-            <span class="status-badge" id="status-temp">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">Avg. Room Temp</span>
-                <span class="metric-value" id="val-temp">-- <small>°C</small></span>
+            <div class="header-right">
+                <div class="sync-info">
+                    <span class="label">Last Heartbeat:</span>
+                    <span id="last-sync" class="value">--:--:--</span>
+                </div>
+                <div id="status-indicator-light" class="status-light ok"></div>
             </div>
-            <div class="metric-subline">Critical Rooms: <span id="val-temp-crit">--</span></div>
-        </div>
-        <div class="tile-footer">View Cold Chain Status →</div>
-      </div>
+        </header>
 
-      <div class="health-tile" id="tile-wtp" onclick="window.location.href='/WTP'">
-        <div class="tile-header">
-            <span class="sys-name">Water Treatment</span>
-            <span class="status-badge" id="status-wtp">SYNCING</span>
+        <div id="global-alert-box" class="alert-banner hidden">
+            <span class="alert-icon">⚠️</span>
+            <span id="alert-msg">ATTENTION: Critical parameters detected. Immediate investigation required.</span>
         </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">Residual Chlorine</span>
-                <span class="metric-value" id="val-wtp">-- <small>mg</small></span>
+
+        <section class="health-grid" id="health-tiles">
+            <div class="loading-state">
+                <p>Initializing Health Engine...</p>
             </div>
-            <div class="metric-subline">RO Supply: <span id="val-wtp-pres">--</span> bar</div>
-        </div>
-        <div class="tile-footer">View Quality & Flow →</div>
-      </div>
+        </section>
 
-      <div class="health-tile" id="tile-sbf" onclick="window.location.href='/SBF'">
-        <div class="tile-header">
-            <span class="sys-name">Spiral Blast Freezer</span>
-            <span class="status-badge" id="status-sbf">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">SBF-01 Internal</span>
-                <span class="metric-value" id="val-sbf">-- <small>°C</small></span>
-            </div>
-            <div class="metric-subline">Conveyor Output: <span id="val-sbf-pcs">--</span> pcs/min</div>
-        </div>
-        <div class="tile-footer">View Production Line →</div>
-      </div>
+    </main>
 
-      <div class="health-tile" id="tile-cctv" onclick="window.location.href='/CCTV'">
-        <div class="tile-header">
-            <span class="sys-name">CCTV & Security</span>
-            <span class="status-badge" id="status-cctv">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">Cameras Offline</span>
-                <span class="metric-value" id="val-cctv">-- <small>units</small></span>
-            </div>
-            <div class="metric-subline">Total Devices: <span id="val-cctv-total">--</span></div>
-        </div>
-        <div class="tile-footer">View Security Logs →</div>
-      </div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+            .then(res => {
+                if (!res.ok) throw new Error('Navbar failed to load');
+                return res.text();
+            })
+            .then(html => {
+                document.getElementById('navbar').innerHTML = html;
+            })
+            .catch(err => console.error(err));
+    </script>
 
-      <div class="health-tile" id="tile-wwtp" onclick="window.location.href='/WWTP'">
-        <div class="tile-header">
-            <span class="sys-name">Waste Water</span>
-            <span class="status-badge" id="status-wwtp">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">Inflow Temp</span>
-                <span class="metric-value" id="val-wwtp">-- <small>°C</small></span>
-            </div>
-            <div class="metric-subline">Energy: <span id="val-wwtp-energy">--</span> kWh</div>
-        </div>
-        <div class="tile-footer">View Effluent Status →</div>
-      </div>
+    <script src="script.js" defer></script>
 
-      <div class="health-tile" id="tile-air" onclick="window.location.href='/Utility'">
-        <div class="tile-header">
-            <span class="sys-name">Air Compressor</span>
-            <span class="status-badge" id="status-air">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">System Flow</span>
-                <span class="metric-value" id="val-air">-- <small>m³/h</small></span>
-            </div>
-            <div class="metric-subline">Dew Point: <span id="val-air-dew">--</span>°C</div>
-        </div>
-        <div class="tile-footer">View Compressed Air →</div>
-      </div>
-
-      <div class="health-tile" id="tile-boiler" onclick="window.location.href='/Utility'">
-        <div class="tile-header">
-            <span class="sys-name">Boiler Systems</span>
-            <span class="status-badge" id="status-boiler">SYNCING</span>
-        </div>
-        <div class="tile-body">
-            <div class="metric-group">
-                <span class="metric-label">Gas Consumption</span>
-                <span class="metric-value" id="val-boiler">-- <small>kg</small></span>
-            </div>
-            <div class="metric-subline">Steam Supply: <span id="val-boiler-steam">--</span> kg</div>
-        </div>
-        <div class="tile-footer">View Steam Analytics →</div>
-      </div>
-
-    </section>
-  </main>
-
-  <script src="/shared/navbar.js"></script>
-  <script>
-    fetch('/shared/navbar.html')
-      .then(res => res.text())
-      .then(html => document.getElementById('navbar').innerHTML = html);
-  </script>
-
-  <script src="script.js" defer></script>
 </body>
 </html>

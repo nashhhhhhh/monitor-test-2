@@ -400,6 +400,7 @@ def read_mdb_daily_consumption(file_name):
         # This gives the total kWh used within that 24-hour window
         daily = df.groupby('date')[val_col].agg(['min', 'max']).reset_index()
         daily['consumption'] = daily['max'] - daily['min']
+        
 
         # Sort by date (pandas grouping might scramble chronological order, 
         # so we ensure it follows the original data sequence)
@@ -410,12 +411,9 @@ def read_mdb_daily_consumption(file_name):
 
 @app.route("/api/mdb")
 def mdb_data():
-    return jsonify({
+    raw_data = {
         "energy": {
-            # Use the daily aggregator for the trend chart
             "emdb_1_daily": read_mdb_daily_consumption("mdb_emdb.csv"),
-            
-            # Keep raw readings for the distribution (pie/bar) charts
             "emdb_1": read_csv("mdb_emdb.csv", "kwh"),
             "mdb_6":  read_csv("mdb6_energy.csv", "kwh"),
             "mdb_7":  read_csv("mdb7_energy.csv", "kwh"),
@@ -429,7 +427,20 @@ def mdb_data():
             "gen_3": read_csv("mdb_gen3_RT.csv", "runtime"),
             "gen_4": read_csv("mdb_gen4_RT.csv", "runtime")
         }
-    })
+    }
+
+    # CRITICAL FIX: Standard JSON cannot handle NaN. 
+    # This recursive function finds all NaNs and turns them into None (null).
+    def clean_nan(obj):
+        if isinstance(obj, list):
+            return [clean_nan(i) for i in obj]
+        if isinstance(obj, dict):
+            return {k: clean_nan(v) for k, v in obj.items()}
+        if isinstance(obj, float) and pd.isna(obj):
+            return None
+        return obj
+
+    return jsonify(clean_nan(raw_data))
 @app.route("/api/mdb/history")
 def mdb_history():
     date_str = request.args.get('date')
