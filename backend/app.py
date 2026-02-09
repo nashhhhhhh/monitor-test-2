@@ -437,38 +437,67 @@ def mdb_history():
     
     def get_filtered_mdb(file_name, value_key, normalize_gen=False):
         path = os.path.join(DATA_DIR, file_name)
-        if not os.path.exists(path): return []
+        if not os.path.exists(path):
+            print(f"⚠️ File missing: {path}")
+            return {"date_used": None, "points": []}
+            
         try:
-            df = pd.read_csv(path, skiprows=2)
-            df.columns = [c.strip() for c in df.columns]
-            df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
-            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+            # 1. ATTEMPT TO FIND THE HEADER
+            # We try skipping 0 rows, then 1, then 2 to find where 'Timestamp' lives
+            df = None
+            for s in [2, 1, 0]:
+                temp_df = pd.read_csv(path, skiprows=s, nrows=0) # Just read headers
+                cols = [c.strip().replace('\ufeff', '') for c in temp_df.columns]
+                if any('Time' in c for c in cols):
+                    df = pd.read_csv(path, skiprows=s)
+                    df.columns = cols
+                    break
             
-            # --- IMPROVED FILTERING LOGIC ---
-            # If no date provided or date has no data, use the latest date in the file
-            available_dates = df['dt'].dt.strftime('%Y-%m-%d').unique()
+            if df is None:
+                # Fallback: If we still can't find it, force read without skipping
+                df = pd.read_csv(path)
+                df.columns = [c.strip().replace('\ufeff', '') for c in df.columns]
+
+            # 2. DYNAMICALLY FIND COLUMNS
+            time_col = [c for c in df.columns if 'Time' in c]
+            val_col = [c for c in df.columns if any(x in c.lower() for x in ['value', 'kwh', 'runtime', '4', '177'])]
+
+            if not time_col:
+                print(f"❌ Still no Time column in {file_name}. Headers found: {list(df.columns)}")
+                return {"date_used": None, "points": []}
+
+            t_name = time_col[0]
+            v_name = val_col[0] if val_col else df.columns[-1] # Fallback to last column if 'Value' is missing
+
+            # 3. Process Timestamps
+            df[t_name] = df[t_name].astype(str).str.replace(' ICT', '', regex=False)
+            df['dt'] = pd.to_datetime(df[t_name], dayfirst=True, errors='coerce')
+            df = df.dropna(subset=['dt'])
+
+            # 4. Filtering Logic
+            df['date_only'] = df['dt'].dt.strftime('%Y-%m-%d')
+            available_dates = df['date_only'].unique()
             
+            # Use provided date or the latest one in the file
             target_date = date_str
             if not target_date or target_date not in available_dates:
-                target_date = available_dates[-1] # Auto-pick the last day in the log
+                target_date = available_dates[-1] 
             
-            df_filtered = df[df['dt'].dt.strftime('%Y-%m-%d') == target_date]
+            df_filtered = df[df['date_only'] == target_date].copy()
             
-            val_col = [c for c in df.columns if 'Value' in c][0]
-            header_low = val_col.lower()
-            multiplier = 1.0
-            if normalize_gen and ("/s" in header_low or "(s)" in header_low):
-                multiplier = 1 / 3600
+            # 5. Map Data
+            multiplier = 1 / 3600 if (normalize_gen and ("/s" in v_name.lower() or "(s)" in v_name.lower())) else 1.0
 
             return {
-                "date_used": target_date, # Tell the frontend which date we actually used
+                "date_used": target_date,
                 "points": [{
                     "time": r['dt'].strftime('%H:%M'), 
-                    "value": round(float(r[val_col]) * multiplier, 2)
+                    "value": round(float(r[v_name]) * multiplier, 2)
                 } for _, r in df_filtered.iterrows()]
             }
+            
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"🔥 Error processing {file_name}: {e}")
             return {"date_used": None, "points": []}
 
     response_data = {}
