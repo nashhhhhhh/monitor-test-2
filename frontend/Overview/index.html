@@ -3,24 +3,54 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Stage 2 System – Overview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SATS Stage 2 | System Overview</title>
 
-  <!-- Page-specific styles -->
-  <link rel="stylesheet" href="/Overview/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Navbar styles -->
   <link rel="stylesheet" href="/shared/navbar.css">
 
-  <!-- Page script -->
-  <script src="/frontend/Overview/script.js" defer></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- NAVBAR -->
-  <link rel="stylesheet" href="/shared/navbar.css">
-
   <div id="navbar"></div>
+
+  <main class="dashboard-content">
+    
+    <header class="dash-header">
+      <h1>Factory Mission Control</h1>
+      <p class="subtitle">Centralized health monitoring across MDB, WTP, and WWTP systems</p>
+    </header>
+
+    <div id="global-alert-box" class="alert-banner hidden">
+      <span class="alert-icon">⚠️</span>
+      <span id="alert-msg">ATTENTION: One or more systems are operating outside safe parameters.</span>
+    </div>
+
+    <section class="kpi-grid">
+      <div class="kpi-card neutral">
+        <div class="kpi-label">Active Alerts</div>
+        <div class="kpi-value" id="total-alerts">0</div>
+      </div>
+      <div class="kpi-card ok">
+        <div class="kpi-label">Systems Stable</div>
+        <div class="kpi-value" id="systems-stable">--</div>
+      </div>
+      <div class="kpi-card neutral">
+        <div class="kpi-label">Last Heartbeat</div>
+        <div class="kpi-value" id="last-sync">--:--:--</div>
+      </div>
+    </section>
+
+    <section class="overview-grid" id="health-tiles">
+      <div class="loading-state">Syncing system health...</div>
+    </section>
+
+  </main>
 
   <script src="/shared/navbar.js"></script>
   <script>
@@ -35,34 +65,7 @@
       .catch(err => console.error(err));
   </script>
 
+  <script src="script.js" defer></script>
 
-
-  <!-- PAGE CONTENT -->
-  <header>
-    <h1>Overview</h1>
-  </header>
-
-  <section class="kpi-grid">
-    <div class="kpi-card ok">
-      <h3>Temperature OK</h3>
-      <p id="temp-ok">--</p>
-    </div>
-
-    <div class="kpi-card warning">
-      <h3>Temperature Warning</h3>
-      <p id="temp-warning">--</p>
-    </div>
-
-    <div class="kpi-card critical">
-      <h3>Temperature Critical</h3>
-      <p id="temp-critical">--</p>
-    </div>
-
-    <div class="kpi-card neutral">
-      <h3>Systems Online</h3>
-      <p>✔ All</p>
-    </div>
-  </section>
-  <script src="/Overview/script.js"></script>
 </body>
 </html>

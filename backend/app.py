@@ -621,6 +621,52 @@ def wtp_data():
         }
     })
 
+
+@app.route("/api/overview/health")
+def overview_health():
+    # Helper to get the latest value from any CSV
+    def get_latest(file, col_key="Value"):
+        path = os.path.join(DATA_DIR, file)
+        if not os.path.exists(path): return None
+        try:
+            df = pd.read_csv(path, skiprows=1) # Adjust skiprows based on your file
+            df.columns = [c.strip().replace('\ufeff', '') for c in df.columns]
+            val_col = [c for c in df.columns if any(x in c.lower() for x in ['value', col_key.lower()])]
+            return float(df[val_col[0]].iloc[-1]) if val_col else None
+        except: return None
+
+    # Define thresholds and current values
+    health_data = [
+        {
+            "id": "wtp",
+            "name": "Water Treatment",
+            "metric": "Residual Chlorine",
+            "value": get_latest("RES102ROWaterSupply_ResCl2.csv"),
+            "unit": "mg",
+            "status": "NORMAL" if (get_latest("RES102ROWaterSupply_ResCl2.csv") or 0) > 0.2 else "CRITICAL",
+            "link": "/WTP"
+        },
+        {
+            "id": "mdb",
+            "name": "Power Systems",
+            "metric": "Main Load (EMDB-1)",
+            "value": get_latest("mdb_emdb.csv"),
+            "unit": "kWh",
+            "status": "NORMAL" if (get_latest("mdb_emdb.csv") or 0) < 250000 else "WARNING",
+            "link": "/MDB"
+        },
+        {
+            "id": "wwtp",
+            "name": "Waste Water",
+            "metric": "Inflow Temp",
+            "value": get_latest("_RawWasteWater_Temp.csv"),
+            "unit": "°C",
+            "status": "NORMAL" if (get_latest("_RawWasteWater_Temp.csv") or 0) < 35 else "WARNING",
+            "link": "/WWTP"
+        }
+    ]
+    return jsonify(health_data)
+
 # =====================================================
 # SERVER START
 # =====================================================
