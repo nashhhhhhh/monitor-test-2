@@ -1,4 +1,3 @@
-<!-- ===== HEADER ===== -->
 <header class="top-header">
     <div class="brand">
         <img src="/shared/assets/SATS_Logo.png" class="brand-logo" alt="SATS Logo">
@@ -10,7 +9,6 @@
     <div id="clock" class="header-clock"></div>
 </header>
 
-<!-- ===== NAV BAR ===== -->
 <nav class="main-nav">
 
     <button class="nav-btn" data-nav="overview" onclick="location.href='/Overview/index.html'">
@@ -33,7 +31,6 @@
         Lighting
     </button>
 
-    <!-- Utilities -->
     <div class="nav-item">
         <button class="nav-btn">Utilities ▾</button>
         <div class="dropdown-menu">
@@ -45,7 +42,6 @@
         </div>
     </div>
 
-    <!-- Kitchen -->
     <div class="nav-item">
         <button class="nav-btn">Kitchen Equipment ▾</button>
         <div class="dropdown-menu">
@@ -54,6 +50,12 @@
             <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray</a>
             <a href="/Kitchen Equipment/Checkweigh/index.html">Checkweigh</a>
         </div>
+    </div>
+
+    <div class="nav-export">
+        <button id="export-report-btn" class="nav-btn btn-export">
+            <span class="export-icon">📄</span> Export PDF
+        </button>
     </div>
 
 </nav>

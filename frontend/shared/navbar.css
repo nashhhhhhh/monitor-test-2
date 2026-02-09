@@ -24,6 +24,7 @@ html, body {
   --text-muted: #94a3b8;
   --border: #e2e8f0;
   --success: #10b981;
+  --export-btn: #0f172a; /* Specific color for PDF button */
 }
 
 /* ===============================
@@ -34,14 +35,9 @@ html, body {
   color: white;
   padding: 14px 24px;
   width: 100%;
-}
-
-.top-header {
   display: flex;
   align-items: center;
 }
-
-
 
 .brand {
   display: flex;
@@ -65,14 +61,7 @@ html, body {
 }
 
 .header-clock {
-  font-size: 0.8rem;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-}
-
-/* 🔑 THIS LINE IS THE FIX */
-.header-clock {
-  margin-left: auto;          /* pushes clock to far right */
+  margin-left: auto;         /* pushes clock to far right */
   font-size: 0.8rem;
   letter-spacing: 1px;
   color: var(--text-muted);
@@ -106,11 +95,12 @@ html, body {
 }
 
 /* ===============================
-   NAV BAR (FIXED, SAME POSITION)
+   NAV BAR
 ================================ */
 .main-nav {
   display: flex;
-  flex-wrap: wrap;                 /* 🔑 allows wrap instead of overflow */
+  align-items: center;             /* Vertically centers buttons */
+  flex-wrap: wrap; 
   background: var(--nav-bg);
   padding: 0 16px;
   position: sticky;
@@ -118,7 +108,7 @@ html, body {
   z-index: 1000;
   width: 100%;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  box-sizing: border-box;          /* 🔑 prevents padding overflow */
+  box-sizing: border-box;
 }
 
 /* ===============================
@@ -139,7 +129,7 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   transition: 0.25s;
-  white-space: nowrap;             /* 🔑 prevents layout break */
+  white-space: nowrap;
 }
 
 .nav-btn:hover {
@@ -160,7 +150,7 @@ html, body {
   top: 100%;
   left: 0;
   min-width: 220px;
-  max-width: 90vw;                 /* 🔑 prevents overflow */
+  max-width: 90vw;
   background: white;
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
@@ -193,4 +183,44 @@ html, body {
   color: var(--accent);
   padding-left: 22px;
   border-left: 4px solid var(--accent);
+}
+
+.dropdown-menu a.active-link {
+  background: #f1f5f9;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ===============================
+   EXPORT SECTION
+================================ */
+.nav-export {
+  margin-left: auto;               /* 🔑 Pushes Export to far right */
+  display: flex;
+  align-items: center;
+}
+
+.btn-export {
+  background: var(--export-btn) !important;
+  border: 1px solid #334155 !important;
+  color: white !important;
+  border-radius: 6px;
+  margin: 10px 0;                  /* Center vertically in wrap mode */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-export:hover {
+  background: #334155 !important;
+  border-color: var(--success) !important; /* Visual feedback of health */
+}
+
+.btn-export:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.btn-export span {
+  font-size: 1rem;
 }
