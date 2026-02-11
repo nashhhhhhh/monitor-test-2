@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory, request, make_response
+from flask import Flask, jsonify, send_from_directory, request, make_response, Blueprint, send_file
 import sqlite3
 import csv
 import os
@@ -9,6 +9,11 @@ from fpdf import FPDF
 import matplotlib
 matplotlib.use('Agg')  # Required for headless server environments
 import matplotlib.pyplot as plt
+from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+from io import BytesIO
+
+export_pdf_bp = Blueprint("export_pdf", __name__)
 
 # =====================================================
 # PATH CONFIGURATION
@@ -18,9 +23,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
 DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
 LOGO_LOCATIONS = [
-    "/shared/assets/SATS_Logo.png",
-    os.path.join(DATA_DIR, "SATS_Logo.png"),
-    os.path.join(BASE_DIR, "SATS_Logo.png")
+    os.path.abspath("/shared/assets/SATS_Logo.png"),
+    os.path.abspath(os.path.join(DATA_DIR, "SATS_Logo.png")),
+    os.path.abspath(os.path.join(BASE_DIR, "SATS_Logo.png"))
 ]
 
 app = Flask(
@@ -463,7 +468,7 @@ def mdb_data():
             return None
         return obj
 
-    return jsonify(clean_nan(raw_data))
+    return jsonify(collect_mdb_data())
 @app.route("/api/mdb/history")
 def mdb_history():
     date_str = request.args.get('date')
@@ -629,9 +634,8 @@ def wtp_pressure():
         "soft_water": get_filtered_data(file_soft, "bar")
     })
 
-@app.route("/api/wtp")
-def wtp_data():
-    return jsonify({
+def get_wtp_raw_data():
+    return {
         "flow_totals": {
             "deep_well":     read_csv("FIT-101-DeepWellWater_Total.csv", "m3"),
             "soft_water_1":  read_csv("FIT-102-SoftWaterSupply-01_Total.csv", "m3"),
@@ -644,7 +648,7 @@ def wtp_data():
             "soft_water_1": get_flow_rate("FIT-102-SoftWaterSupply-01_Total.csv"),
             "soft_water_2": get_flow_rate("_FIT-104-SoftWaterSupply-02_Total.csv"),
             "ro_water":     get_flow_rate("FIT-103-ROWaterSupply_Total.csv"),
-            "fire_water":   get_flow_rate("FIT-105-FireWaterTank_Total.csv") # Added this
+            "fire_water":   get_flow_rate("FIT-105-FireWaterTank_Total.csv")
         },
         "pressure": {
             "soft_water":    read_csv("PT101SoftWaterSupplyNo1_Pres.csv", "bar"),
@@ -653,7 +657,12 @@ def wtp_data():
         "quality": {
             "ro_chlorine":   read_csv("RES102ROWaterSupply_ResCl2.csv", "mg")
         }
-    })
+    }
+
+# 2. This is the API route for your JS dashboard
+@app.route("/api/wtp")
+def wtp_api():
+    return jsonify(get_wtp_raw_data())
 
 
 @app.route("/api/overview/health")
@@ -715,13 +724,14 @@ class SATS_Report(FPDF):
         
         if found_logo:
             self.image(found_logo, 10, 8, 33)
-            self.set_x(50) # Move text right
+            self.set_x(50) 
         else:
-            self.set_x(10) # Start from left if no logo
-            
-        self.set_font('Arial', 'B', 12)
+            self.set_x(10)
+
+        self.set_font('helvetica', 'B', 12)
         self.set_text_color(15, 23, 42)
-        self.cell(0, 10, 'STAGE 2 INDUSTRIAL SYSTEMS MASTER REPORT', 0, 1, 'L')
+        self.cell(0, 10, 'STAGE 2 INDUSTRIAL SYSTEMS MASTER REPORT', 
+                  new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         
         self.set_draw_color(59, 130, 246)
         self.line(10, 22, 200, 22)
@@ -729,206 +739,661 @@ class SATS_Report(FPDF):
 
     def footer(self):
         self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
+        self.set_font('helvetica', 'I', 8)
         self.set_text_color(128)
-        self.cell(0, 10, f'Page {self.page_no()} | CONFIDENTIAL DATA', 0, 0, 'C')
+        self.cell(0, 10, f'Page {self.page_no()} | CONFIDENTIAL INDUSTRIAL DATA', 
+                  new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
 
+# =====================================================
+# HELPERS
+# =====================================================
+def save_wtp_chart(data_list, val_key, title, ylabel, filename, color='#f59e0b'):
+    """Generates a line chart for WTP metrics."""
+    if not data_list:
+        return None
+    
+    # Convert list of dicts to DataFrame for easy plotting
+    df = pd.DataFrame(data_list)
+    # Extract just the last 24 points for clarity
+    df = df.tail(24) 
 
-def save_chart_to_file(df, x_col, y_col, title, ylabel, filename, color='#3b82f6'):
     plt.figure(figsize=(6, 3))
-    plt.plot(df[x_col], df[y_col], color=color, linewidth=2)
+    plt.plot(df['time'], df[val_key], color=color, linewidth=2, marker='o', markersize=4)
     plt.title(title, fontsize=10, fontweight='bold')
     plt.ylabel(ylabel, fontsize=8)
     plt.xticks(rotation=45, fontsize=7)
-    plt.yticks(fontsize=7)
-    plt.grid(True, linestyle='--', alpha=0.4)
+    plt.grid(True, linestyle='--', alpha=0.6)
     plt.tight_layout()
+    
     path = os.path.join(BASE_DIR, filename)
-    plt.savefig(path, format='png', dpi=150)
+    plt.savefig(path, dpi=150)
     plt.close()
     return path
 
+def render_temperature_table(pdf, df):
+    # ---------- TABLE CONFIG ----------
+    headers = [
+        "Cold Room",
+        "Expected (°C)",
+        "Set Point (°C)",
+        "Latest Temp (°C)",
+        "Deviation (°C)",
+        "Within Tolerance"
+    ]
+
+    col_widths = [48, 28, 28, 30, 26, 30]
+    row_height = 7
+    header_height = 8
+
+    def draw_header():
+        pdf.set_font('helvetica', 'B', 9)
+        pdf.set_fill_color(226, 232, 240)  # light gray
+        pdf.set_text_color(15, 23, 42)
+
+        for h, w in zip(headers, col_widths):
+            pdf.cell(w, header_height, h, border=1, align='C', fill=True)
+        pdf.ln()
+
+    # ---------- INITIAL HEADER ----------
+    draw_header()
+
+    pdf.set_font('helvetica', '', 9)
+    pdf.set_text_color(0)
+
+    fill = False  # for alternating row colour
+
+    for _, r in df.iterrows():
+        # ---------- PAGE BREAK ----------
+        if pdf.get_y() > 265:
+            pdf.add_page()
+            draw_header()
+            pdf.set_font('helvetica', '', 9)
+
+        # ---------- DATA SAFETY ----------
+        room = r.get("room_name") or r.get("base_room", "N/A")
+
+        try:
+            expected = float(r.get("Requirement", 0))
+            actual = float(r.get("Actual Temp", 0))
+            diff = float(r.get("temp_diff", 0))
+            status = str(r.get("status", "")).upper()
+        except:
+            expected, actual, diff, status = 0.0, 0.0, 0.0, "UNKNOWN"
+
+        ok = "YES" if status == "OK" else "NO"
+
+        # ---------- ROW BACKGROUND ----------
+        if fill:
+            pdf.set_fill_color(248, 250, 252)  # very light gray
+        else:
+            pdf.set_fill_color(255, 255, 255)
+
+        # ---------- ROW CELLS ----------
+        pdf.cell(col_widths[0], row_height, str(room)[:32], border=1, fill=True)
+        pdf.cell(col_widths[1], row_height, f"{expected:.2f}", border=1, align='C', fill=True)
+        pdf.cell(col_widths[2], row_height, f"{expected:.2f}", border=1, align='C', fill=True)
+        pdf.cell(col_widths[3], row_height, f"{actual:.2f}", border=1, align='C', fill=True)
+        pdf.cell(col_widths[4], row_height, f"{diff:.2f}", border=1, align='C', fill=True)
+
+        # ---------- STATUS BADGE ----------
+        if ok == "YES":
+            pdf.set_text_color(22, 101, 52)
+            pdf.set_fill_color(220, 252, 231)
+        else:
+            pdf.set_text_color(220, 38, 38)
+            pdf.set_fill_color(254, 226, 226)
+
+        pdf.cell(
+            col_widths[5],
+            row_height,
+            ok,
+            border=1,
+            align='C',
+            fill=True,
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT
+        )
+
+        pdf.set_text_color(0)
+        fill = not fill
+
+def render_mdb_energy_table(pdf, energy_data):
+    pdf.set_font('helvetica', 'B', 12)
+    pdf.cell(0, 8, "MDB Energy Distribution (Latest Reading)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(2)
+
+    col_widths = [60, 60]
+    headers = ["MDB Panel", "Energy (kWh)"]
+
+    pdf.set_font('helvetica', 'B', 10)
+    for h, w in zip(headers, col_widths):
+        pdf.cell(w, 8, h, border=1)
+    pdf.ln()
+
+    pdf.set_font('helvetica', '', 10)
+    for panel, value in energy_data.items():
+        pdf.cell(col_widths[0], 8, panel, border=1)
+        pdf.cell(col_widths[1], 8, f"{value:.2f}", border=1)
+        pdf.ln()
+
+    pdf.ln(4)
+
+
+def render_emdb_summary(pdf, emdb_value):
+    pdf.set_font('helvetica', 'B', 12)
+    pdf.cell(0, 8, "Emergency MDB (EMDB-1) Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(2)
+
+    pdf.set_font('helvetica', '', 11)
+    pdf.multi_cell(
+        0, 7,
+        f"The Emergency Main Distribution Board (EMDB-1) recorded a latest energy "
+        f"consumption of {emdb_value:.2f} kWh. This value represents the most recent "
+        f"captured reading from the emergency power line."
+    )
+
+    pdf.ln(4)
+
+
+def render_generator_status_table(pdf, generators):
+    pdf.set_font('helvetica', 'B', 12)
+    pdf.cell(0, 8, "Generator Runtime and Status", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(2)
+
+    col_widths = [50, 60, 40]
+    headers = ["Generator", "Runtime (hrs)", "Status"]
+
+    pdf.set_font('helvetica', 'B', 10)
+    for h, w in zip(headers, col_widths):
+        pdf.cell(w, 8, h, border=1)
+    pdf.ln()
+
+    pdf.set_font('helvetica', '', 10)
+    for gen_id, data in generators.items():
+        latest = data[-1]["runtime"] if len(data) else 0
+        prev = data[-2]["runtime"] if len(data) > 1 else 0
+        status = "RUNNING" if latest > prev and prev != 0 else "STANDBY"
+
+        pdf.cell(col_widths[0], 8, gen_id.replace("_", "-").upper(), border=1)
+        pdf.cell(col_widths[1], 8, f"{latest:.1f}", border=1)
+        pdf.cell(col_widths[2], 8, status, border=1)
+        pdf.ln()
+
+    pdf.ln(4)
+
+def collect_mdb_data():
+    """
+    Core MDB data loader.
+    Returns Python dict ONLY (no jsonify, no request).
+    """
+    raw_data = {
+        "energy": {
+            "emdb_1_daily": read_mdb_daily_consumption("mdb_emdb.csv"),
+            "emdb_1": read_csv("mdb_emdb.csv", "kwh"),
+            "mdb_6":  read_csv("mdb6_energy.csv", "kwh"),
+            "mdb_7":  read_csv("mdb7_energy.csv", "kwh"),
+            "mdb_8":  read_csv("mdb8_energy.csv", "kwh"),
+            "mdb_9":  read_csv("mdb9_energy.csv", "kwh"),
+            "mdb_10": read_csv("mdb10_energy.csv", "kwh")
+        },
+        "generators": {
+            "gen_1": read_csv("mdb_gen1_RT.csv", "runtime"),
+            "gen_2": read_csv("mdb_gen2_RT.csv", "runtime"),
+            "gen_3": read_csv("mdb_gen3_RT.csv", "runtime"),
+            "gen_4": read_csv("mdb_gen4_RT.csv", "runtime")
+        }
+    }
+
+    # Clean NaN → None (JSON + PDF safe)
+    def clean_nan(obj):
+        if isinstance(obj, list):
+            return [clean_nan(i) for i in obj]
+        if isinstance(obj, dict):
+            return {k: clean_nan(v) for k, v in obj.items()}
+        if isinstance(obj, float) and pd.isna(obj):
+            return None
+        return obj
+
+    return clean_nan(raw_data)
+
+def render_simple_table(pdf, headers, rows, col_widths):
+    pdf.set_font('helvetica', 'B', 9)
+    pdf.set_fill_color(226, 232, 240)
+
+    for h, w in zip(headers, col_widths):
+        pdf.cell(w, 8, h, border=1, fill=True)
+    pdf.ln()
+
+    pdf.set_font('helvetica', '', 9)
+    for row in rows:
+        for val, w in zip(row, col_widths):
+            pdf.cell(w, 7, str(val), border=1)
+        pdf.ln()
+
+def get_cctv_raw_data():
+    file_name = "Resource Online Status Log_2026_02_05_10_21_49.xlsx"
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_excel(path)
+        df.columns = df.columns.str.strip()
+        return df
+    except:
+        return []
+    
+def render_cctv_table(pdf, df):
+    # Table header
+    pdf.set_font('helvetica', 'B', 8)
+    pdf.set_fill_color(30, 41, 59)
+    pdf.set_text_color(255)
+
+    # Simplified columns to fit on one page
+    cols = [
+        ("Camera Name", 60),
+        ("Area", 40),
+        ("Status", 25),
+        ("Offline Count", 25),
+        ("Latest Offline", 40)
+    ]
+
+    for header, width in cols:
+        pdf.cell(width, 8, header, border=1, align='C', fill=True)
+    pdf.ln()
+
+    # Table rows
+    pdf.set_text_color(0)
+    pdf.set_font('helvetica', '', 7)
+
+    for _, r in df.iterrows():
+        # Page break safety
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            # Re-render header on new page
+            pdf.set_font('helvetica', 'B', 8)
+            pdf.set_fill_color(30, 41, 59)
+            pdf.set_text_color(255)
+            for header, width in cols:
+                pdf.cell(width, 8, header, border=1, align='C', fill=True)
+            pdf.ln()
+            pdf.set_text_color(0)
+            pdf.set_font('helvetica', '', 7)
+
+        status = str(r.get("Current Status", "Unknown")).strip()
+        
+        # Color logic for Status
+        if status.lower() == 'online':
+            pdf.set_text_color(22, 101, 52) # Green
+        else:
+            pdf.set_text_color(220, 38, 38) # Red
+
+        pdf.cell(60, 7, str(r.get("Name", ""))[:35], border=1)
+        pdf.set_text_color(0) # Reset to black for other columns
+        pdf.cell(40, 7, str(r.get("Area", ""))[:25], border=1)
+        
+        # Highlight status cell
+        if status.lower() != 'online':
+            pdf.set_fill_color(254, 226, 226)
+            pdf.cell(25, 7, status, border=1, align='C', fill=True)
+        else:
+            pdf.cell(25, 7, status, border=1, align='C')
+
+        pdf.cell(25, 7, str(r.get("Total Offline Times", "0")), border=1, align='C')
+        pdf.cell(40, 7, str(r.get("Latest Offline Time", "--")), border=1, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+
+
+
+
+# =====================================================
+# MASTER EXPORT ROUTE
+# =====================================================
 @app.route("/api/export/report")
 def export_report():
     temp_files = []
     excel_path = os.path.join(DATA_DIR, 'Temperature_Reading.xlsx')
-    
+
     try:
         pdf = SATS_Report()
         pdf.set_auto_page_break(auto=True, margin=20)
-        
-        # 1. Initialize Interactive Hyperlinks
-        links = {k: pdf.add_link() for k in ["mdb", "temp", "wtp", "wwtp", "sbf", "boiler", "air", "cctv"]}
+
+        # 1. Initialize Links
+        lnk_mdb = pdf.add_link()
+        lnk_tmp = pdf.add_link()
+        lnk_util = pdf.add_link()
+        lnk_cctv = pdf.add_link()
+
+        pdf.set_link(lnk_mdb, page=1)
+        pdf.set_link(lnk_tmp, page=1)
+        pdf.set_link(lnk_util, page=1)
+        pdf.set_link(lnk_cctv, page=1)
 
         # --- PAGE 1: COVER ---
         pdf.add_page()
         pdf.ln(80)
-        pdf.set_font('Arial', 'B', 32)
-        pdf.cell(0, 20, "STAGE 2 FACILITY", 0, 1, 'C')
-        pdf.cell(0, 20, "SYSTEMS MASTER REPORT", 0, 1, 'C')
+        pdf.set_font('helvetica', 'B', 32)
+        pdf.cell(0, 20, "SFST STAGE 2", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 20, "SYSTEMS MASTER REPORT", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(10)
-        pdf.set_font('Arial', '', 14)
-        pdf.cell(0, 10, f"Generated: {datetime.now().strftime('%d %b %Y, %I:%M %p')}", 0, 1, 'C')
+        pdf.set_font('helvetica', '', 14)
+        pdf.cell(
+            0, 10,
+            f"Generated: {datetime.now().strftime('%d %b %Y, %I:%M %p')}",
+            align='C',
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT
+        )
 
-        # --- PAGE 2: MASTER HEALTH OVERVIEW (AT-A-GLANCE) ---
+        # --- PAGE 2: MASTER HEALTH OVERVIEW ---
         pdf.add_page()
-        pdf.set_font('Arial', 'B', 20)
-        pdf.cell(0, 15, "Master System Status Overview", 0, 1, 'L')
-        pdf.set_font('Arial', '', 10)
-        pdf.cell(0, 5, "Click any system name to jump to its deep-dive report.", 0, 1, 'L')
+        pdf.set_font('helvetica', 'B', 20)
+        pdf.cell(0, 15, "Master System Status Overview", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 10)
+        pdf.cell(
+            0, 5,
+            "Click any system name to jump to its deep-dive section.",
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT
+        )
         pdf.ln(8)
 
-        # Table Headers
-        pdf.set_font('Arial', 'B', 10)
-        pdf.set_fill_color(30, 41, 59); pdf.set_text_color(255)
-        pdf.cell(70, 12, " Industrial System", 1, 0, 'L', True)
-        pdf.cell(40, 12, "Status", 1, 0, 'C', True)
-        pdf.cell(80, 12, "Key Metric / Observation", 1, 1, 'C', True)
+        pdf.set_font('helvetica', 'B', 10)
+        pdf.set_fill_color(30, 41, 59)
+        pdf.set_text_color(255)
+        pdf.cell(70, 12, " Industrial System", 1, fill=True)
+        pdf.cell(40, 12, "Status", 1, align='C', fill=True)
+        pdf.cell(80, 12, "Key Metric / Observation", 1, align='C', fill=True,
+                 new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(0)
 
-        # Helper to add rows to Overview
-        def add_overview_row(name, link_key, status, metric):
-            pdf.set_font('Arial', '', 10)
+        def add_row(name, link, status, metric):
+            pdf.set_font('helvetica', '', 10)
             pdf.set_text_color(37, 99, 235)
-            pdf.cell(70, 12, f" {name}", 1, 0, 'L', link=links[link_key])
+            pdf.cell(70, 12, f" {name}", 1, link=link)
             pdf.set_text_color(0)
-            if status == "ATTENTION": pdf.set_fill_color(254, 226, 226); pdf.set_text_color(220, 38, 38)
-            elif status == "WARNING": pdf.set_fill_color(255, 247, 237); pdf.set_text_color(194, 65, 12)
-            else: pdf.set_fill_color(240, 253, 244); pdf.set_text_color(22, 101, 52)
-            pdf.cell(40, 12, status, 1, 0, 'C', True)
-            pdf.set_text_color(0)
-            pdf.cell(80, 12, f" {metric}", 1, 1, 'L')
 
-        # Overview Data Logic
-        # Temp
+            if status == "ATTENTION":
+                pdf.set_fill_color(254, 226, 226); pdf.set_text_color(220, 38, 38)
+            elif status == "WARNING":
+                pdf.set_fill_color(255, 247, 237); pdf.set_text_color(194, 65, 12)
+            else:
+                pdf.set_fill_color(240, 253, 244); pdf.set_text_color(22, 101, 52)
+
+            pdf.cell(40, 12, status, 1, align='C', fill=True)
+            pdf.set_text_color(0)
+            pdf.cell(80, 12, f" {metric}", 1,
+                     new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
         try:
             df_sum = pd.read_excel(excel_path, sheet_name='Summary')
             total_out = df_sum[df_sum.iloc[:, 0] == "Total:"].iloc[0, 1]
-            add_overview_row("Cold Chain (Temp)", "temp", "ATTENTION" if int(total_out) > 0 else "NORMAL", f"{total_out} Alarms Found")
-        except: add_overview_row("Cold Chain (Temp)", "temp", "OFFLINE", "No Data")
+            add_row("Cold Chain (Temp)", lnk_tmp,
+                    "ATTENTION" if int(total_out) > 0 else "NORMAL",
+                    f"{total_out} Alarms Found")
+        except:
+            add_row("Cold Chain (Temp)", lnk_tmp, "OFFLINE", "Data Error")
+
+        add_row("Power Systems (MDB)", lnk_mdb, "NORMAL", "Active Stream")
+        add_row("Water Treatment (WTP)", lnk_util, "NORMAL", "Online")
+        add_row("Wastewater (WWTP)", lnk_util, "NORMAL", "Online")
+        add_row("Spiral Blast Freezer", lnk_util, "NORMAL", "Online")
+        add_row("Boiler Systems", lnk_util, "NORMAL", "Online")
+        add_row("CCTV Monitoring", lnk_cctv, "NORMAL", "Online")
+        add_row("Air Compressor", lnk_util, "NORMAL", "Online")
+
+        # --- PAGE 3: TEMPERATURE TABLE ---
+        pdf.add_page()
+        pdf.set_link(lnk_tmp, page=pdf.page_no())
+
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "1. Temperature Monitoring - Cold Rooms",
+                 new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        try:
+            conn = sqlite3.connect(os.path.join(BASE_DIR, "temps.db"))
+            df_temp = pd.read_sql("SELECT * FROM room_temperature", conn)
+            conn.close()
+            render_temperature_table(pdf, df_temp)
+        except:
+            pdf.cell(0, 10, "Temperature data unavailable",
+                     new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- PAGE 4: MDB ---
+        pdf.add_page()
+        pdf.set_link(lnk_mdb, page=pdf.page_no())
+
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "2. Power Systems (MDB)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        pdf.set_font('helvetica', '', 11)
+        pdf.multi_cell(
+            0, 8,
+            "This section presents an operational overview of the Main Distribution Board (MDB) "
+            "and Emergency Main Distribution Board (EMDB) systems. Data reflects the most recent "
+            "readings captured from the live power monitoring infrastructure."
+        )
+        pdf.ln(4)
+
+        try:
+            # Fetch MDB data from internal API or function
+            mdb_data = collect_mdb_data() # MUST already exist (used by /api/mdb)
+
+            # --- MDB Energy Distribution ---
+            mdb_panels = ["mdb_6", "mdb_7", "mdb_8", "mdb_9", "mdb_10"]
+            mdb_energy = {}
+
+            for key in mdb_panels:
+                readings = mdb_data["energy"].get(key, [])
+                mdb_energy[key.upper().replace("_", "-")] = readings[-1]["kwh"] if readings else 0
+
+            render_mdb_energy_table(pdf, mdb_energy)
+
+            # --- EMDB Summary ---
+            emdb_list = mdb_data["energy"].get("emdb_1", [])
+            emdb_latest = emdb_list[-1]["kwh"] if emdb_list else 0
+            render_emdb_summary(pdf, emdb_latest)
+
+            # --- Generator Status ---
+            render_generator_status_table(pdf, mdb_data["generators"])
+
+        except Exception as e:
+            pdf.set_font('helvetica', '', 11)
+            pdf.cell(
+                0, 10,
+                "Power system data unavailable for reporting",
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT
+            )
+
+
+        # --- PAGE 5: WTP ---
+        pdf.add_page()
+        pdf.set_link(lnk_util, page=pdf.page_no())
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "3. Water Treatment Plant (WTP)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        try:
+            # CALL THE RAW FUNCTION, NOT THE ROUTE
+            wtp = get_wtp_raw_data()
+
+            # -------------------------------
+            # 1. EXECUTIVE KPI SUMMARY
+            # -------------------------------
+            pdf.set_font('helvetica', 'B', 13)
+            pdf.cell(0, 8, "3.1 Executive Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(2)
+
+            # --- Data Extraction ---
+            ft = wtp["flow_totals"]
+            
+            # Fetch last readings for all 5 sources
+            last_well = ft.get("deep_well", [])[-1]["m3"] if ft.get("deep_well") else 0
+            last_soft1 = ft.get("soft_water_1", [])[-1]["m3"] if ft.get("soft_water_1") else 0
+            last_soft2 = ft.get("soft_water_2", [])[-1]["m3"] if ft.get("soft_water_2") else 0
+            last_ro = ft.get("ro_water", [])[-1]["m3"] if ft.get("ro_water") else 0
+            last_fire = ft.get("fire_water", [])[-1]["m3"] if ft.get("fire_water") else 0
+
+            # Fetch Pressure and Quality
+            ro_pres_list = wtp["pressure"].get("ro_supply", [])
+            soft_pres_list = wtp["pressure"].get("soft_water", [])
+            last_ro_pres = ro_pres_list[-1]["bar"] if ro_pres_list else 0
+            last_soft_pres = soft_pres_list[-1]["bar"] if soft_pres_list else 0
+
+            cl_list = wtp["quality"].get("ro_chlorine", [])
+            last_cl = cl_list[-1]["mg"] if cl_list else 0
+
+            # Combined Status Logic
+            status = "ATTENTION" if (last_cl < 0.1 or last_ro_pres > 7.5 or last_soft_pres > 7.5) else "NORMAL"
+
+            # Render Table 1: Compliance & Pressure
+            render_simple_table(
+                pdf,
+                ["Compliance Metric", "Current Reading"],
+                [
+                    ["Chlorine (mg/L)", f"{last_cl:.2f}"],
+                    ["RO Supply Pressure (bar)", f"{last_ro_pres:.1f}"],
+                    ["Soft Water Pressure (bar)", f"{last_soft_pres:.1f}"],
+                    ["Overall System Status", status],
+                ],
+                [90, 60]
+            )
+            pdf.ln(5)
+
+            # Render Table 2: Full Water Source Inventory (5 Sources)
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 10, "3.2 Accumulated Water Source Volumes", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            render_simple_table(
+                pdf,
+                ["Water Source", "Total Accumulation (m3)"],
+                [
+                    ["Deep Well", f"{last_well:,.0f}"],
+                    ["Soft Water 1", f"{last_soft1:,.0f}"],
+                    ["Soft Water 2", f"{last_soft2:,.0f}"],
+                    ["RO Water", f"{last_ro:,.0f}"],
+                    ["Fire Water Tank", f"{last_fire:,.0f}"],
+                ],
+                [90, 60]
+            )
+            
+            # -------------------------------
+            # 4. VISUAL TREND ANALYSIS
+            # -------------------------------
+            pdf.set_font('helvetica', 'B', 14)
+            pdf.cell(0, 10, "3.3 Visual Trend Analysis", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(5)
+
+            # --- Chart 1: Residual Chlorine Trend ---
+            cl_chart_path = save_wtp_chart(
+                wtp["quality"].get("ro_chlorine", []), 'mg', 
+                "Chlorine Trend", "mg/L", "tmp_cl_trend.png", color='#f59e0b'
+            )
+            if cl_chart_path:
+                temp_files.append(cl_chart_path)
+                pdf.image(cl_chart_path, x=15, w=180)
+                pdf.ln(2)
+
+            # --- Chart 2: RO Supply Pressure Trend ---
+            ro_chart_path = save_wtp_chart(
+                wtp["pressure"].get("ro_supply", []), 'bar', 
+                "RO Supply Pressure Trend", "Bar", "tmp_ro_pres.png", color='#3b82f6'
+            )
+            if ro_chart_path:
+                temp_files.append(ro_chart_path)
+                pdf.image(ro_chart_path, x=15, w=180)
+                pdf.ln(2)
+
+            # --- Chart 3: Soft Water Pressure Trend (NEW) ---
+            soft_chart_path = save_wtp_chart(
+                wtp["pressure"].get("soft_water", []), 'bar', 
+                "Soft Water Supply Pressure Trend", "Bar", "tmp_soft_pres.png", color='#64748b'
+            )
+            if soft_chart_path:
+                temp_files.append(soft_chart_path)
+                pdf.image(soft_chart_path, x=15, w=180)
+
+        except Exception as e:
+            print(f"PDF WTP Error: {e}")
+            pdf.cell(0, 10, "Water Treatment Plant data error: " + str(e), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        # --- PAGE 6: WWTP ---
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "4. Waste Water Treatment Plant (WWTP)",
+                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- PAGE 7: SBF ---
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "5. Spiral Blast Freezer",
+                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- PAGE 8: BOILER ---
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "6. Boiler System",
+                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- PAGE 9: CCTV ---
+        pdf.add_page()
+        pdf.set_link(lnk_cctv, page=pdf.page_no())
         
-        # MDB
-        try:
-            val = pd.read_csv(os.path.join(DATA_DIR, 'mdb_emdb.csv'), skiprows=2).iloc[-1].iloc[-1]
-            add_overview_row("Power Systems (MDB)", "mdb", "NORMAL", f"{val:,.0f} kWh")
-        except: add_overview_row("Power Systems (MDB)", "mdb", "OFFLINE", "No Data")
-
-        # CCTV
-        try:
-            df_c = pd.read_excel(os.path.join(DATA_DIR, "Resource Online Status Log_2026_02_05_10_21_49.xlsx"))
-            off = len(df_c[df_c['Current Status'].str.lower() != 'online'])
-            add_overview_row("CCTV Security", "cctv", "WARNING" if off > 0 else "NORMAL", f"{off} Cameras Offline")
-        except: add_overview_row("CCTV Security", "cctv", "OFFLINE", "Log Missing")
-
-        # WTP
-        try:
-            wtp = pd.read_csv(os.path.join(DATA_DIR, 'RES102ROWaterSupply_ResCl2.csv'), skiprows=2).iloc[-1].iloc[-1]
-            add_overview_row("Water Treatment (WTP)", "wtp", "NORMAL", f"{wtp} mg/L Chlorine")
-        except: add_overview_row("Water Treatment (WTP)", "wtp", "OFFLINE", "No Data")
-
-        # Others (Boiler, Air, WWTP, SBF) - Brief Rows
-        add_overview_row("Spiral Blast Freezer", "sbf", "NORMAL", "Online")
-        add_overview_row("Boiler Systems", "boiler", "NORMAL", "Online")
-        add_overview_row("Air Compressor", "air", "NORMAL", "Online")
-        add_overview_row("Wastewater Plant", "wwtp", "NORMAL", "Online")
-
-        # --- PAGE 3: MDB DEEP DIVE (FIXED SPACING) ---
-        pdf.add_page()
-        pdf.set_link(links["mdb"], page=pdf.page_no())
-        pdf.set_font('Arial', 'B', 16); pdf.cell(0, 10, "1. Power Systems (MDB) Details", 0, 1, 'L')
-        try:
-            df_mdb = pd.read_csv(os.path.join(DATA_DIR, 'mdb_emdb.csv'), skiprows=2)
-            df_chart = df_mdb.tail(24).copy()
-            df_chart.columns = [c.strip() for c in df_chart.columns]
-            val_col = [c for c in df_chart.columns if 'Value' in c][0]
-            df_chart['time_label'] = df_chart['Timestamp'].str.replace(' ICT', '').str.split(' ').str[1].str[:5]
-            
-            p_mdb = save_chart_to_file(df_chart, 'time_label', val_col, "Energy Consumption Trend", "kWh", "tmp_mdb.png")
-            temp_files.append(p_mdb)
-            
-            pdf.image(p_mdb, x=15, y=45, w=180)
-            # 🔑 THE FIX: Move Y cursor to 140mm to prevent overlap with the chart
-            pdf.set_y(140) 
-            
-            pdf.set_font('Arial', 'B', 11); pdf.cell(0, 10, " Historical Consumption Log", 0, 1, 'L')
-            pdf.set_font('Arial', '', 9)
-            for _, r in df_mdb.tail(10).iterrows():
-                pdf.cell(90, 7, str(r['Timestamp']).replace(' ICT', ''), 1, 0, 'L')
-                pdf.cell(90, 7, f"{r[val_col]:,.2f} kWh", 1, 1, 'R')
-        except Exception as e: pdf.cell(0, 10, f"Error: {str(e)}", 0, 1)
-
-        # --- PAGE 4: COLD CHAIN ALL ROOMS ---
-        pdf.add_page()
-        pdf.set_link(links["temp"], page=pdf.page_no())
-        pdf.set_font('Arial', 'B', 16); pdf.cell(0, 10, "2. Cold Chain - Detailed Temperature Logs", 0, 1, 'L')
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "7. CCTV Monitoring Status", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        
+        pdf.set_font('helvetica', '', 11)
+        pdf.multi_cell(0, 8, 
+            "This section details the online/offline status of the facility surveillance network. "
+            "Offline durations and counts are calculated based on the latest automated resource logs."
+        )
         pdf.ln(5)
+
         try:
-            df_temp = pd.read_excel(excel_path, sheet_name='Database')
-            df_temp.columns = [c.replace(':', '').strip().lower() for c in df_temp.columns]
-            
-            def p_h():
-                pdf.set_font('Arial', 'B', 9); pdf.set_fill_color(230, 235, 245)
-                pdf.cell(85, 8, "Room Name", 1, 0, 'C', True)
-                pdf.cell(30, 8, "Temp (C)", 1, 0, 'C', True)
-                pdf.cell(65, 8, "Status / Remarks", 1, 1, 'C', True)
-                pdf.set_font('Arial', '', 7)
-            
-            p_h()
-            t_k = [c for c in df_temp.columns if 'recent temp' in c][0]
-            tol_k = [c for c in df_temp.columns if 'tolerance' in c][0]
-            
-            for _, row in df_temp.iterrows():
-                if pdf.get_y() > 265: pdf.add_page(); p_h()
-                is_out = str(row[tol_k]).strip().upper() == 'N'
-                if is_out: pdf.set_text_color(220, 38, 38)
-                pdf.cell(85, 6, str(row.iloc[1])[:45], 1, 0, 'L')
-                pdf.cell(30, 6, str(row[t_k]), 1, 0, 'C')
-                pdf.cell(65, 6, "OUT OF TOLERANCE" if is_out else "NORMAL", 1, 1, 'C')
-                pdf.set_text_color(0)
-        except Exception as e: pdf.cell(0, 10, f"Error: {str(e)}", 0, 1)
+            cctv_df = get_cctv_raw_data()
+            if not cctv_df.empty:
+                # 1. Summary Statistics
+                total_cams = len(cctv_df)
+                offline_cams = len(cctv_df[cctv_df['Current Status'].str.lower() != 'online'])
+                
+                pdf.set_font('helvetica', 'B', 12)
+                pdf.cell(0, 10, f"System Overview: {total_cams} Total Cameras | {offline_cams} Offline", 
+                         new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(2)
 
-        # --- PAGE 5: WATER & WASTEWATER ---
+                # 2. Render the Detailed Log Table
+                render_cctv_table(pdf, cctv_df)
+            else:
+                pdf.cell(0, 10, "CCTV log file not found or data is empty.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        except Exception as e:
+            print(f"PDF CCTV Error: {e}")
+            pdf.cell(0, 10, "Error generating CCTV report section.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- PAGE 10: AIR COMPRESSOR ---
         pdf.add_page()
-        pdf.set_link(links["wtp"], page=pdf.page_no())
-        pdf.set_font('Arial', 'B', 16); pdf.cell(0, 10, "3. Utilities: Water Treatment (WTP & WWTP)", 0, 1, 'L')
-        try:
-            wtp_df = pd.read_csv(os.path.join(DATA_DIR, 'RES102ROWaterSupply_ResCl2.csv'), skiprows=2).tail(15)
-            pdf.image(save_chart_to_file(wtp_df.tail(20), wtp_df.columns[0], wtp_df.columns[1], "Chlorine Trend", "mg/L", "tmp_wtp.png", "#10b981"), x=15, y=45, w=180)
-            pdf.set_y(140)
-            pdf.cell(0, 10, "Latest Water Quality Log", 0, 1, 'L')
-            for _, r in wtp_df.tail(8).iterrows():
-                pdf.cell(90, 7, str(r.iloc[0]).replace(' ICT', ''), 1, 0, 'L')
-                pdf.cell(90, 7, f"{r.iloc[1]} mg/L", 1, 1, 'R')
-        except: pdf.cell(0, 10, "Utility Data Unreachable", 0, 1)
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "8. Air Compressor",
+                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        # --- PAGE 6: SBF, BOILER, AIR COMPRESSOR ---
-        pdf.add_page()
-        pdf.set_link(links["sbf"], page=pdf.page_no())
-        pdf.set_font('Arial', 'B', 16); pdf.cell(0, 10, "4. KitchenEquipment Status", 0, 1, 'L')
-        pdf.ln(5)
-        # SBF Summary
-        pdf.set_font('Arial', 'B', 11); pdf.cell(0, 10, "Spiral Blast Freezer", 0, 1, 'L', True)
-        pdf.set_font('Arial', '', 10); pdf.cell(0, 8, "Systems operating within baseline. See Dashboard for live vibration/motor metrics.", 0, 1)
-        # Boiler Summary
-        pdf.set_font('Arial', 'B', 11); pdf.cell(0, 10, "Boiler Systems", 0, 1, 'L', True)
-        pdf.set_font('Arial', '', 10); pdf.cell(0, 8, "Steam Pressure and Gas Consumption consistent with production load.", 0, 1)
-        # Air Compressor
-        pdf.set_font('Arial', 'B', 11); pdf.cell(0, 10, "Air Compressor", 0, 1, 'L', True)
-        pdf.set_font('Arial', '', 10); pdf.cell(0, 8, "Instrument Air Dewpoint: Stable.", 0, 1)
+        # --- FINAL EXPORT (ONLY ONCE) ---
+        pdf_bytes = bytes(pdf.output(dest="S"))
+        pdf_stream = BytesIO(pdf_bytes)
+        pdf_stream.seek(0)
 
-        # --- EXPORT ---
-        pdf_raw = pdf.output(dest='S')
-        response = make_response(pdf_raw.encode('latin-1') if isinstance(pdf_raw, str) else pdf_raw)
-        response.headers.set('Content-Type', 'application/pdf')
-        response.headers.set('Content-Disposition', 'attachment', filename='SATS_Master_Report.pdf')
         for f in temp_files:
-            if os.path.exists(f): os.remove(f)
-        return response
+            if os.path.exists(f):
+                os.remove(f)
+
+        return send_file(
+            pdf_stream,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name="SFST_Master_Report.pdf"
+        )
 
     except Exception as e:
-        for f in temp_files:
-            if os.path.exists(f): os.remove(f)
+        print(f"🔥 EXPORT FAILED: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
 # =====================================================
 # SERVER START
 # =====================================================
@@ -937,4 +1402,3 @@ if __name__ == "__main__":
     print("\n🚀 Server running at http://127.0.0.1:5000")
     print(f"📂 Data directory: {DATA_DIR}\n")
     app.run(debug=True, port=5000)
-55
