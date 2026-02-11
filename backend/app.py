@@ -1041,6 +1041,87 @@ def render_cctv_table(pdf, df):
         pdf.cell(25, 7, str(r.get("Total Offline Times", "0")), border=1, align='C')
         pdf.cell(40, 7, str(r.get("Latest Offline Time", "--")), border=1, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
+def get_wwtp_raw_data():
+    categories = {
+        'energy': [("PMG-WWTP_Energy.csv", "pmg"), ("_PM-WWTP-CONTROL-PANEL_Energy.csv", "ctrl")],
+        'flow':   [("EffluentPump_Total.csv", "effluent"), ("_RawWaterWastePump-01_Total.csv", "raw")],
+        'temp':   [("_RawWasteWater_Temp.csv", "temp")]
+    }
+    
+    results = {}
+    for cat, files in categories.items():
+        results[cat] = {}
+        for file_name, key in files:
+            path = os.path.join(DATA_DIR, file_name)
+            if os.path.exists(path):
+                # Standard read: skip metadata
+                df = pd.read_csv(path, skiprows=2)
+                df.columns = [c.strip() for c in df.columns]
+                
+                # Identify 'Value' column
+                val_col = [c for c in df.columns if 'Value' in c][0]
+                
+                # 🔑 THE FIX: Force numeric conversion and strip any weird characters
+                # This handles the "{ }" or empty strings that are crashing your float conversion.
+                df[val_col] = pd.to_numeric(df[val_col], errors='coerce').fillna(0.0)
+                
+                df['Timestamp'] = df['Timestamp'].astype(str).str.replace(' ICT', '', regex=False)
+                df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p', errors='coerce')
+                df = df.dropna(subset=['dt'])
+                results[cat][key] = df
+            else:
+                results[cat][key] = pd.DataFrame()
+    return results
+
+def get_wwtp_report_data(): # Ensure this matches what you call in the route
+    files = {
+        "effluent": "EffluentPump_Total.csv",
+        "raw_pump": "_RawWaterWastePump-01_Total.csv",
+        "raw_temp": "_RawWasteWater_Temp.csv", # 🔑 This must match l_temp's key
+        "pmg_energy": "PMG-WWTP_Energy.csv",
+        "ctrl_energy": "_PM-WWTP-CONTROL-PANEL_Energy.csv"
+    }
+    
+    data_output = {}
+    for key, file_name in files.items():
+        path = os.path.join(DATA_DIR, file_name)
+        if os.path.exists(path):
+            try:
+                # Read CSV skipping metadata
+                df = pd.read_csv(path, skiprows=2)
+                df.columns = [c.strip() for c in df.columns]
+                val_col = [c for c in df.columns if 'Value' in c][0]
+                
+                # 🔑 THE FIX: Force numeric conversion
+                # errors='coerce' turns "{ }" into NaN
+                # .fillna(0.0) turns NaN into 0.0
+                df[val_col] = pd.to_numeric(df[val_col], errors='coerce').fillna(0.0)
+                
+                df['Timestamp'] = df['Timestamp'].astype(str).str.replace(' ICT', '', regex=False)
+                df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p', errors='coerce')
+                
+                data_output[key] = df.dropna(subset=['dt'])
+            except Exception as e:
+                data_output[key] = pd.DataFrame()
+        else:
+            data_output[key] = pd.DataFrame()
+    return data_output
+
+def safe_float(df):
+    """Safely extracts the last numeric value from a DataFrame's second column."""
+    if df is None or df.empty:
+        return 0.0
+    try:
+        # Extract the last row, second column (the 'Value' column)
+        val = df.iloc[-1].iloc[1]
+        return float(val)
+    except (ValueError, TypeError, IndexError):
+        return 0.0
+    
+
+
+
+
 
 
 
@@ -1062,11 +1143,13 @@ def export_report():
         lnk_tmp = pdf.add_link()
         lnk_util = pdf.add_link()
         lnk_cctv = pdf.add_link()
+        lnk_wwtp = pdf.add_link()
 
         pdf.set_link(lnk_mdb, page=1)
         pdf.set_link(lnk_tmp, page=1)
         pdf.set_link(lnk_util, page=1)
         pdf.set_link(lnk_cctv, page=1)
+        pdf.set_link(lnk_wwtp, page=1)
 
         # --- PAGE 1: COVER ---
         pdf.add_page()
@@ -1135,7 +1218,7 @@ def export_report():
 
         add_row("Power Systems (MDB)", lnk_mdb, "NORMAL", "Active Stream")
         add_row("Water Treatment (WTP)", lnk_util, "NORMAL", "Online")
-        add_row("Wastewater (WWTP)", lnk_util, "NORMAL", "Online")
+        add_row("Wastewater (WWTP)", lnk_wwtp, "NORMAL", "Online")
         add_row("Spiral Blast Freezer", lnk_util, "NORMAL", "Online")
         add_row("Boiler Systems", lnk_util, "NORMAL", "Online")
         add_row("CCTV Monitoring", lnk_cctv, "NORMAL", "Online")
@@ -1314,11 +1397,101 @@ def export_report():
         except Exception as e:
             print(f"PDF WTP Error: {e}")
             pdf.cell(0, 10, "Water Treatment Plant data error: " + str(e), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+
         # --- PAGE 6: WWTP ---
         pdf.add_page()
+        pdf.set_link(lnk_wwtp, page=pdf.page_no()) 
+
         pdf.set_font('helvetica', 'B', 16)
-        pdf.cell(0, 10, "4. Waste Water Treatment Plant (WWTP)",
-                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 10, "4. Waste Water Treatment Plant (WWTP)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        
+        pdf.set_font('helvetica', '', 11)
+        pdf.multi_cell(0, 8, "Operational report for Effluent and Raw Waste Water systems.")
+        pdf.ln(5)
+
+        try:
+            # 1. Fetch the data using the helper
+            wwtp_data = get_wwtp_report_data()
+
+            # 2. Update these lines to use the correct keys from get_wwtp_report_data()
+            l_temp = safe_float(wwtp_data.get('raw_temp', pd.DataFrame()))
+            l_eff  = safe_float(wwtp_data.get('effluent', pd.DataFrame()))
+            l_raw  = safe_float(wwtp_data.get('raw_pump', pd.DataFrame()))
+
+            # 3. Render Table
+            render_simple_table(
+                pdf,
+                ["Parameter", "Latest Reading", "Unit"],
+                [
+                    ["Inflow Waste Water Temp", f"{l_temp:.1f}", "deg C"],
+                    ["Effluent Pump Total", f"{l_eff:,.0f}", "m3"],
+                    ["Raw Waste Water Pump", f"{l_raw:,.0f}", "m3"],
+                    ["System Status", "NORMAL" if l_temp < 35 else "WARNING", "Status"]
+                ],
+                [80, 40, 30]
+            )
+
+
+            # -------------------------------
+            # 4.2 Waste Water Temperature Trend
+            # -------------------------------
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 10, "4.2 Waste Water Temperature Trend", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            
+            df_temp = wwtp_data.get('raw_temp')
+
+            # 🔑 THE FIX: Use 'is not None' and '.empty'
+            if df_temp is not None and not df_temp.empty:
+                chart_df = df_temp.tail(24).copy()
+                chart_df['time'] = chart_df['dt'].dt.strftime('%H:%M')
+                
+                # Dynamically get the Value column name
+                val_col = [c for c in chart_df.columns if 'Value' in c][0]
+                
+                # Convert DataFrame to a list of dicts for your save_wtp_chart helper
+                data_list = chart_df.to_dict('records')
+                
+                temp_path = save_wtp_chart(
+                    data_list, val_col, "Inflow Temp (Last 24 Readings)", 
+                    "deg C", "tmp_wwtp_temp.png", color='#f59e0b'
+                )
+                
+                if temp_path:
+                    temp_files.append(temp_path)
+                    pdf.image(temp_path, x=15, w=150)
+                    pdf.ln(5)
+
+            # -------------------------------
+            # 4.3 Effluent Flow & Energy
+            # -------------------------------
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 10, "4.3 Effluent Flow & Energy Consumption", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            df_energy = wwtp_data.get('pmg_energy')
+            
+            # 🔑 THE FIX: Again, use .empty check
+            if df_energy is not None and not df_energy.empty:
+                chart_df = df_energy.tail(24).copy()
+                chart_df['time'] = chart_df['dt'].dt.strftime('%H:%M')
+                val_col = [c for c in chart_df.columns if 'Value' in c][0]
+                
+                data_list = chart_df.to_dict('records')
+                
+                energy_path = save_wtp_chart(
+                    data_list, val_col, "Main WWTP Energy (kWh)", 
+                    "kWh", "tmp_wwtp_energy.png", color='#3b82f6'
+                )
+                
+                if energy_path:
+                    temp_files.append(energy_path)
+                    pdf.image(energy_path, x=15, w=150)
+
+        except Exception as e:
+            print(f"🔥 PDF WWTP Error: {e}")
+            pdf.set_text_color(220, 38, 38)
+            pdf.cell(0, 10, f"WWTP Data Error: {str(e)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_text_color(0)
 
         # --- PAGE 7: SBF ---
         pdf.add_page()
@@ -1374,7 +1547,8 @@ def export_report():
                 new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # --- FINAL EXPORT (ONLY ONCE) ---
-        pdf_bytes = bytes(pdf.output(dest="S"))
+        pdf_raw = pdf.output() 
+        pdf_bytes = pdf_raw.encode('latin-1') if isinstance(pdf_raw, str) else pdf_raw
         pdf_stream = BytesIO(pdf_bytes)
         pdf_stream.seek(0)
 
