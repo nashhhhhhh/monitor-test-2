@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from io import BytesIO
+import tempfile
+
 
 export_pdf_bp = Blueprint("export_pdf", __name__)
 
@@ -1118,8 +1120,85 @@ def safe_float(df):
     except (ValueError, TypeError, IndexError):
         return 0.0
     
+def load_aircompressor_data():
+    try:
+        energy = read_csv("aircompressor_energy.csv", "energy")
+        flow = read_csv("airmeter_flow.csv", "flow")
+        dew = read_csv("air_dewpoint.csv", "dewpoint")
 
+        if not energy or not flow or not dew:
+            return None
 
+        return {
+            "energy": energy,
+            "flow": flow,
+            "dewpoint": dew
+        }
+    except Exception as e:
+        print("Air Compressor Load Error:", e)
+        return None
+
+def generate_aircompressor_charts(data):
+    img_paths = {}
+
+    # Use last 24 points
+    energy = data["energy"][-24:]
+    flow = data["flow"][-24:]
+    dew = data["dewpoint"][-24:]
+
+    labels = [d["time"] for d in energy]
+    energy_vals = [d["energy"] for d in energy]
+    flow_vals = [d["flow"] for d in flow]
+    dew_vals = [d["dewpoint"] for d in dew]
+
+    tmp_dir = tempfile.gettempdir()
+
+    # --- Efficiency Chart ---
+    fig, ax1 = plt.subplots(figsize=(7, 3.5))
+    ax2 = ax1.twinx()
+
+    ax1.plot(labels, flow_vals, label="Flow (m³)", linewidth=2)
+    ax2.plot(labels, energy_vals, label="Energy (kWh)", linewidth=2)
+
+    ax1.set_ylabel("Flow (m³)")
+    ax2.set_ylabel("Energy (kWh)")
+    ax1.set_title("Air Compressor Efficiency")
+
+    fig.tight_layout()
+    eff_path = os.path.join(tmp_dir, "air_efficiency.png")
+    plt.savefig(eff_path, dpi=150)
+    plt.close()
+
+    img_paths["efficiency"] = eff_path
+
+    # --- Dewpoint Chart ---
+    plt.figure(figsize=(7, 3.5))
+    plt.plot(labels, dew_vals, linewidth=2)
+    plt.title("Compressed Air Dewpoint")
+    plt.ylabel("Dewpoint (°C)")
+    plt.tight_layout()
+
+    dew_path = os.path.join(tmp_dir, "air_dewpoint.png")
+    plt.savefig(dew_path, dpi=150)
+    plt.close()
+
+    img_paths["dewpoint"] = dew_path
+
+    return img_paths
+
+def calculate_aircompressor_kpis(data):
+    last_flow = data["flow"][-1]["flow"]
+    last_energy = data["energy"][-1]["energy"]
+    last_dew = data["dewpoint"][-1]["dewpoint"]
+
+    efficiency = round(last_energy / last_flow, 3) if last_flow > 0 else 0
+
+    return {
+        "flow": last_flow,
+        "energy": last_energy,
+        "dewpoint": last_dew,
+        "efficiency": efficiency
+    }
 
 
 
@@ -1144,12 +1223,14 @@ def export_report():
         lnk_util = pdf.add_link()
         lnk_cctv = pdf.add_link()
         lnk_wwtp = pdf.add_link()
+        lnk_ac= pdf.add_link()
 
         pdf.set_link(lnk_mdb, page=1)
         pdf.set_link(lnk_tmp, page=1)
         pdf.set_link(lnk_util, page=1)
         pdf.set_link(lnk_cctv, page=1)
         pdf.set_link(lnk_wwtp, page=1)
+        pdf.set_link(lnk_ac, page=1)
 
         # --- PAGE 1: COVER ---
         pdf.add_page()
@@ -1222,7 +1303,7 @@ def export_report():
         add_row("Spiral Blast Freezer", lnk_util, "NORMAL", "Online")
         add_row("Boiler Systems", lnk_util, "NORMAL", "Online")
         add_row("CCTV Monitoring", lnk_cctv, "NORMAL", "Online")
-        add_row("Air Compressor", lnk_util, "NORMAL", "Online")
+        add_row("Air Compressor", lnk_ac, "NORMAL", "Online")
 
         # --- PAGE 3: TEMPERATURE TABLE ---
         pdf.add_page()
@@ -1542,9 +1623,63 @@ def export_report():
 
         # --- PAGE 10: AIR COMPRESSOR ---
         pdf.add_page()
+        pdf.set_link(lnk_ac, page=pdf.page_no())
         pdf.set_font('helvetica', 'B', 16)
         pdf.cell(0, 10, "8. Air Compressor",
                 new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        pdf.set_font('helvetica', '', 11)
+        pdf.multi_cell(
+            0, 8,
+            "This section provides an operational overview of the compressed air system, "
+            "including energy consumption, airflow performance, and air quality (dewpoint). "
+            "Data shown reflects the most recent available measurements."
+        )
+        pdf.ln(3)
+
+        data = load_aircompressor_data()
+
+        if not data:
+            pdf.set_font('helvetica', 'I', 11)
+            pdf.cell(0, 10, "Air Compressor data unavailable for reporting.")
+        else:
+            kpi = calculate_aircompressor_kpis(data)
+
+            # --- KPI TABLE ---
+            pdf.set_font('helvetica', 'B', 11)
+            pdf.cell(60, 10, "Metric", 1)
+            pdf.cell(60, 10, "Latest Value", 1,
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.set_font('helvetica', '', 11)
+            pdf.cell(60, 10, "Air Flow", 1)
+            pdf.cell(60, 10, f"{kpi['flow']:.2f} m³", 1,
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.cell(60, 10, "Energy Consumption", 1)
+            pdf.cell(60, 10, f"{kpi['energy']:.2f} kWh", 1,
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.cell(60, 10, "Dewpoint", 1)
+            pdf.cell(60, 10, f"{kpi['dewpoint']:.1f} °C", 1,
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.cell(60, 10, "Specific Power", 1)
+            pdf.cell(60, 10, f"{kpi['efficiency']:.3f} kWh/m³", 1,
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.ln(5)
+
+            # --- CHARTS ---
+            charts = generate_aircompressor_charts(data)
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 10, "Air Compressor Performance Trends",
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.image(charts["efficiency"], w=180)
+            pdf.ln(5)
+            pdf.image(charts["dewpoint"], w=180)
 
         # --- FINAL EXPORT (ONLY ONCE) ---
         pdf_raw = pdf.output() 
