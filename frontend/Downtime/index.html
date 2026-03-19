@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Downtime & Reliability</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="navbar"></div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+        .then(res => res.ok ? res.text() : Promise.reject())
+        .then(html => document.getElementById('navbar').innerHTML = html)
+        .catch(err => console.error('Navbar load error:', err));
+    </script>
+
+    <main class="dashboard-content">
+
+        <header class="dash-header">
+            <div>
+                <h2>Downtime & Reliability</h2>
+                <p class="text-muted">Equipment failure tracking and reliability metrics</p>
+            </div>
+            <div class="header-right">
+                <span class="refresh-badge" id="last-updated">Loading...</span>
+                <div id="clock" class="clock-display">--:--:--</div>
+            </div>
+        </header>
+
+        <!-- Alert Banner -->
+        <div id="alert-banner" class="alert-banner hidden">
+            <div class="alert-inner" id="alert-list"></div>
+        </div>
+
+        <!-- KPI Cards -->
+        <section class="kpi-grid">
+            <div class="kpi-card highlight-red">
+                <div class="kpi-label">Total Downtime Today</div>
+                <div class="kpi-value" id="kpi-total-downtime">--</div>
+                <div class="kpi-trend" id="kpi-downtime-sub">Across all systems</div>
+            </div>
+            <div class="kpi-card highlight-amber">
+                <div class="kpi-label">Downtime Events Today</div>
+                <div class="kpi-value" id="kpi-event-count">--</div>
+                <div class="kpi-trend">Total incidents recorded</div>
+            </div>
+            <div class="kpi-card highlight-purple">
+                <div class="kpi-label">Worst Performing System</div>
+                <div class="kpi-value mini" id="kpi-worst-system">--</div>
+                <div class="kpi-trend" id="kpi-worst-sub">Most downtime today</div>
+            </div>
+            <div class="kpi-card highlight-blue">
+                <div class="kpi-label">MTBF (Avg)</div>
+                <div class="kpi-value" id="kpi-mtbf">--</div>
+                <div class="kpi-trend">Mean time between failures</div>
+            </div>
+            <div class="kpi-card highlight-green">
+                <div class="kpi-label">Overall Uptime</div>
+                <div class="kpi-value" id="kpi-uptime">--%</div>
+                <div class="kpi-trend">All systems combined</div>
+            </div>
+        </section>
+
+        <!-- Timeline Chart -->
+        <section class="main-grid" style="margin-top: 24px;">
+            <div class="card card-wide">
+                <div class="card-title">Downtime Timeline — Running vs Downtime (Today)</div>
+                <div class="chart-container">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reliability Scores + Recovery Metrics side by side -->
+        <section class="main-grid" style="margin-top: 24px;">
+            <div class="card">
+                <div class="card-title">System Reliability Scores</div>
+                <div id="reliability-list" class="reliability-list"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Recovery Time Analysis</div>
+                <div class="chart-container" style="height: 280px;">
+                    <canvas id="recoveryChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Downtime Table -->
+        <section style="margin-top: 24px;">
+            <div class="card table-card">
+                <div class="card-title">Equipment Downtime Log</div>
+                <div class="table-wrapper">
+                    <table id="downtime-table">
+                        <thead>
+                            <tr>
+                                <th>Equipment</th>
+                                <th>Events Today</th>
+                                <th>Total Downtime</th>
+                                <th>Avg Duration</th>
+                                <th>Avg Recovery</th>
+                                <th>Reliability</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="downtime-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

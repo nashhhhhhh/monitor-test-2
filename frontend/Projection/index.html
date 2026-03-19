@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Projection & Forecasting</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="navbar"></div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+        .then(r => r.ok ? r.text() : Promise.reject())
+        .then(h => document.getElementById('navbar').innerHTML = h)
+        .catch(() => {});
+    </script>
+
+    <main class="dashboard-content">
+
+        <header class="dash-header">
+            <div>
+                <h2>Projection &amp; Forecasting</h2>
+                <p class="text-muted">24-hour predictive analytics across all monitored systems</p>
+            </div>
+            <div class="header-right">
+                <span class="refresh-badge" id="last-updated">Calculating…</span>
+                <div id="clock" class="clock-display">--:--:--</div>
+            </div>
+        </header>
+
+        <!-- ── Top KPI Strip ───────────────────────────────────────────── -->
+        <section class="kpi-grid">
+            <div class="kpi-card highlight-amber">
+                <div class="kpi-label">Total Predicted Energy (24 h)</div>
+                <div class="kpi-value" id="kpi-energy-total">--</div>
+                <div class="kpi-trend">MDB + Freezer + Boiler + Compressor</div>
+            </div>
+            <div class="kpi-card highlight-blue">
+                <div class="kpi-label">Total Predicted Water Flow (24 h)</div>
+                <div class="kpi-value" id="kpi-water-total">--</div>
+                <div class="kpi-trend">Wastewater + WTP combined m³</div>
+            </div>
+            <div class="kpi-card highlight-green">
+                <div class="kpi-label">Systems with Projection</div>
+                <div class="kpi-value" id="kpi-sys-enabled">--</div>
+                <div class="kpi-trend" id="kpi-sys-sub">of 8 total subsystems</div>
+            </div>
+            <div class="kpi-card highlight-red" id="kpi-alert-card">
+                <div class="kpi-label">Active Prediction Alerts</div>
+                <div class="kpi-value" id="kpi-alert-count">0</div>
+                <div class="kpi-trend" id="kpi-alert-sub">All forecasts within range</div>
+            </div>
+        </section>
+
+        <!-- ── Prediction Alerts ───────────────────────────────────────── -->
+        <div id="alert-banner" class="alert-banner hidden">
+            <div class="alert-banner-title">⚠ Prediction Alerts</div>
+            <div id="alert-list" class="alert-inner"></div>
+        </div>
+
+        <!-- ── System Summary Cards ────────────────────────────────────── -->
+        <h3 class="section-title">System Forecasts</h3>
+        <section class="system-grid" id="system-cards">
+            <!-- populated by script.js -->
+        </section>
+
+    </main>
+
+    <script src="/Projection/prediction-core.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

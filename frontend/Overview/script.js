@@ -168,6 +168,59 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    // ── Downtime KPI strip ──────────────────────────────────────────
+    function calcDowntimeKPIs() {
+        const todayBase = new Date();
+        todayBase.setHours(0, 0, 0, 0);
+
+        function ev(startH, startM, durMins) {
+            return { durationMins: durMins };
+        }
+
+        const equipment = [
+            { name: 'CCTV C.16',          events: [ev(1,15,12), ev(4,30,8), ev(7,45,20), ev(11,0,15), ev(14,20,9), ev(18,5,11)] },
+            { name: 'CCTV C.08',          events: [ev(3,10,10), ev(9,45,25), ev(16,30,8)] },
+            { name: 'Spiral Blast Freezer', events: [ev(2,0,45), ev(13,30,30)] },
+            { name: 'Boiler 01',          events: [ev(6,15,25)] },
+            { name: 'Boiler 02',          events: [] },
+            { name: 'Air Compressor',     events: [ev(8,0,15), ev(17,45,20)] },
+            { name: 'MDB Generator',      events: [ev(5,30,10)] },
+            { name: 'Wastewater Pump',    events: [ev(10,0,35), ev(19,15,20)] },
+            { name: 'Hobart Dishwasher',  events: [ev(7,0,10), ev(12,30,8)] },
+            { name: 'X-Ray Inspector',    events: [ev(9,15,5)] },
+        ];
+
+        const MINS_IN_DAY = 24 * 60;
+        let totalDownMins = 0;
+        let totalEvents   = 0;
+        let worstName     = '--';
+        let worstMins     = 0;
+
+        equipment.forEach(eq => {
+            const down = eq.events.reduce((s, e) => s + e.durationMins, 0);
+            totalDownMins += down;
+            totalEvents   += eq.events.length;
+            if (down > worstMins) { worstMins = down; worstName = eq.name; }
+        });
+
+        const uptimePct = ((MINS_IN_DAY * equipment.length - totalDownMins) /
+                           (MINS_IN_DAY * equipment.length) * 100).toFixed(1);
+
+        function fmtDur(m) {
+            const h = Math.floor(m / 60), mm = Math.round(m % 60);
+            return h > 0 ? `${h}h ${mm}m` : `${mm}m`;
+        }
+
+        document.getElementById('dt-total').textContent    = fmtDur(totalDownMins);
+        document.getElementById('dt-events').textContent   = totalEvents;
+        document.getElementById('dt-worst').textContent    = worstName;
+        document.getElementById('dt-worst-sub').textContent = fmtDur(worstMins) + ' downtime';
+        document.getElementById('dt-uptime').textContent   = uptimePct + '%';
+    }
+
+    calcDowntimeKPIs();
+    // ────────────────────────────────────────────────────────────────
+
     updateHeartbeat();
     setInterval(updateHeartbeat, 30000);
 });

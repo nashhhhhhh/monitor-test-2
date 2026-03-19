@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CCTV / Kitchen — Projection N/A</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="navbar"></div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+        .then(r => r.ok ? r.text() : Promise.reject())
+        .then(h => document.getElementById('navbar').innerHTML = h)
+        .catch(() => {});
+    </script>
+
+    <main class="dashboard-content">
+
+        <nav class="breadcrumb">
+            <a href="/Projection/index.html">Projection Overview</a>
+            <span class="breadcrumb-sep">›</span>
+            <span>Event-Based Systems</span>
+        </nav>
+
+        <header class="dash-header">
+            <div>
+                <h2>📷 Projection Not Applicable</h2>
+                <p class="text-muted">CCTV &amp; Kitchen Equipment</p>
+            </div>
+            <div class="header-right">
+                <div id="clock" class="clock-display">--:--:--</div>
+            </div>
+        </header>
+
+        <div class="na-container">
+            <div class="na-icon">📊</div>
+            <h3>Predictive Forecasting Not Available</h3>
+            <p>
+                CCTV and Kitchen Equipment are <strong>event-based systems</strong>. Their behaviour
+                is driven by discrete on/off events rather than continuous measurable values,
+                making time-series forecasting not applicable.
+            </p>
+            <p>
+                For reliability analysis, failure frequency and downtime tracking on these systems,
+                refer to the <strong>Downtime &amp; Reliability</strong> module.
+            </p>
+            <div class="na-actions">
+                <a href="/Downtime/index.html" class="na-btn na-btn-primary">View Downtime &amp; Reliability →</a>
+                <a href="/Projection/index.html" class="na-btn na-btn-secondary">← Back to Projection Overview</a>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function tick() {
+            const el = document.getElementById('clock');
+            if (el) el.textContent = new Date().toTimeString().slice(0, 8);
+        }
+        tick(); setInterval(tick, 1000);
+    </script>
+</body>
+</html>

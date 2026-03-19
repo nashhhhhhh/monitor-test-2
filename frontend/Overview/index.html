@@ -38,6 +38,34 @@
             <span id="alert-msg">ATTENTION: Critical parameters detected. Immediate investigation required.</span>
         </div>
 
+        <section class="downtime-strip" id="downtime-kpis">
+            <div class="dt-card dt-red">
+                <div class="dt-label">Total Downtime Today</div>
+                <div class="dt-value" id="dt-total">--</div>
+                <div class="dt-sub">All systems combined</div>
+            </div>
+            <div class="dt-card dt-amber">
+                <div class="dt-label">Downtime Events</div>
+                <div class="dt-value" id="dt-events">--</div>
+                <div class="dt-sub">Incidents recorded today</div>
+            </div>
+            <div class="dt-card dt-purple">
+                <div class="dt-label">Worst System</div>
+                <div class="dt-value dt-value-sm" id="dt-worst">--</div>
+                <div class="dt-sub" id="dt-worst-sub">Most downtime today</div>
+            </div>
+            <div class="dt-card dt-green">
+                <div class="dt-label">Overall Uptime</div>
+                <div class="dt-value" id="dt-uptime">--%</div>
+                <div class="dt-sub">All systems today</div>
+            </div>
+            <a class="dt-card dt-link" href="/Downtime/index.html">
+                <div class="dt-label">Reliability Details</div>
+                <div class="dt-value dt-value-sm">View Report</div>
+                <div class="dt-sub">→ Downtime page</div>
+            </a>
+        </section>
+
         <section class="health-grid" id="health-tiles">
             <div class="loading-state">
                 <p>Initializing Health Engine...</p>
