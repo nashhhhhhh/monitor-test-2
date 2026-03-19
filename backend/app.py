@@ -1577,12 +1577,18 @@ def api_checkweigher():
     passed = total - under - over
     pass_rate = round((passed / total) * 100, 1)
     avg_weight = round(random.uniform(248, 252), 1)
+    weights_sample = [random.gauss(target_g, 3) for _ in range(50)]
+    mean_s = sum(weights_sample) / len(weights_sample)
+    std_dev = round((sum((x - mean_s) ** 2 for x in weights_sample) / len(weights_sample)) ** 0.5, 2)
+    shift_hours = max(1, now.hour - 6)
+    throughput_per_min = round(total / (shift_hours * 60), 1)
     bins = []
     for low in range(235, 270, 5):
         high = low + 5
         zone = "under" if high <= lower_g else "over" if low >= upper_g else "pass"
         bins.append({"label": f"{low}-{high}g", "count": random.randint(0, 80 if zone == "pass" else 15), "zone": zone})
-    products = ["Chicken Fillet", "Fish Cake", "Spring Roll", "Prawn Dumpling"]
+    products = ["Nasi Lemak", "Chicken Rice", "Mee Goreng", "Char Kway Teow", "Laksa"]
+    shift_product = random.choice(products)
     return jsonify({
         "spec": {"target_g": target_g, "tolerance_g": tol_g, "lower_g": lower_g, "upper_g": upper_g},
         "summary": {
@@ -1590,32 +1596,33 @@ def api_checkweigher():
             "under_rejects": under,
             "over_rejects": over,
             "avg_weight_g": avg_weight,
-            "pass_rate_pct": pass_rate
+            "pass_rate_pct": pass_rate,
+            "std_dev_g": std_dev,
+            "throughput_per_min": throughput_per_min,
+            "shift_product": shift_product
         },
         "diagnostics": {
             "cw01": {
-                "load_cell_a": True,
-                "load_cell_b": True,
-                "conveyor": True,
-                "reject_mech": random.random() > 0.05,
-                "auto_zero": random.random() > 0.1
+                "status": random.choices(["running", "running", "running", "idle", "fault"], weights=[80, 80, 80, 10, 5])[0],
+                "speed_mpm": round(random.uniform(28, 35), 1),
+                "last_cal_days": random.randint(1, 14),
+                "items_checked": total // 2
             },
             "cw02": {
-                "load_cell_a": True,
-                "load_cell_b": random.random() > 0.05,
-                "conveyor": True,
-                "reject_mech": True,
-                "auto_zero": random.random() > 0.1
+                "status": random.choices(["running", "running", "running", "idle", "fault"], weights=[80, 80, 80, 10, 5])[0],
+                "speed_mpm": round(random.uniform(28, 35), 1),
+                "last_cal_days": random.randint(1, 14),
+                "items_checked": total - total // 2
             }
         },
         "distribution": bins,
         "readings": [
-            {"time": h, "pass_rate_pct": round(random.uniform(96, 99.5), 1)} for h in hours
+            {"time": h, "pass_rate_pct": round(random.uniform(96, 99.5), 1), "avg_weight_g": round(random.gauss(avg_weight, 1.5), 1)} for h in hours
         ],
         "recent_log": [
             {
                 "time": now.replace(hour=random.randint(6, now.hour), minute=random.randint(0, 59)).strftime("%I:%M %p"),
-                "product": random.choice(products),
+                "product": shift_product,
                 "weight_g": round(random.gauss(target_g, 3), 1)
             }
             for _ in range(20)

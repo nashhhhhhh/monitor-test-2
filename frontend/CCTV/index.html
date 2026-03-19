@@ -4,80 +4,75 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CCTV Monitoring | Stage 2</title>
-
-    <!-- Page Styles -->
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
-
-    <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-
-    <!-- Shared Navbar -->
     <div id="navbar"></div>
 
-    <!-- Dashboard Content -->
     <main class="dashboard-content">
-
-        <!-- Header -->
         <header class="dash-header">
             <div>
                 <h1>CCTV System Status</h1>
-                <p class="text-muted">
-                    Monitoring online and offline states of all security cameras
-                </p>
+                <p class="text-muted">Click any zone on the floor plan to filter cameras below</p>
             </div>
-
             <div class="kpi-group">
                 <div class="kpi-pill online">
                     <div class="kpi-label">ONLINE</div>
                     <div class="kpi-value" id="onlineCount">0</div>
                 </div>
-
                 <div class="kpi-pill offline">
                     <div class="kpi-label">OFFLINE</div>
                     <div class="kpi-value" id="offlineCount">0</div>
                 </div>
-            </div>
-
-
-            <div class="kpi-pill">
-                <span class="kpi-label">TOTAL DEVICES</span>
-                <span class="kpi-value" id="total-devices">0</span>
+                <div class="kpi-pill">
+                    <div class="kpi-label">TOTAL</div>
+                    <div class="kpi-value" id="totalCount">0</div>
+                </div>
             </div>
         </header>
 
-        <!-- Controls Row: Filter + Search -->
+        <!-- Controls -->
         <div class="controls-row">
-            <div class="filter-bar" style="margin-bottom:0;">
-                <button class="filter-btn active" data-filter="all">All</button>
-                <button class="filter-btn" data-filter="online">Online</button>
-                <button class="filter-btn" data-filter="offline">Offline</button>
-            </div>
-            <input class="search-bar" id="camera-search" type="text" placeholder="Search camera name or area...">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="online">Online Only</button>
+            <button class="filter-btn" data-filter="offline">Offline Only</button>
+            <input class="search-bar" id="camera-search" type="text" placeholder="Search camera name or zone...">
+            <span id="active-zone-tag" class="active-zone-tag" style="display:none"></span>
         </div>
 
-        <!-- Camera Cards -->
-        <section class="camera-grid" id="camera-container">
-            <div class="status-msg">Initializing system...</div>
-        </section>
+        <!-- Floorplan + legend -->
+        <div class="fp-header">
+            <span class="fp-title">Facility Floor Plan — Production Zones &amp; CCTV Status</span>
+            <div class="fp-legend">
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#ca8a04"></span> Stage 01 Entry</span>
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#16a34a"></span> Stage 02 Preparation</span>
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#e11d48"></span> Stage 03 Cooking (CCP)</span>
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#3b82f6"></span> Stage 04 Chilling</span>
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#f59e0b"></span> Stage 05 Assembly (CCP)</span>
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#6366f1"></span> Stage 06 Utilities</span>
+                <span class="fp-leg-item"><span class="fp-dot" style="background:#0284c7"></span> Stage 07 Storage</span>
+                <span class="fp-leg-hint">Label dot = health · Scroll/drag to navigate · Click zone to filter</span>
+            </div>
+        </div>
+        <div id="floorplan-container" class="floorplan-wrap">
+            <div class="fp-loading">Loading floor plan…</div>
+        </div>
 
+        <!-- Camera sections grouped by zone -->
+        <div class="zone-sections" id="zone-sections"></div>
     </main>
 
-    <!-- Navbar Loader -->
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
             .then(res => res.text())
             .then(html => document.getElementById('navbar').innerHTML = html)
-            .catch(err => console.error("Navbar load error:", err));
+            .catch(err => console.error('Navbar load error:', err));
     </script>
-
-    <!-- Page Script -->
     <script src="script.js" defer></script>
-
 </body>
 </html>

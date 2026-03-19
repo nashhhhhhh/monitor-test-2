@@ -53,12 +53,15 @@ function updateClock() {
 
 function populateSummary(data) {
     const rejectRate = (data.summary.rejectedUnits / data.summary.inspectedToday) * 100;
+    const passed = data.summary.inspectedToday - data.summary.rejectedUnits;
 
     document.getElementById('val-inspected').innerText = data.summary.inspectedToday.toLocaleString();
     document.getElementById('val-reject-rate').innerText = `${rejectRate.toFixed(2)}%`;
     document.getElementById('val-uptime').innerText = `${data.summary.uptime.toFixed(1)}%`;
     document.getElementById('val-speed').innerText = `${data.summary.avgSpeed.toFixed(1)} m/min`;
     document.getElementById('val-temp').innerText = `${data.summary.avgTubeTemp.toFixed(1)} C`;
+    document.getElementById('val-passed').innerText = passed.toLocaleString();
+    document.getElementById('val-failed').innerText = data.summary.rejectedUnits.toLocaleString();
 
     document.getElementById('val-sensitivity').innerText = `${data.summary.bestSensitivityMm.toFixed(1)} mm SS`;
     document.getElementById('val-false-rejects').innerText = data.summary.falseRejects.toString();
@@ -127,7 +130,8 @@ function renderCharts(data) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' }
+                legend: { position: 'bottom' },
+                datalabels: { display: false }
             },
             scales: {
                 y: {
@@ -157,9 +161,52 @@ function renderCharts(data) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' }
+                legend: { position: 'bottom' },
+                datalabels: { display: false }
             }
         }
+    });
+
+    new Chart(document.getElementById('passfailChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Passed', 'Failed'],
+            datasets: [{
+                data: [
+                    data.summary.inspectedToday - data.summary.rejectedUnits,
+                    data.summary.rejectedUnits
+                ],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderWidth: 3,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.raw / total) * 100).toFixed(1);
+                            return `${ctx.label}: ${ctx.raw.toLocaleString()} (${pct}%)`;
+                        }
+                    }
+                },
+                datalabels: {
+                    color: '#ffffff',
+                    font: { weight: 'bold', size: 14 },
+                    formatter: function(value, ctx) {
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = ((value / total) * 100).toFixed(1);
+                        return pct + '%';
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
     });
 
     new Chart(document.getElementById('healthChart'), {
@@ -197,7 +244,8 @@ function renderCharts(data) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' }
+                legend: { position: 'bottom' },
+                datalabels: { display: false }
             },
             scales: {
                 y: {

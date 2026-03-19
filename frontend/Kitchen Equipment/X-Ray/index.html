@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 <body>
     <div id="navbar"></div>
@@ -55,6 +56,16 @@
                 <div class="kpi-label">Tube Temperature</div>
                 <div class="kpi-value" id="val-temp">0</div>
                 <div class="kpi-trend">Keep below 70C</div>
+            </div>
+            <div class="kpi-card highlight-uptime">
+                <div class="kpi-label">Trays Passed</div>
+                <div class="kpi-value" id="val-passed">0</div>
+                <div class="kpi-trend">Released to next stage</div>
+            </div>
+            <div class="kpi-card highlight-rejects">
+                <div class="kpi-label">Trays Failed</div>
+                <div class="kpi-value" id="val-failed">0</div>
+                <div class="kpi-trend">Rejected and removed from line</div>
             </div>
         </section>
 
@@ -112,6 +123,12 @@
                 <div class="card-title">Machine Health Conditions</div>
                 <div class="chart-container">
                     <canvas id="healthChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Tray Pass / Fail Overview</div>
+                <div class="chart-container">
+                    <canvas id="passfailChart"></canvas>
                 </div>
             </div>
         </section>

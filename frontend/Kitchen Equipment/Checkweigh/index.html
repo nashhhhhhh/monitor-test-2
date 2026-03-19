@@ -32,6 +32,13 @@
         .highlight-red .kpi-value   { color: #ef4444; }
         .highlight-purple { border-left: 5px solid #8b5cf6; }
         .highlight-purple .kpi-value { color: #8b5cf6; }
+        .highlight-teal { border-left: 5px solid #0d9488; }
+        .highlight-teal .kpi-value { color: #0d9488; }
+        .alert-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+        .alert-item { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 10px; font-size: 0.88rem; font-weight: 600; border: 1px solid; }
+        .alert-item.green  { background: #f0fdf4; border-color: #86efac; border-left: 5px solid #16a34a; color: #14532d; }
+        .alert-item.yellow { background: #fefce8; border-color: #fde68a; border-left: 5px solid #f59e0b; color: #78350f; }
+        .alert-item.red    { background: #fff5f5; border-color: #fca5a5; border-left: 5px solid #ef4444; color: #991b1b; }
         .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; margin-bottom: 24px; }
         .card { background: #fff; border-radius: 12px; border: 1px solid #a7d7b4; padding: 24px; }
         .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 20px; border-left: 4px solid #16a34a; padding-left: 12px; color: #052e16; }
@@ -80,7 +87,7 @@
             </div>
         </header>
 
-        <div id="alert-banner" class="alert-banner"><span>⚠</span><span id="alert-msg"></span></div>
+        <div id="alert-container" class="alert-container"></div>
 
         <section class="kpi-grid">
             <div class="kpi-card highlight-green">
@@ -108,6 +115,38 @@
                 <div class="kpi-value" id="val-pass-rate">--<span class="kpi-unit"> %</span></div>
                 <div class="kpi-trend">Alert if &lt; 97%</div>
             </div>
+            <div class="kpi-card highlight-green">
+                <div class="kpi-label">Target Weight</div>
+                <div class="kpi-value" id="val-target">--<span class="kpi-unit"> g</span></div>
+                <div class="kpi-trend" id="kpi-spec-label">Spec: -- to -- g</div>
+            </div>
+            <div class="kpi-card highlight-red" id="kpi-reject-card">
+                <div class="kpi-label">Reject Rate</div>
+                <div class="kpi-value" id="val-reject-rate">--<span class="kpi-unit"> %</span></div>
+                <div class="kpi-trend">Alert if &gt; 5%</div>
+            </div>
+            <div class="kpi-card highlight-warn" id="kpi-giveaway-card">
+                <div class="kpi-label">Giveaway</div>
+                <div class="kpi-value" id="val-giveaway">--<span class="kpi-unit"> g</span></div>
+                <div class="kpi-trend">Avg minus target weight</div>
+            </div>
+            <div class="kpi-card highlight-purple">
+                <div class="kpi-label">Std Deviation</div>
+                <div class="kpi-value" id="val-stddev">--<span class="kpi-unit"> g</span></div>
+                <div class="kpi-trend">Weight spread (lower = better)</div>
+            </div>
+            <div class="kpi-card highlight-teal">
+                <div class="kpi-label">Throughput</div>
+                <div class="kpi-value" id="val-throughput">--<span class="kpi-unit">/min</span></div>
+                <div class="kpi-trend">Sets per minute</div>
+            </div>
+        </section>
+
+        <section class="main-grid">
+            <div class="card" style="grid-column: 1 / -1">
+                <div class="card-title">Weight Trend Over Time</div>
+                <div class="chart-container"><canvas id="weightTrendChart"></canvas></div>
+            </div>
         </section>
 
         <section class="main-grid">
@@ -123,23 +162,8 @@
 
         <section class="main-grid">
             <div class="card">
-                <div class="card-title">Unit Diagnostic Status</div>
-                <div class="diag-group">
-                    <h4>Checkweigher CW-01 <span id="status-cw01" class="status-pill">--</span></h4>
-                    <div class="diag-item"><span>Load Cell A</span>        <span id="dot-cw01-lca"    class="dot"></span></div>
-                    <div class="diag-item"><span>Load Cell B</span>        <span id="dot-cw01-lcb"    class="dot"></span></div>
-                    <div class="diag-item"><span>Conveyor Drive</span>     <span id="dot-cw01-conv"   class="dot"></span></div>
-                    <div class="diag-item"><span>Reject Mechanism</span>   <span id="dot-cw01-reject" class="dot"></span></div>
-                    <div class="diag-item"><span>Auto-Zero Function</span> <span id="dot-cw01-zero"   class="dot"></span></div>
-                </div>
-                <div class="diag-group" style="margin-top:20px;">
-                    <h4>Checkweigher CW-02 <span id="status-cw02" class="status-pill">--</span></h4>
-                    <div class="diag-item"><span>Load Cell A</span>        <span id="dot-cw02-lca"    class="dot"></span></div>
-                    <div class="diag-item"><span>Load Cell B</span>        <span id="dot-cw02-lcb"    class="dot"></span></div>
-                    <div class="diag-item"><span>Conveyor Drive</span>     <span id="dot-cw02-conv"   class="dot"></span></div>
-                    <div class="diag-item"><span>Reject Mechanism</span>   <span id="dot-cw02-reject" class="dot"></span></div>
-                    <div class="diag-item"><span>Auto-Zero Function</span> <span id="dot-cw02-zero"   class="dot"></span></div>
-                </div>
+                <div class="card-title">Machine Status</div>
+                <div id="unit-status-list"></div>
             </div>
             <div class="card">
                 <div class="card-title">Recent Weight Log</div>
