@@ -2,7 +2,7 @@
 // ROOM ID MAPPING
 // =========================
 const ROOM_ID_MAP = {};
-console.log("✅ ROOM_ID_MAP initialised");
+console.log("ROOM_ID_MAP initialised");
 
 const container = document.getElementById('floorplan-container');
 
@@ -17,6 +17,16 @@ const ZOOM_SPEED = 0.001;
 
 let latestData = [];
 
+function toNumber(value, fallback = null) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function formatNumber(value, digits = 2, fallback = "N/A") {
+  const num = toNumber(value);
+  return num === null ? fallback : num.toFixed(digits);
+}
+
 /* =========================
    LOAD SVG (INLINE)
 ========================= */
@@ -28,6 +38,9 @@ fetch('/Temperature/assets/floorplan.svg')
     initPanZoom();
     syncRoomData();
     fitToWidth();
+  })
+  .catch(err => {
+    console.error('Floorplan load error:', err);
   });
 
 /* =========================
@@ -35,12 +48,11 @@ fetch('/Temperature/assets/floorplan.svg')
 ========================= */
 async function syncRoomData() {
   try {
-    const res = await fetch('/api/temperature/rooms');// relative path
+    const res = await fetch('/api/temperature/rooms');
     latestData = await res.json();
 
     updateSummary(latestData);
     applyDataToSVG(latestData);
-
   } catch (err) {
     console.error('API Sync Error:', err);
   }
@@ -52,22 +64,20 @@ async function syncRoomData() {
 function applyDataToSVG(data) {
   data.forEach(room => {
     if (!room.base_room) {
-      console.error("❌ Missing base_room in API payload:", room);
+      console.error('Missing base_room in API payload:', room);
       return;
     }
 
     const svgId = ROOM_ID_MAP[room.base_room] || room.base_room;
 
-    let el = document.getElementById(svgId);
+    const el = document.getElementById(svgId);
     if (!el) {
       console.warn('SVG element not found:', svgId);
       return;
     }
 
-    // 🔥 NEW FIX: find drawable target
     let target = el;
 
-    // If this path has no geometry, colour its next sibling
     if (!el.getAttribute('d')) {
       let sibling = el.nextElementSibling;
       while (sibling && !sibling.getAttribute('d')) {
@@ -76,12 +86,11 @@ function applyDataToSVG(data) {
       if (sibling) target = sibling;
     }
 
-    // Decide colour
-    let colour;
+    let colour = '#94a3b8';
     if (room.status === 'CRITICAL') colour = '#ef4444';
-    else colour = '#22c55e';
+    else if (room.status === 'WARNING') colour = '#f59e0b';
+    else if (room.status === 'OK') colour = '#22c55e';
 
-    // Force override ALL styling
     target.removeAttribute('style');
     target.setAttribute('fill', colour);
     target.setAttribute('fill-opacity', '0.45');
@@ -89,7 +98,6 @@ function applyDataToSVG(data) {
     target.setAttribute('stroke-width', '2.5');
     target.setAttribute('stroke-opacity', '1');
 
-    // Attach tooltip to label path
     let title = el.querySelector('title');
     if (!title) {
       title = document.createElementNS(
@@ -100,26 +108,24 @@ function applyDataToSVG(data) {
     }
 
     title.textContent =
-    `${room.room_name ? room.room_name + " (" + room.base_room + ")" : room.base_room}
-    Actual: ${room["Actual Temp"].toFixed(2)} °C
-    Required: ${room.Requirement.toFixed(2)} °C
-    Diff: ${room.temp_diff.toFixed(2)} °C
-    Status: ${room.status}`;
+`${room.room_name ? room.room_name + " (" + room.base_room + ")" : room.base_room}
+Actual: ${formatNumber(room["Actual Temp"])} deg C
+Required: ${formatNumber(room.Requirement)} deg C
+Diff: ${formatNumber(room.temp_diff)} deg C
+Status: ${room.status || 'UNKNOWN'}`;
 
-    // Mark both elements for filtering
     el.classList.add('room');
     target.classList.add('room');
-    target.dataset.status = room.status;
+    target.dataset.status = room.status || 'UNKNOWN';
   });
 }
-
-
 
 /* =========================
    SUMMARY COUNTERS
 ========================= */
 function updateSummary(data) {
-  let req = 0, tol = 0, out = 0;
+  let req = 0;
+  let out = 0;
 
   data.forEach(room => {
     if (room.status === 'OK') req++;
@@ -179,7 +185,8 @@ function initPanZoom() {
   }, { passive: false });
 
   let dragging = false;
-  let startX, startY;
+  let startX;
+  let startY;
 
   svg.onmousedown = e => {
     if (isLocked) return;
@@ -195,7 +202,9 @@ function initPanZoom() {
     updateTransform();
   };
 
-  window.onmouseup = () => dragging = false;
+  window.onmouseup = () => {
+    dragging = false;
+  };
 
   function updateTransform() {
     viewport.setAttribute(
@@ -228,4 +237,3 @@ function fitToWidth() {
     );
   }
 }
-

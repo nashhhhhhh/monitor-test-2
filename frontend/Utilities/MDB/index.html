@@ -56,6 +56,26 @@
       </div>
     </section>
 
+    <section class="lighting-energy-section">
+      <div class="card lighting-energy-card">
+        <div class="card-title">Total Energy Consumption of Light</div>
+        <div class="lighting-energy-grid">
+          <div class="lighting-energy-copy">
+            <div class="lighting-energy-value" id="kpi-lighting-energy">-- kWh</div>
+            <div class="lighting-energy-meta" id="lighting-energy-share">--</div>
+            <div class="lighting-energy-note" id="lighting-energy-room">--</div>
+          </div>
+          <div class="lighting-mini-chart">
+            <canvas id="lightingEnergyTrendChart"></canvas>
+          </div>
+          <div class="lighting-breakdown-card">
+            <div class="lighting-breakdown-title">Room Lighting Energy Breakdown</div>
+            <div class="lighting-breakdown-list" id="lighting-energy-breakdown"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="main-grid">
       
       <div class="card">
@@ -105,6 +125,8 @@
     </section>
   </main>
 
+  <script src="/Lighting/mockData.js"></script>
+  <script src="/Lighting/utils.js"></script>
   <script src="script.js" defer></script>
 
 </body>

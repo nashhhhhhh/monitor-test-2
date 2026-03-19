@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     let charts = {};
+    const lightingDataset = window.lightingMonitoringMockData;
+    const lightingUtils = window.lightingMonitoringUtils;
 
     // Reference the Date Pickers
     const emdbPicker = document.getElementById('emdb-date-picker');
@@ -8,6 +10,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize pickers with today's date
     if (emdbPicker) emdbPicker.valueAsDate = new Date();
     if (genPicker) genPicker.valueAsDate = new Date();
+
+    if (lightingDataset && lightingUtils) {
+        renderLightingEnergyModule();
+    }
 
     /**
      * Main data loader for Real-time KPIs and Distribution
@@ -123,6 +129,37 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    function renderLightingEnergyModule() {
+        const summary = lightingUtils.summarizePortfolio(lightingDataset);
+        const totalLightingKwh = summary.totals.totalEnergyConsumption;
+        const topRoom = summary.highestConsumingRoom;
+
+        document.getElementById("kpi-lighting-energy").textContent = `${totalLightingKwh.toLocaleString()} kWh`;
+        document.getElementById("lighting-energy-room").textContent = topRoom
+            ? `Highest consuming room: ${topRoom.roomName} (${topRoom.totalEnergyConsumption} kWh)`
+            : "No lighting room breakdown available";
+        document.getElementById("lighting-energy-breakdown").innerHTML = summary.rooms
+            .map(room => `
+                <div class="lighting-breakdown-item">
+                    <span class="lighting-breakdown-room">${room.roomName}</span>
+                    <span class="lighting-breakdown-kwh">${room.totalEnergyConsumption} kWh</span>
+                </div>
+            `)
+            .join('');
+
+        renderChart('lightingEnergyTrendChart', 'line', {
+            labels: summary.trend.map(point => point.time),
+            datasets: [{
+                label: 'Lighting Energy (kWh)',
+                data: summary.trend.map(point => point.energyKwh),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                fill: true,
+                tension: 0.35
+            }]
+        });
+    }
+
     /**
      * Updates KPI cards (Latest values)
      */
@@ -144,6 +181,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
         document.getElementById("kpi-gen-status").textContent = `${activeGens} / 4`;
+
+        if (lightingDataset && lightingUtils) {
+            const lightingSummary = lightingUtils.summarizePortfolio(lightingDataset);
+            const share = totalMdb > 0 ? ((lightingSummary.totals.totalEnergyConsumption / totalMdb) * 100).toFixed(1) : "0.0";
+            document.getElementById("lighting-energy-share").textContent = `${share}% of current monitored MDB load`;
+        }
     }
 
     /**
