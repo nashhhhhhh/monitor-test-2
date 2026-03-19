@@ -20,6 +20,9 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 130px);
 }
 
 .page-header {
@@ -83,7 +86,10 @@ body {
     padding: 25px;
     border-radius: 16px;
     border: 1px solid var(--border);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
-.chart-container { height: 400px; }
-.chart-container h3 { margin-bottom: 20px; font-weight: 700; }
+.analytics-row h3 { margin: 0 0 20px 0; font-weight: 700; }
+.chart-container { flex: 1; position: relative; min-height: 300px; }
