@@ -1624,6 +1624,280 @@ def api_checkweigher():
 
 
 # =====================================================
+# KITCHEN EQUIPMENT SUMMARY
+# =====================================================
+@app.route("/api/kitchen")
+def api_kitchen():
+    equipment = [
+        {"id": "hobart",      "name": "Hobart Sanitizer"},
+        {"id": "steambox",    "name": "Steambox"},
+        {"id": "xray",        "name": "X-Ray Inspection"},
+        {"id": "checkweigher","name": "Checkweigher"},
+    ]
+    results = []
+    for eq in equipment:
+        try:
+            with app.test_request_context():
+                fn_map = {
+                    "hobart": api_hobart,
+                    "steambox": api_steambox,
+                    "xray": api_xray,
+                    "checkweigher": api_checkweigher,
+                }
+                resp = fn_map[eq["id"]]()
+                data = resp.get_json()
+                online = True
+        except Exception:
+            data = None
+            online = False
+        results.append({"id": eq["id"], "name": eq["name"], "online": online})
+    online_count = sum(1 for r in results if r["online"])
+    return jsonify({"total": len(results), "online": online_count, "equipment": results})
+
+
+# =====================================================
+# PDF CHART HELPERS
+# =====================================================
+
+def _save_chart(fig, filename):
+    path = os.path.join(tempfile.gettempdir(), filename)
+    fig.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    return path
+
+def _xtick_step(n, max_ticks=8):
+    return max(1, n // max_ticks)
+
+def generate_sbf_tef_chart(sbf_dict):
+    try:
+        fig, ax = plt.subplots(figsize=(9, 3.5))
+        colors = ['#3b82f6', '#ef4444', '#f59e0b']
+        ref_times = []
+        for (name, records), color in zip(sbf_dict.items(), colors):
+            tail = records[-100:]
+            times = [str(r.get('energy_time') or r.get('time') or '') for r in tail]
+            vals  = [float(r['tef01']) if r.get('tef01') is not None else None for r in tail]
+            if any(v is not None for v in vals):
+                ax.plot(range(len(vals)), vals, label=name, color=color, linewidth=1.5)
+            if len(times) > len(ref_times):
+                ref_times = times
+        if ref_times:
+            step = _xtick_step(len(ref_times))
+            ax.set_xticks(range(0, len(ref_times), step))
+            ax.set_xticklabels([ref_times[i] for i in range(0, len(ref_times), step)],
+                                rotation=35, fontsize=7, ha='right')
+        ax.set_ylabel("Temperature (°C)")
+        ax.set_title("Freezer Temperature Performance Trend (TEF01)")
+        ax.legend(fontsize=8); ax.grid(True, alpha=0.3); fig.tight_layout()
+        return _save_chart(fig, "tmp_sbf_tef.png")
+    except Exception as e:
+        print(f"SBF TEF chart error: {e}"); plt.close(); return None
+
+def generate_boiler_runtime_chart(boiler_data):
+    try:
+        datasets = [
+            ("B1 Stage 1", boiler_data["boiler_01"]["stage_1_runtime"], "#10b981"),
+            ("B1 Stage 2", boiler_data["boiler_01"]["stage_2_runtime"], "#34d399"),
+            ("B1 Stage 3", boiler_data["boiler_01"]["stage_3_runtime"], "#6ee7b7"),
+            ("B2 Stage 1", boiler_data["boiler_02"]["stage_1_runtime"], "#3b82f6"),
+            ("B2 Stage 2", boiler_data["boiler_02"]["stage_2_runtime"], "#60a5fa"),
+        ]
+        fig, ax = plt.subplots(figsize=(9, 3.5))
+        times = []
+        for label, records, color in datasets:
+            tail = records[-50:]
+            times = [str(r.get('time', '')) for r in tail]
+            vals  = [r.get('runtime') for r in tail]
+            if any(v is not None for v in vals):
+                ax.plot(range(len(vals)), vals, label=label, color=color, linewidth=1.5)
+        if times:
+            step = _xtick_step(len(times))
+            ax.set_xticks(range(0, len(times), step))
+            ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax.set_ylabel("Hours"); ax.set_title("Boiler Runtime by Stage")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
+        return _save_chart(fig, "tmp_boiler_runtime.png")
+    except Exception as e:
+        print(f"Boiler runtime chart error: {e}"); plt.close(); return None
+
+def generate_boiler_consumption_chart(boiler_data):
+    try:
+        gas_rec = boiler_data["consumption"]["gas_total_kg"][-50:]
+        d_rec   = boiler_data["consumption"]["direct_steam_kg"][-50:]
+        i_rec   = boiler_data["consumption"]["indirect_steam_kg"][-50:]
+        times   = [str(r.get('time', '')) for r in gas_rec]
+        gas_v   = [r.get('gas') for r in gas_rec]
+        steam_v = [(d.get('steam') or 0) + (i.get('steam') or 0) for d, i in zip(d_rec, i_rec)]
+        fig, ax1 = plt.subplots(figsize=(9, 3.5))
+        ax2 = ax1.twinx()
+        ax1.plot(range(len(times)), gas_v,   color='#f59e0b', label='Gas (kg)',   linewidth=1.5)
+        ax2.plot(range(len(times)), steam_v, color='#6366f1', label='Steam (kg)', linewidth=1.5)
+        if times:
+            step = _xtick_step(len(times))
+            ax1.set_xticks(range(0, len(times), step))
+            ax1.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax1.set_ylabel("Gas (kg)"); ax2.set_ylabel("Steam (kg)")
+        ax1.set_title("Boiler Gas & Steam Consumption")
+        l1, n1 = ax1.get_legend_handles_labels(); l2, n2 = ax2.get_legend_handles_labels()
+        ax1.legend(l1+l2, n1+n2, fontsize=7); ax1.grid(True, alpha=0.3); fig.tight_layout()
+        return _save_chart(fig, "tmp_boiler_consumption.png")
+    except Exception as e:
+        print(f"Boiler consumption chart error: {e}"); plt.close(); return None
+
+def generate_hobart_charts(data):
+    paths = {}
+    readings = data.get("readings", [])
+    hourly   = data.get("hourly_cycles", [])
+    try:
+        times = [r["time"] for r in readings]
+        fig, ax = plt.subplots(figsize=(9, 3))
+        ax.plot(times, [r["wash_temp"]  for r in readings], color='#3b82f6', label='Wash Temp (°C)',  linewidth=1.5)
+        ax.plot(times, [r["rinse_temp"] for r in readings], color='#10b981', label='Rinse Temp (°C)', linewidth=1.5)
+        ax.axhline(60, color='#3b82f6', linestyle='--', linewidth=0.8, alpha=0.6, label='Wash Target (60°C)')
+        ax.axhline(82, color='#10b981', linestyle='--', linewidth=0.8, alpha=0.6, label='Rinse Target (82°C)')
+        step = _xtick_step(len(times))
+        ax.set_xticks(range(0, len(times), step))
+        ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax.set_ylabel("Temperature (°C)"); ax.set_ylim(40, None)
+        ax.set_title("Hobart Wash & Rinse Temperature Trend")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
+        paths["temp"] = _save_chart(fig, "tmp_hobart_temp.png")
+    except Exception as e:
+        print(f"Hobart temp chart error: {e}"); plt.close()
+    try:
+        hrs  = [r["hour"] for r in hourly]
+        cycs = [r["cycles"] for r in hourly]
+        fig, ax = plt.subplots(figsize=(9, 2.5))
+        ax.bar(range(len(hrs)), cycs, color='#8b5cf6')
+        ax.set_xticks(range(len(hrs))); ax.set_xticklabels(hrs, rotation=30, fontsize=7)
+        ax.set_ylabel("Cycles"); ax.set_title("Hobart Hourly Cycles")
+        ax.grid(True, alpha=0.3, axis='y'); fig.tight_layout()
+        paths["cycles"] = _save_chart(fig, "tmp_hobart_cycles.png")
+    except Exception as e:
+        print(f"Hobart cycles chart error: {e}"); plt.close()
+    return paths
+
+def generate_steambox_charts(data):
+    paths = {}
+    readings = data.get("readings", [])
+    hourly   = data.get("hourly_throughput", [])
+    try:
+        times = [r["time"] for r in readings]
+        fig, ax = plt.subplots(figsize=(9, 3))
+        for key, label, color in [("sb01_temp","SB-01","#3b82f6"),("sb02_temp","SB-02","#10b981"),("sb03_temp","SB-03","#8b5cf6")]:
+            ax.plot(times, [r.get(key) for r in readings], label=label, color=color, linewidth=1.5)
+        ax.axhline(95, color='#ef4444', linestyle='--', linewidth=0.8, label='Min Target (95°C)')
+        step = _xtick_step(len(times))
+        ax.set_xticks(range(0, len(times), step))
+        ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax.set_ylabel("Temp (°C)"); ax.set_ylim(80, None)
+        ax.set_title("Steambox Chamber Temperature Profile")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
+        paths["temp"] = _save_chart(fig, "tmp_steambox_temp.png")
+    except Exception as e:
+        print(f"Steambox temp chart error: {e}"); plt.close()
+    try:
+        times = [r["time"] for r in readings]
+        pres  = [r.get("pressure_bar") for r in readings]
+        fig, ax = plt.subplots(figsize=(9, 2.5))
+        ax.plot(times, pres, color='#f59e0b', linewidth=1.5, label='Steam Pressure (bar)')
+        ax.axhline(3.5, color='#ef4444', linestyle='--', linewidth=0.8, label='Max Safe (3.5)')
+        ax.axhline(2.0, color='#94a3b8', linestyle='--', linewidth=0.8, label='Min Oper. (2.0)')
+        step = _xtick_step(len(times))
+        ax.set_xticks(range(0, len(times), step))
+        ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax.set_ylabel("Pressure (bar)"); ax.set_ylim(0, 5)
+        ax.set_title("Steambox Pressure Trend")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
+        paths["pressure"] = _save_chart(fig, "tmp_steambox_pressure.png")
+    except Exception as e:
+        print(f"Steambox pressure chart error: {e}"); plt.close()
+    try:
+        hrs   = [r["hour"] for r in hourly]
+        units = [r["units"] for r in hourly]
+        fig, ax = plt.subplots(figsize=(9, 2.5))
+        ax.bar(range(len(hrs)), units, color='#10b981')
+        ax.set_xticks(range(len(hrs))); ax.set_xticklabels(hrs, rotation=30, fontsize=7)
+        ax.set_ylabel("Trays"); ax.set_title("Steambox Hourly Throughput")
+        ax.grid(True, alpha=0.3, axis='y'); fig.tight_layout()
+        paths["throughput"] = _save_chart(fig, "tmp_steambox_throughput.png")
+    except Exception as e:
+        print(f"Steambox throughput chart error: {e}"); plt.close()
+    return paths
+
+def generate_xray_charts(data):
+    paths = {}
+    hourly   = data.get("hourly_throughput", [])
+    readings = data.get("readings", [])
+    try:
+        hrs       = [r["hour"] for r in hourly]
+        inspected = [r["inspected"] for r in hourly]
+        rejected  = [r["rejected"]  for r in hourly]
+        fig, ax1 = plt.subplots(figsize=(9, 3))
+        ax2 = ax1.twinx()
+        ax1.bar(range(len(hrs)), inspected, color='#2563eb', alpha=0.7, label='Inspected')
+        ax2.plot(range(len(hrs)), rejected, color='#ef4444', linewidth=1.5, marker='o', markersize=3, label='Rejected')
+        ax1.set_xticks(range(len(hrs))); ax1.set_xticklabels(hrs, rotation=30, fontsize=7)
+        ax1.set_ylabel("Inspected Packs"); ax2.set_ylabel("Rejects")
+        ax1.set_title("X-Ray Hourly Throughput & Rejects")
+        l1,n1 = ax1.get_legend_handles_labels(); l2,n2 = ax2.get_legend_handles_labels()
+        ax1.legend(l1+l2, n1+n2, fontsize=7); ax1.grid(True, alpha=0.3, axis='y'); fig.tight_layout()
+        paths["throughput"] = _save_chart(fig, "tmp_xray_throughput.png")
+    except Exception as e:
+        print(f"X-Ray throughput chart error: {e}"); plt.close()
+    try:
+        times = [r["time"] for r in readings]
+        rates = [r["reject_rate_pct"] for r in readings]
+        fig, ax = plt.subplots(figsize=(9, 2.5))
+        ax.plot(times, rates, color='#ef4444', linewidth=1.5, label='Reject Rate (%)')
+        step = _xtick_step(len(times))
+        ax.set_xticks(range(0, len(times), step))
+        ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax.set_ylabel("Reject Rate (%)"); ax.set_title("X-Ray Reject Rate Trend")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
+        paths["reject_rate"] = _save_chart(fig, "tmp_xray_rejectrate.png")
+    except Exception as e:
+        print(f"X-Ray reject rate chart error: {e}"); plt.close()
+    return paths
+
+def generate_checkweigher_charts(data):
+    paths = {}
+    dist     = data.get("distribution", [])
+    readings = data.get("readings", [])
+    try:
+        from matplotlib.patches import Patch
+        labels     = [d["label"] for d in dist]
+        counts     = [d["count"] for d in dist]
+        color_map  = {"under": "#ef4444", "over": "#f59e0b", "pass": "#10b981"}
+        bar_colors = [color_map.get(d.get("zone", "pass"), "#10b981") for d in dist]
+        fig, ax = plt.subplots(figsize=(9, 3))
+        ax.bar(range(len(labels)), counts, color=bar_colors)
+        ax.set_xticks(range(len(labels))); ax.set_xticklabels(labels, rotation=45, fontsize=7)
+        ax.set_ylabel("Count"); ax.set_title("Checkweigher Weight Distribution")
+        legend_els = [Patch(color='#ef4444', label='Under'), Patch(color='#10b981', label='Pass'), Patch(color='#f59e0b', label='Over')]
+        ax.legend(handles=legend_els, fontsize=7); ax.grid(True, alpha=0.3, axis='y'); fig.tight_layout()
+        paths["distribution"] = _save_chart(fig, "tmp_cw_dist.png")
+    except Exception as e:
+        print(f"Checkweigher dist chart error: {e}"); plt.close()
+    try:
+        times = [r["time"] for r in readings]
+        rates = [r["pass_rate_pct"] for r in readings]
+        fig, ax = plt.subplots(figsize=(9, 2.5))
+        ax.plot(times, rates, color='#8b5cf6', linewidth=1.5, label='Pass Rate (%)')
+        ax.axhline(97, color='#ef4444', linestyle='--', linewidth=0.8, label='Min Target (97%)')
+        step = _xtick_step(len(times))
+        ax.set_xticks(range(0, len(times), step))
+        ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+        ax.set_ylabel("Pass Rate (%)"); ax.set_ylim(90, 100)
+        ax.set_title("Checkweigher Pass Rate Trend")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
+        paths["pass_rate"] = _save_chart(fig, "tmp_cw_passrate.png")
+    except Exception as e:
+        print(f"Checkweigher pass rate chart error: {e}"); plt.close()
+    return paths
+
+
+# =====================================================
 # MASTER EXPORT ROUTE
 # =====================================================
 @app.route("/api/export/report")
@@ -1637,19 +1911,25 @@ def export_report():
         pdf.set_auto_page_break(auto=True, margin=20)
 
         # 1. Initialize Links
-        lnk_mdb = pdf.add_link()
-        lnk_tmp = pdf.add_link()
-        lnk_util = pdf.add_link()
-        lnk_cctv = pdf.add_link()
-        lnk_wwtp = pdf.add_link()
-        lnk_ac= pdf.add_link()
+        lnk_mdb     = pdf.add_link()
+        lnk_tmp     = pdf.add_link()
+        lnk_util    = pdf.add_link()
+        lnk_cctv    = pdf.add_link()
+        lnk_wwtp    = pdf.add_link()
+        lnk_ac      = pdf.add_link()
+        lnk_sbf     = pdf.add_link()
+        lnk_boiler  = pdf.add_link()
+        lnk_kitchen = pdf.add_link()
 
-        pdf.set_link(lnk_mdb, page=1)
-        pdf.set_link(lnk_tmp, page=1)
-        pdf.set_link(lnk_util, page=1)
-        pdf.set_link(lnk_cctv, page=1)
-        pdf.set_link(lnk_wwtp, page=1)
-        pdf.set_link(lnk_ac, page=1)
+        pdf.set_link(lnk_mdb,     page=1)
+        pdf.set_link(lnk_tmp,     page=1)
+        pdf.set_link(lnk_util,    page=1)
+        pdf.set_link(lnk_cctv,    page=1)
+        pdf.set_link(lnk_wwtp,    page=1)
+        pdf.set_link(lnk_ac,      page=1)
+        pdf.set_link(lnk_sbf,     page=1)
+        pdf.set_link(lnk_boiler,  page=1)
+        pdf.set_link(lnk_kitchen, page=1)
 
         # --- PAGE 1: COVER ---
         pdf.add_page()
@@ -1707,6 +1987,7 @@ def export_report():
             pdf.cell(80, 12, f" {metric}", 1,
                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
+        # --- Temperature ---
         try:
             df_sum = pd.read_excel(excel_path, sheet_name='Summary')
             total_out = df_sum[df_sum.iloc[:, 0] == "Total:"].iloc[0, 1]
@@ -1716,13 +1997,101 @@ def export_report():
         except:
             add_row("Cold Chain (Temp)", lnk_tmp, "OFFLINE", "Data Error")
 
-        add_row("Power Systems (MDB)", lnk_mdb, "NORMAL", "Active Stream")
-        add_row("Water Treatment (WTP)", lnk_util, "NORMAL", "Online")
-        add_row("Wastewater (WWTP)", lnk_wwtp, "NORMAL", "Online")
-        add_row("Spiral Blast Freezer", lnk_util, "NORMAL", "Online")
-        add_row("Boiler Systems", lnk_util, "NORMAL", "Online")
-        add_row("CCTV Monitoring", lnk_cctv, "NORMAL", "Online")
-        add_row("Air Compressor", lnk_ac, "NORMAL", "Online")
+        # --- MDB (live) ---
+        try:
+            mdb_live = collect_mdb_data()
+            emdb_latest = mdb_live["energy"].get("emdb_1", [{}])[-1].get("kwh", 0)
+            add_row("Power Systems (MDB)", lnk_mdb, "NORMAL", f"{emdb_latest:,.0f} kWh (EMDB-1)")
+        except:
+            add_row("Power Systems (MDB)", lnk_mdb, "OFFLINE", "Data Error")
+
+        # --- WTP (live) ---
+        try:
+            wtp_live = get_wtp_raw_data()
+            ro_cl_live = load_wtp_chlorine_data('ro')
+            cl_val = ro_cl_live[-1]["mg"] if ro_cl_live else None
+            wtp_status = "ATTENTION" if cl_val is not None and cl_val < 0.1 else "NORMAL"
+            cl_str = f"{cl_val:.2f} mg/L Cl₂" if cl_val is not None else "No Data"
+            add_row("Water Treatment (WTP)", lnk_util, wtp_status, cl_str)
+        except:
+            add_row("Water Treatment (WTP)", lnk_util, "OFFLINE", "Data Error")
+
+        # --- WWTP (live) ---
+        try:
+            wwtp_live = get_wwtp_raw_data()
+            temp_val = safe_float(wwtp_live.get('raw_temp', None))
+            wwtp_status = "WARNING" if temp_val >= 35 else "NORMAL"
+            add_row("Wastewater (WWTP)", lnk_wwtp, wwtp_status, f"{temp_val:.1f} °C Inflow Temp")
+        except:
+            add_row("Wastewater (WWTP)", lnk_wwtp, "OFFLINE", "Data Error")
+
+        # --- SBF (live) ---
+        try:
+            sbf_live = read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral1_Data.csv"))
+            if sbf_live:
+                latest = sbf_live[-1]
+                tef = latest.get("tef01") or latest.get("tef02")
+                tef_str = f"{tef:.1f} °C (TEF01)" if tef is not None else "Online"
+                add_row("Spiral Blast Freezer", lnk_sbf, "NORMAL", tef_str)
+            else:
+                add_row("Spiral Blast Freezer", lnk_sbf, "OFFLINE", "No Data")
+        except:
+            add_row("Spiral Blast Freezer", lnk_sbf, "OFFLINE", "Data Error")
+
+        # --- Boiler (live) ---
+        try:
+            gas_data = read_csv("boiler_gas_total.csv", "gas")
+            if gas_data:
+                gas_latest = gas_data[-1]["gas"]
+                add_row("Boiler Systems", lnk_boiler, "NORMAL", f"{gas_latest:,.0f} kg Gas Total")
+            else:
+                add_row("Boiler Systems", lnk_boiler, "OFFLINE", "No Data")
+        except:
+            add_row("Boiler Systems", lnk_boiler, "OFFLINE", "Data Error")
+
+        # --- CCTV (live) ---
+        try:
+            cctv_live = get_cctv_raw_data()
+            if not cctv_live.empty:
+                total_c = len(cctv_live)
+                offline_c = len(cctv_live[cctv_live['Current Status'].str.lower() != 'online'])
+                cctv_status = "ATTENTION" if offline_c > 0 else "NORMAL"
+                add_row("CCTV Monitoring", lnk_cctv, cctv_status, f"{offline_c}/{total_c} Cameras Offline")
+            else:
+                add_row("CCTV Monitoring", lnk_cctv, "OFFLINE", "Data Error")
+        except:
+            add_row("CCTV Monitoring", lnk_cctv, "OFFLINE", "Data Error")
+
+        # --- Air Compressor (live) ---
+        try:
+            ac_live = load_aircompressor_data()
+            if ac_live:
+                ac_kpi = calculate_aircompressor_kpis(ac_live)
+                add_row("Air Compressor", lnk_ac, "NORMAL", f"{ac_kpi['flow']:.2f} m³ Flow")
+            else:
+                add_row("Air Compressor", lnk_ac, "OFFLINE", "No Data")
+        except:
+            add_row("Air Compressor", lnk_ac, "OFFLINE", "Data Error")
+
+        # --- Kitchen Equipment (live) ---
+        try:
+            kit_apis = [
+                ("Hobart Sanitizer", api_hobart),
+                ("Steambox", api_steambox),
+                ("X-Ray Inspection", api_xray),
+                ("Checkweigher", api_checkweigher),
+            ]
+            kit_online = 0
+            for _, fn in kit_apis:
+                try:
+                    fn()
+                    kit_online += 1
+                except:
+                    pass
+            kit_status = "NORMAL" if kit_online == 4 else "ATTENTION"
+            add_row("Kitchen Equipment", lnk_kitchen, kit_status, f"{kit_online}/4 Units Online")
+        except:
+            add_row("Kitchen Equipment", lnk_kitchen, "OFFLINE", "Data Error")
 
         # --- PAGE 3: TEMPERATURE TABLE ---
         pdf.add_page()
@@ -2244,17 +2613,331 @@ def export_report():
             pdf.cell(0, 10, f"WWTP Data Error: {str(e)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_text_color(0)
 
-        # --- PAGE 7: SBF ---
+        # --- SBF PAGE ---
         pdf.add_page()
+        pdf.set_link(lnk_sbf, page=pdf.page_no())
         pdf.set_font('helvetica', 'B', 16)
-        pdf.cell(0, 10, "5. Spiral Blast Freezer",
-                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 10, "5. Spiral Blast Freezer Monitoring", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(4)
 
-        # --- PAGE 8: BOILER ---
+        try:
+            raw = {
+                "Spiral 01": read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral1_Data.csv")),
+                "Spiral 02": read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral2_Data.csv")),
+                "Spiral 03": read_sbf_csv(os.path.join(DATA_DIR, "sbf_spiral3_Data.csv")),
+            }
+
+            def sbf_last(records):
+                return records[-1] if records else {}
+
+            def sbf_avg_runtime(records):
+                if not records: return 0.0
+                return sum(float(r.get('runtime') or 0) for r in records) / len(records) / 60
+
+            def sbf_runtime_hrs(r):
+                return float(r.get('runtime') or 0) / 60
+
+            def sbf_status(r):
+                return "RUNNING" if float(r.get('runtime') or 0) > 0 else "STOPPED"
+
+            s = {k: sbf_last(v) for k, v in raw.items()}
+
+            # ── KPI SUMMARY ROW ─────────────────────────────────────────────
+            active = sum(1 for r in s.values() if float(r.get('runtime') or 0) > 0)
+            kpi_items = [
+                ("ACTIVE FREEZERS", f"{active} / 3", "System Running Status"),
+                ("SPIRAL 01 AVG RUNTIME", f"{sbf_avg_runtime(raw['Spiral 01']):.2f}", "Hours"),
+                ("SPIRAL 02 AVG RUNTIME", f"{sbf_avg_runtime(raw['Spiral 02']):.2f}", "Hours"),
+                ("SPIRAL 03 AVG RUNTIME", f"{sbf_avg_runtime(raw['Spiral 03']):.2f}", "Hours"),
+            ]
+            card_w = 46
+            card_h = 24
+            card_y = pdf.get_y()   # lock Y for all 4 cards
+            for i, (label, value, sub) in enumerate(kpi_items):
+                x = pdf.l_margin + i * (card_w + 2)
+                pdf.set_draw_color(220, 230, 240)
+                pdf.set_fill_color(240, 255, 250) if i == 0 else pdf.set_fill_color(255, 255, 255)
+                pdf.rect(x, card_y, card_w, card_h, style='FD')
+                # Label
+                pdf.set_xy(x + 2, card_y + 2)
+                pdf.set_font('helvetica', '', 6)
+                pdf.set_text_color(100, 116, 139)
+                pdf.cell(card_w - 4, 4, label)
+                # Value
+                pdf.set_xy(x + 2, card_y + 7)
+                pdf.set_font('helvetica', 'B', 14)
+                pdf.set_text_color(16, 185, 129) if i == 0 else pdf.set_text_color(30, 41, 59)
+                pdf.cell(card_w - 4, 9, value)
+                # Sub label
+                pdf.set_xy(x + 2, card_y + 17)
+                pdf.set_font('helvetica', '', 7)
+                pdf.set_text_color(100, 116, 139)
+                pdf.cell(card_w - 4, 4, sub)
+            pdf.set_text_color(0)
+            pdf.set_draw_color(0)
+            # Advance cursor past the cards
+            pdf.set_xy(pdf.l_margin, card_y + card_h + 6)
+
+            # ── TEMPERATURE TREND CHART ──────────────────────────────────────
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Freezer Temperature Performance Trend (TEF01)",
+                     new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            tef_chart = generate_sbf_tef_chart(raw)
+            if tef_chart:
+                temp_files.append(tef_chart)
+                pdf.image(tef_chart, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "No temperature trend data available.",
+                         new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(5)
+
+            # ── OPERATIONAL PERFORMANCE SUMMARY TABLE ────────────────────────
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Operational Performance Summary",
+                     new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            perf_rows = []
+            for unit_name, r in s.items():
+                tef01 = float(r.get('tef01') or 0)
+                tef02 = float(r.get('tef02') or 0)
+                pt01  = float(r.get('pt01')  or 0)
+                pt02  = float(r.get('pt02')  or 0)
+                ft    = float(r.get('freezing_time') or 0)
+                rt    = sbf_runtime_hrs(r)
+                perf_rows.append([
+                    unit_name,
+                    f"{tef01:.1f} / {tef02:.1f}",
+                    f"{pt01:.2f} / {pt02:.2f}",
+                    f"{ft:.0f} min",
+                    f"{rt:.2f} hrs",
+                    sbf_status(r),
+                ])
+            render_simple_table(pdf,
+                ["Unit", "Temp T/B (°C)", "Pressure (kg/cm²)", "Freezing Time", "Runtime", "Status"],
+                perf_rows, [30, 35, 40, 32, 28, 25])
+
+        except Exception as e:
+            import traceback
+            print(f"PDF SBF Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"SBF data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- BOILER PAGE ---
         pdf.add_page()
+        pdf.set_link(lnk_boiler, page=pdf.page_no())
         pdf.set_font('helvetica', 'B', 16)
-        pdf.cell(0, 10, "6. Boiler System",
-                new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 10, "6. Boiler System Monitoring", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(4)
+
+        try:
+            boiler_data = boiler().get_json()
+            gas_data  = boiler_data["consumption"]["gas_total_kg"]
+            d_steam   = boiler_data["consumption"]["direct_steam_kg"]
+            i_steam   = boiler_data["consumption"]["indirect_steam_kg"]
+            d_energy  = boiler_data["consumption"]["direct_energy_kwh"]
+            i_energy  = boiler_data["consumption"]["indirect_energy_kwh"]
+
+            def lv(lst, key): return lst[-1][key] if lst else 0
+            def fv(v, decimals=0):
+                return f"{v:,.{decimals}f}" if isinstance(v, (int, float)) else "--"
+
+            # Derived KPIs (matching dashboard logic)
+            gas_latest    = lv(gas_data, "gas")
+            gas_first     = gas_data[0]["gas"] if gas_data else 0
+            delta_gas     = gas_latest - gas_first
+            ds_latest     = lv(d_steam, "steam")
+            is_latest     = lv(i_steam, "steam")
+            ds_first      = d_steam[0]["steam"] if d_steam else 0
+            is_first      = i_steam[0]["steam"] if i_steam else 0
+            delta_direct  = ds_latest - ds_first
+            delta_indirect= is_latest - is_first
+            b1_energy     = lv(i_energy, "energy")
+            b2_energy     = lv(d_energy, "energy")
+            total_energy  = b1_energy + b2_energy
+            eff_b1 = round(delta_indirect / (delta_gas * 0.5), 2) if delta_gas > 0 else 0
+            eff_b2 = round(delta_direct   / (delta_gas * 0.5), 2) if delta_gas > 0 else 0
+
+            # Stage running status: running if last runtime > second-to-last
+            def stage_running(records):
+                if len(records) >= 2:
+                    return records[-1]["runtime"] > records[-2]["runtime"]
+                return False
+
+            stages_b01 = {
+                "Stage 1 (Main)":  stage_running(boiler_data["boiler_01"]["stage_1_runtime"]),
+                "Stage 2 (Boost)": stage_running(boiler_data["boiler_01"]["stage_2_runtime"]),
+                "Stage 3 (Aux)":   stage_running(boiler_data["boiler_01"]["stage_3_runtime"]),
+            }
+            stages_b02 = {
+                "Stage 1 (Main)": stage_running(boiler_data["boiler_02"]["stage_1_runtime"]),
+                "Stage 2 (Aux)":  stage_running(boiler_data["boiler_02"]["stage_2_runtime"]),
+            }
+            b1_active = any(stages_b01.values())
+            b2_active = any(stages_b02.values())
+
+            # ── KPI CARDS ────────────────────────────────────────────────────
+            kpi_items = [
+                ("TOTAL GAS CONSUMPTION", fv(gas_latest), "Main Meter (kg)",      "#3b82f6"),
+                ("TOTAL STEAM OUTPUT",    fv(ds_latest + is_latest), "Combined Path (kg)",   "#8b5cf6"),
+                ("TOTAL ELECTRICAL",      fv(total_energy), "Combined Panels (kWh)", "#8b5cf6"),
+                ("BOILER 1 EFFICIENCY",   fv(eff_b1, 2),  "Indirect Path Ratio",   "#10b981"),
+                ("BOILER 2 EFFICIENCY",   fv(eff_b2, 2),  "Direct Path Ratio",     "#10b981"),
+            ]
+            card_w = 37
+            card_h = 24
+            card_gap = 1.5
+            card_y = pdf.get_y()
+            for i, (label, value, sub, color) in enumerate(kpi_items):
+                x = pdf.l_margin + i * (card_w + card_gap)
+                r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+                pdf.set_draw_color(220, 230, 240)
+                pdf.set_fill_color(255, 255, 255)
+                pdf.rect(x, card_y, card_w, card_h, style='FD')
+                # Top accent line
+                pdf.set_fill_color(r, g, b)
+                pdf.rect(x, card_y, card_w, 1.2, style='F')
+                # Label
+                pdf.set_xy(x + 2, card_y + 3)
+                pdf.set_font('helvetica', '', 5.5)
+                pdf.set_text_color(100, 116, 139)
+                pdf.cell(card_w - 4, 3.5, label)
+                # Value
+                pdf.set_xy(x + 2, card_y + 7.5)
+                pdf.set_font('helvetica', 'B', 13)
+                pdf.set_text_color(r, g, b)
+                pdf.cell(card_w - 4, 8, value)
+                # Sub label
+                pdf.set_xy(x + 2, card_y + 17)
+                pdf.set_font('helvetica', '', 6)
+                pdf.set_text_color(100, 116, 139)
+                pdf.cell(card_w - 4, 4, sub)
+            pdf.set_text_color(0)
+            pdf.set_draw_color(0)
+            pdf.set_xy(pdf.l_margin, card_y + card_h + 5)
+
+            # ── SUB-UNIT DIAGNOSTIC STATUS  +  ENERGY ANALYSIS (side by side) ─
+            section_y = pdf.get_y()
+            left_w  = 95
+            right_w = 95
+            right_x = pdf.l_margin + left_w + 4
+
+            # -- Left: Sub-Unit Diagnostics --
+            pdf.set_xy(pdf.l_margin, section_y)
+            pdf.set_font('helvetica', 'B', 10)
+            pdf.set_text_color(37, 99, 235)
+            pdf.cell(2, 7, "")
+            pdf.set_text_color(0)
+            pdf.set_font('helvetica', 'B', 10)
+            pdf.cell(left_w - 2, 7, "Sub-Unit Diagnostic Status", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            def draw_diag_block(boiler_label, stages_dict, active, start_x, w):
+                status_label = "ONLINE" if active else "STANDBY"
+                # Header
+                pdf.set_xy(start_x, pdf.get_y())
+                pdf.set_fill_color(248, 250, 252)
+                pdf.set_draw_color(226, 232, 240)
+                pdf.set_font('helvetica', 'B', 9)
+                pdf.cell(w - 30, 8, f"  {boiler_label}", border=1, fill=True)
+                if active:
+                    pdf.set_fill_color(209, 250, 229); pdf.set_text_color(6, 95, 70)
+                else:
+                    pdf.set_fill_color(255, 247, 237); pdf.set_text_color(146, 64, 14)
+                pdf.cell(30, 8, status_label, border=1, fill=True, align='C',
+                         new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.set_text_color(0)
+                # Stage rows
+                for stage_name, running in stages_dict.items():
+                    pdf.set_xy(start_x, pdf.get_y())
+                    pdf.set_fill_color(255, 255, 255)
+                    pdf.set_font('helvetica', '', 8)
+                    pdf.cell(w - 12, 7, f"    {stage_name}", border='LRB', fill=True)
+                    # Dot indicator
+                    dot_x = start_x + w - 10
+                    dot_y = pdf.get_y() + 2
+                    pdf.set_fill_color(16, 185, 129) if running else pdf.set_fill_color(239, 68, 68)
+                    pdf.ellipse(dot_x, dot_y, 3.5, 3.5, style='F')
+                    pdf.cell(12, 7, "", border='LRB', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(3)
+
+            diag_start_y = pdf.get_y()
+            draw_diag_block("Boiler 01 (Indirect)", stages_b01, b1_active, pdf.l_margin, left_w)
+            draw_diag_block("Boiler 02 (Direct)",   stages_b02, b2_active, pdf.l_margin, left_w)
+            diag_end_y = pdf.get_y()
+
+            # -- Right: Energy Consumption Analysis --
+            pdf.set_xy(right_x, section_y)
+            pdf.set_font('helvetica', 'B', 10)
+            pdf.cell(right_w, 7, "Energy Consumption Analysis", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            energy_items = [
+                ("BOILER 1 (PANEL 1 - INDIRECT)", b1_energy, "#10b981"),
+                ("BOILER 2 (PANEL 2 - DIRECT)",   b2_energy, "#3b82f6"),
+            ]
+            bar_max = max(b1_energy, b2_energy, 1)
+            for elabel, eval_, ecolor in energy_items:
+                pdf.set_xy(right_x, pdf.get_y())
+                pdf.set_font('helvetica', '', 6.5)
+                pdf.set_text_color(100, 116, 139)
+                pdf.cell(right_w, 5, elabel)
+                pdf.ln(5)
+                pdf.set_xy(right_x, pdf.get_y())
+                pdf.set_font('helvetica', 'B', 13)
+                r2, g2, b2_ = int(ecolor[1:3],16), int(ecolor[3:5],16), int(ecolor[5:7],16)
+                pdf.set_text_color(r2, g2, b2_)
+                pdf.cell(right_w, 8, f"{fv(eval_)} kWh")
+                pdf.ln(8)
+                # Progress bar background
+                pdf.set_xy(right_x, pdf.get_y())
+                bar_total_w = right_w - 4
+                pdf.set_fill_color(226, 232, 240)
+                pdf.rect(right_x, pdf.get_y(), bar_total_w, 4, style='F')
+                # Progress bar fill
+                bar_fill_w = (eval_ / bar_max) * bar_total_w
+                pdf.set_fill_color(r2, g2, b2_)
+                pdf.rect(right_x, pdf.get_y(), bar_fill_w, 4, style='F')
+                pdf.ln(9)
+            pdf.set_text_color(0)
+
+            # Move cursor past the taller of the two columns
+            pdf.set_xy(pdf.l_margin, max(diag_end_y, pdf.get_y()) + 4)
+
+            # ── CHARTS ───────────────────────────────────────────────────────
+            pdf.set_font('helvetica', 'B', 11)
+            pdf.cell(0, 7, "Detailed Sub-Boiler Runtimes (hr)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            rt_chart = generate_boiler_runtime_chart(boiler_data)
+            if rt_chart:
+                temp_files.append(rt_chart)
+                pdf.image(rt_chart, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "No runtime data available.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(4)
+
+            pdf.set_font('helvetica', 'B', 11)
+            pdf.cell(0, 7, "Consumption Correlation  (Gas vs Steam)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            cons_chart = generate_boiler_consumption_chart(boiler_data)
+            if cons_chart:
+                temp_files.append(cons_chart)
+                pdf.image(cons_chart, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "No consumption data available.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        except Exception as e:
+            import traceback
+            print(f"PDF Boiler Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"Boiler data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # --- PAGE 9: CCTV ---
         pdf.add_page()
@@ -2351,6 +3034,122 @@ def export_report():
             pdf.image(charts["efficiency"], w=180)
             pdf.ln(5)
             pdf.image(charts["dewpoint"], w=180)
+
+        # --- KITCHEN EQUIPMENT PAGE ---
+        pdf.add_page()
+        pdf.set_link(lnk_kitchen, page=pdf.page_no())
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "9. Kitchen Equipment", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(3)
+        pdf.set_font('helvetica', '', 11)
+        pdf.multi_cell(0, 8, "Status overview of all kitchen equipment units. Data is simulated from live equipment sensors.")
+        pdf.ln(3)
+
+        try:
+            kit_info = [
+                ("Hobart Sanitizer",  api_hobart,      lambda d: (f"{d['summary']['cycles_today']} cycles today", f"Wash Temp: {d['readings'][-1]['wash_temp']:.1f} °C" if d.get('readings') else "--")),
+                ("Steambox",          api_steambox,     lambda d: (f"{d['summary']['units_today']} units today",   f"Chamber: {d['readings'][-1]['avg_chamber_temp']:.1f} °C" if d.get('readings') else "--")),
+                ("X-Ray Inspection",  api_xray,         lambda d: (f"{d['summary']['reject_rate_pct']:.2f}% reject rate", f"Inspected: {d['summary']['inspected_today']:,}")),
+                ("Checkweigher",      api_checkweigher, lambda d: (f"{d['summary']['pass_rate_pct']:.1f}% pass rate",     f"Total: {d['summary']['total_today']:,} units")),
+            ]
+
+            kit_table_rows = []
+            for name, fn, metrics_fn in kit_info:
+                try:
+                    with app.test_request_context():
+                        resp = fn()
+                        data = resp.get_json()
+                    metric1, metric2 = metrics_fn(data)
+                    status = "ONLINE"
+                except Exception:
+                    metric1, metric2, status = "--", "--", "OFFLINE"
+                kit_table_rows.append([name, status, metric1, metric2])
+
+            online_count = sum(1 for r in kit_table_rows if r[1] == "ONLINE")
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, f"9.1  Equipment Status Summary  ({online_count}/4 Online)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+
+            # Header
+            pdf.set_font('helvetica', 'B', 10)
+            pdf.set_fill_color(30, 41, 59)
+            pdf.set_text_color(255)
+            for header, w in [("Equipment", 50), ("Status", 25), ("Key Metric", 55), ("Detail", 55)]:
+                pdf.cell(w, 11, f" {header}", 1, fill=True)
+            pdf.ln()
+            pdf.set_text_color(0)
+
+            for row in kit_table_rows:
+                name, status, metric1, metric2 = row
+                pdf.set_font('helvetica', '', 10)
+                pdf.cell(50, 11, f" {name}", 1)
+                if status == "ONLINE":
+                    pdf.set_fill_color(240, 253, 244); pdf.set_text_color(22, 101, 52)
+                else:
+                    pdf.set_fill_color(254, 226, 226); pdf.set_text_color(220, 38, 38)
+                pdf.cell(25, 11, status, 1, fill=True, align='C')
+                pdf.set_text_color(0)
+                pdf.cell(55, 11, f" {metric1}", 1)
+                pdf.cell(55, 11, f" {metric2}", 1, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            pdf.ln(6)
+
+            # 9.2 Per-equipment details
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "9.2  Detailed Equipment Metrics & Charts", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+
+            chart_generators = {
+                "Hobart Sanitizer":  generate_hobart_charts,
+                "Steambox":          generate_steambox_charts,
+                "X-Ray Inspection":  generate_xray_charts,
+                "Checkweigher":      generate_checkweigher_charts,
+            }
+            chart_labels = {
+                "Hobart Sanitizer":  [("temp", "Wash & Rinse Temperature Trend"), ("cycles", "Hourly Cycle Count")],
+                "Steambox":          [("temp", "Chamber Temperature Profile"), ("pressure", "Steam Pressure Trend"), ("throughput", "Hourly Throughput")],
+                "X-Ray Inspection":  [("throughput", "Hourly Throughput & Rejects"), ("reject_rate", "Reject Rate Trend")],
+                "Checkweigher":      [("distribution", "Weight Distribution"), ("pass_rate", "Pass Rate Trend")],
+            }
+
+            for name, fn, _ in kit_info:
+                pdf.add_page()
+                pdf.set_font('helvetica', 'B', 13)
+                pdf.cell(0, 9, f"9.2  {name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(1)
+                try:
+                    with app.test_request_context():
+                        data = fn().get_json()
+
+                    # Summary table
+                    summary = data.get("summary", {})
+                    detail_rows = [[k.replace("_", " ").title(), str(v)] for k, v in summary.items()]
+                    render_simple_table(pdf, ["Metric", "Value"], detail_rows, [90, 95])
+                    pdf.ln(5)
+
+                    # Charts
+                    charts = chart_generators[name](data)
+                    for key, label in chart_labels.get(name, []):
+                        chart_path = charts.get(key)
+                        if chart_path:
+                            temp_files.append(chart_path)
+                            pdf.set_font('helvetica', 'B', 10)
+                            pdf.cell(0, 7, label, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.image(chart_path, x=10, w=190)
+                            pdf.ln(3)
+                except Exception as ex:
+                    pdf.set_font('helvetica', 'I', 9)
+                    pdf.cell(0, 7, f"Data unavailable: {ex}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        except Exception as e:
+            import traceback
+            print(f"PDF Kitchen Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"Kitchen Equipment data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # --- FINAL EXPORT (ONLY ONCE) ---
         pdf_raw = pdf.output() 

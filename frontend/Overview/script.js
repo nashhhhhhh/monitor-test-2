@@ -16,7 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
         { id: "cctv", name: "CCTV Monitoring", path: "/CCTV/index.html", api: "/api/cctv/log" },
         { id: "lighting", name: "Lighting Control", path: "/Lighting/index.html", localData: true },
         { id: "boiler", name: "Boiler Systems", path: "/Utilities/Boiler/index.html", api: "/api/boiler" },
-        { id: "air", name: "Air Compressor", path: "/Utilities/Air%20Compressor/index.html", api: "/api/aircompressor" }
+        { id: "air", name: "Air Compressor", path: "/Utilities/Air%20Compressor/index.html", api: "/api/aircompressor" },
+        { id: "kitchen", name: "Kitchen Equipment", path: "/Kitchen%20Equipment/index.html", api: "/api/kitchen" }
     ];
 
     async function updateHeartbeat() {
@@ -119,6 +120,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 displayValue = `${temp.toFixed(1)} C`;
             } else if (sys.id === "lighting") {
                 displayValue = `${data.operatingAvailability || 0}% Online`;
+            } else if (sys.id === "kitchen") {
+                displayValue = `${data.online ?? 0} / ${data.total ?? 4} Online`;
             }
         } catch (e) {
             displayValue = "Connected";
@@ -141,6 +144,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 return {
                     status: "WARNING",
                     message: "Wastewater inflow temperature elevated",
+                    value: displayValue
+                };
+            }
+        }
+
+        if (sys.id === "kitchen") {
+            const online = data.online ?? 0;
+            const total = data.total ?? 4;
+            if (online < total) {
+                return {
+                    status: "ATTENTION",
+                    message: `${total - online} unit(s) offline`,
                     value: displayValue
                 };
             }
