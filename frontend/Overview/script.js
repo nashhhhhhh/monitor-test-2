@@ -54,6 +54,26 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        // Fetch kitchen equipment statuses in parallel
+        const kitchenApis = [
+            { name: 'Hobart',     api: '/api/hobart' },
+            { name: 'Steambox',   api: '/api/steambox' },
+            { name: 'X-Ray',      api: '/api/xray' },
+            { name: 'Checkweigh', api: '/api/checkweigher' }
+        ];
+        const kitchenResults = await Promise.all(kitchenApis.map(async (k) => {
+            try {
+                const res = await fetch(k.api);
+                const text = await res.text();
+                JSON.parse(text.replace(/: NaN/g, ': null'));
+                return true;
+            } catch (e) { return false; }
+        }));
+        const onlineCount = kitchenResults.filter(Boolean).length;
+        const kitchenStatus = onlineCount === 4 ? 'normal' : onlineCount === 0 ? 'offline' : 'warning';
+        const kitchenBadge = onlineCount === 4 ? 'NORMAL' : onlineCount === 0 ? 'OFFLINE' : 'WARNING';
+        const kitchenMsg = onlineCount === 4 ? 'All Units Operational' : onlineCount === 0 ? 'All Units Offline' : 'Some Units Offline';
+
         container.innerHTML = ""; // Clear loader
 
         processedData.forEach(sys => {
@@ -78,6 +98,23 @@ document.addEventListener("DOMContentLoaded", () => {
             `;
             container.appendChild(tile);
         });
+
+        // Append Kitchen Equipment tile
+        const kitchenTile = document.createElement("div");
+        kitchenTile.className = `status-card ${kitchenStatus}`;
+        kitchenTile.onclick = () => window.location.href = '/Kitchen%20Equipment/index.html';
+        kitchenTile.innerHTML = `
+            <div class="card-header">
+                <h3>Kitchen Equipment</h3>
+                <span class="badge">${kitchenBadge}</span>
+            </div>
+            <div class="card-body">
+                <p class="status-msg">${kitchenMsg}</p>
+                <p class="metric-val">${onlineCount} <small>/ 4 Online</small></p>
+            </div>
+            <div class="card-footer">Investigate Details →</div>
+        `;
+        container.appendChild(kitchenTile);
 
         // Update Header and Blinking Light
         lastSyncEl.textContent = new Date().toLocaleTimeString();

@@ -3,68 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTV Performance | Stage 2</title>
-    <link rel="stylesheet" href="/Overview/style.css">
+    <title>Hobart Sanitizer | Stage 2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <div id="navbar"></div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+            .then(res => res.ok ? res.text() : Promise.reject())
+            .then(html => document.getElementById('navbar').innerHTML = html)
+            .catch(err => console.error('Navbar load error:', err));
+    </script>
 
-<header>
-    <div class="brand">
-        <div class="pulse"></div>
-        <h1 class="brand-title">Monitoring System <span class="brand-subtitle">| Stage 2</span></h1>
-    </div>
-    <div id="clock" class="header-clock"></div>
-</header>
+    <main class="dashboard-content">
+        <header class="dash-header">
+            <div>
+                <h2>Hobart Sanitizer Monitoring</h2>
+                <p class="text-muted">Wash temperature, rinse performance & cycle diagnostics</p>
+            </div>
+        </header>
 
-<nav>
-    <button class="nav-btn" id="nav-overview" onclick="window.location.href='/Overview/index.html'">Overview</button>
-
-    <button class="nav-btn " id="nav-cctv" onclick="window.location.href='/CCTV/index.html'">CCTV</button>
-    <button class="nav-btn" id="nav-freezer" onclick="window.location.href='/Spiral Blast Freezer/index.html'">Spiral Blast Freezer</button>
-    <button class="nav-btn" id="nav-temp" onclick="window.location.href='/Temperature Monitoring System/frontend/index.html'">Temperature</button>
-    <button class="nav-btn" id="nav-lighting" onclick="window.location.href='/Lighting/index.html'">Lighting</button>
-
-    <div class="nav-item">
-        <button class="nav-btn">Utilities ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
-            <a href="/Utilities/Boiler/index.html">Boiler System</a>
-            <a href="/Utilities/MDB/index.html">MDB</a>
-            <a href="/Utilities/water Treatment Plant/index.html">Water Plant</a>
-            <a href="/Utilities/Wastewater Treatment Plant/index.html">Wastewater</a>
+        <div id="alert-banner" class="alert-banner">
+            <span>⚠</span>
+            <span id="alert-msg"></span>
         </div>
-    </div>
 
-    <div class="nav-item">
-        <button class="nav-btn active">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart Sanitizer</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox Units</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray Inspection</a>
-            <a href="/Kitchen Equipment/CheckWeigh/index.html">CheckWeighers</a>
-        </div>
-    </div>
-</nav>
+        <section class="kpi-grid">
+            <div class="kpi-card highlight-blue">
+                <div class="kpi-label">Wash Temperature</div>
+                <div class="kpi-value" id="val-wash-temp">--<span class="kpi-unit"> °C</span></div>
+                <div class="kpi-trend">Target: ≥ 60 °C</div>
+            </div>
+            <div class="kpi-card highlight-blue">
+                <div class="kpi-label">Rinse Temperature</div>
+                <div class="kpi-value" id="val-rinse-temp">--<span class="kpi-unit"> °C</span></div>
+                <div class="kpi-trend">Target: ≥ 82 °C</div>
+            </div>
+            <div class="kpi-card highlight-purple">
+                <div class="kpi-label">Sanitizer Concentration</div>
+                <div class="kpi-value" id="val-sanitizer">--<span class="kpi-unit"> ppm</span></div>
+                <div class="kpi-trend">Target: 200–400 ppm</div>
+            </div>
+            <div class="kpi-card highlight-green">
+                <div class="kpi-label">Cycles Today</div>
+                <div class="kpi-value" id="val-cycles">--</div>
+                <div class="kpi-trend">Completed wash cycles</div>
+            </div>
+            <div class="kpi-card highlight-warn">
+                <div class="kpi-label">Water Usage</div>
+                <div class="kpi-value" id="val-water">--<span class="kpi-unit"> L</span></div>
+                <div class="kpi-trend">Total today</div>
+            </div>
+        </section>
 
-<main class="dashboard-content">
-    <div class="dash-header">
-        <h2>CCTV Performance Metrics</h2>
-        <p class="text-muted">Security infrastructure and feed stability tracking</p>
-    </div>
+        <section class="main-grid">
+            <div class="card">
+                <div class="card-title">Temperature Trend (Last 12 Hours)</div>
+                <div class="chart-container"><canvas id="tempTrendChart"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Cycle Count per Hour</div>
+                <div class="chart-container"><canvas id="cycleChart"></canvas></div>
+            </div>
+        </section>
 
-    <div class="main-grid">
-        <div class="card">
-            <h3 class="card-title">Feed Uptime %</h3>
-            <div class="chart-container"><canvas id="boilerEfficiencyGauge"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">Data Storage Correlation</h3>
-            <div class="chart-container"><canvas id="boilerCorrelation"></canvas></div>
-        </div>
-    </div>
-</main>
+        <section class="main-grid">
+            <div class="card">
+                <div class="card-title">Unit Diagnostic Status</div>
+                <div class="diag-group">
+                    <h4>Hobart Unit 01 <span id="status-h01" class="status-pill">--</span></h4>
+                    <div class="diag-item"><span>Wash Arm Rotation</span>    <span id="dot-h01-wash"  class="dot"></span></div>
+                    <div class="diag-item"><span>Rinse Pump</span>            <span id="dot-h01-rinse" class="dot"></span></div>
+                    <div class="diag-item"><span>Sanitizer Dosing Pump</span> <span id="dot-h01-dose"  class="dot"></span></div>
+                    <div class="diag-item"><span>Door Seal Integrity</span>   <span id="dot-h01-door"  class="dot"></span></div>
+                </div>
+                <div class="diag-group" style="margin-top:20px;">
+                    <h4>Hobart Unit 02 <span id="status-h02" class="status-pill">--</span></h4>
+                    <div class="diag-item"><span>Wash Arm Rotation</span>    <span id="dot-h02-wash"  class="dot"></span></div>
+                    <div class="diag-item"><span>Rinse Pump</span>            <span id="dot-h02-rinse" class="dot"></span></div>
+                    <div class="diag-item"><span>Sanitizer Dosing Pump</span> <span id="dot-h02-dose"  class="dot"></span></div>
+                    <div class="diag-item"><span>Door Seal Integrity</span>   <span id="dot-h02-door"  class="dot"></span></div>
+                </div>
+            </div>
 
-<script src="/Overview/script.js"></script>
+            <div class="card">
+                <div class="card-title">Sanitizer & Water Consumption</div>
+                <div style="margin-bottom:20px;">
+                    <div class="kpi-label">Sanitizer Tank Level</div>
+                    <div class="kpi-value" id="val-tank-level" style="font-size:1.6rem;margin-top:6px;">-- %</div>
+                    <div class="progress-bar" style="margin-top:10px;">
+                        <div id="bar-tank" class="progress-fill" style="width:0%;background:#8b5cf6;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="kpi-label" style="margin-top:24px;">Detergent Usage Today</div>
+                    <div class="kpi-value" id="val-detergent" style="font-size:1.6rem;margin-top:6px;">-- mL</div>
+                    <div class="progress-bar" style="margin-top:10px;">
+                        <div id="bar-detergent" class="progress-fill" style="width:0%;background:#3b82f6;"></div>
+                    </div>
+                </div>
+                <div style="margin-top:24px;">
+                    <div class="kpi-label">Avg Cycle Duration</div>
+                    <div class="kpi-value" id="val-cycle-time" style="font-size:1.6rem;margin-top:6px;">-- <span class="kpi-unit">min</span></div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import sqlite3
 import csv
 import os
 import io
+import random
 import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
@@ -1039,13 +1040,43 @@ def render_temperature_table(pdf, df, generated_time=None):
         pdf.set_text_color(0)
         fill = not fill
 
-def render_mdb_energy_table(pdf, energy_data):
+def get_mdb_period(file_name):
+    """Return 'DD Mon YYYY – DD Mon YYYY (N days)' for an MDB CSV file."""
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return "N/A"
+    try:
+        with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
+            lines = f.readlines()
+        header_idx = next((i for i, l in enumerate(lines) if "timestamp" in l.lower()), -1)
+        if header_idx == -1:
+            return "N/A"
+        data_lines = [l.strip() for l in lines[header_idx + 1:] if l.strip()]
+        if not data_lines:
+            return "N/A"
+        fmt = "%d-%b-%y %I:%M:%S %p"
+        def parse_ts(line):
+            raw = line.split(",")[0].replace(" ICT", "").strip()
+            return datetime.strptime(raw, fmt)
+        dt_first = parse_ts(data_lines[0])
+        dt_last  = parse_ts(data_lines[-1])
+        days = (dt_last.date() - dt_first.date()).days
+        return f"{dt_first.strftime('%d %b %Y')} - {dt_last.strftime('%d %b %Y')} ({days}d)"
+    except Exception:
+        return "N/A"
+
+
+def render_mdb_energy_table(pdf, energy_data, periods=None):
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 8, "MDB Energy Distribution (Latest Reading)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(2)
 
-    col_widths = [60, 60]
-    headers = ["MDB Panel", "Energy (kWh)"]
+    if periods:
+        col_widths = [45, 40, 95]
+        headers = ["MDB Panel", "Energy (kWh)", "Data Period"]
+    else:
+        col_widths = [60, 60]
+        headers = ["MDB Panel", "Energy (kWh)"]
 
     pdf.set_font('helvetica', 'B', 10)
     for h, w in zip(headers, col_widths):
@@ -1056,6 +1087,8 @@ def render_mdb_energy_table(pdf, energy_data):
     for panel, value in energy_data.items():
         pdf.cell(col_widths[0], 8, panel, border=1)
         pdf.cell(col_widths[1], 8, f"{value:.2f}", border=1)
+        if periods:
+            pdf.cell(col_widths[2], 8, periods.get(panel, "N/A"), border=1)
         pdf.ln()
 
     pdf.ln(4)
@@ -1386,6 +1419,209 @@ def calculate_aircompressor_kpis(data):
 
 
 # =====================================================
+# KITCHEN EQUIPMENT APIs (SIMULATED DATA)
+# =====================================================
+
+@app.route("/api/hobart")
+def api_hobart():
+    now = datetime.now()
+    hours = [(now.replace(hour=h, minute=0, second=0)).strftime("%I:%M %p") for h in range(6, now.hour + 1)]
+    if not hours:
+        hours = [now.strftime("%I:%M %p")]
+    return jsonify({
+        "summary": {
+            "cycles_today": random.randint(40, 80),
+            "water_usage_L": round(random.uniform(80, 160), 1),
+            "tank_level_pct": round(random.uniform(40, 95), 1),
+            "detergent_ml": round(random.uniform(100, 300), 0),
+            "avg_cycle_min": round(random.uniform(3, 6), 1)
+        },
+        "diagnostics": {
+            "unit_01": {
+                "wash_arm": True,
+                "rinse_pump": True,
+                "dose_pump": random.random() > 0.1,
+                "door_seal": random.random() > 0.05
+            },
+            "unit_02": {
+                "wash_arm": True,
+                "rinse_pump": random.random() > 0.05,
+                "dose_pump": True,
+                "door_seal": random.random() > 0.05
+            }
+        },
+        "readings": [
+            {
+                "time": h,
+                "wash_temp": round(random.uniform(60, 68), 1),
+                "rinse_temp": round(random.uniform(82, 90), 1),
+                "sanitizer_ppm": round(random.uniform(200, 400), 0)
+            }
+            for h in hours
+        ],
+        "hourly_cycles": [
+            {"hour": h, "cycles": random.randint(3, 9)} for h in hours
+        ]
+    })
+
+@app.route("/api/steambox")
+def api_steambox():
+    now = datetime.now()
+    hours = [(now.replace(hour=h, minute=0, second=0)).strftime("%I:%M %p") for h in range(6, now.hour + 1)]
+    if not hours:
+        hours = [now.strftime("%I:%M %p")]
+    return jsonify({
+        "summary": {
+            "units_today": random.randint(20, 60),
+            "avg_cook_min": round(random.uniform(8, 15), 1),
+            "door_opens_today": random.randint(30, 120)
+        },
+        "diagnostics": {
+            "sb01": {
+                "heating_element": True,
+                "steam_generator": True,
+                "pressure_valve": random.random() > 0.05,
+                "door_seal": random.random() > 0.05
+            },
+            "sb02": {
+                "heating_element": True,
+                "steam_generator": random.random() > 0.05,
+                "pressure_valve": True,
+                "door_seal": random.random() > 0.05
+            },
+            "sb03": {
+                "heating_element": random.random() > 0.05,
+                "steam_generator": True,
+                "pressure_valve": True,
+                "door_seal": True
+            }
+        },
+        "readings": [
+            {
+                "time": h,
+                "avg_chamber_temp": round(random.uniform(95, 105), 1),
+                "pressure_bar": round(random.uniform(2.0, 3.5), 2),
+                "sb01_temp": round(random.uniform(95, 105), 1),
+                "sb02_temp": round(random.uniform(95, 105), 1),
+                "sb03_temp": round(random.uniform(95, 105), 1)
+            }
+            for h in hours
+        ],
+        "hourly_throughput": [
+            {"hour": h, "units": random.randint(5, 20)} for h in hours
+        ]
+    })
+
+@app.route("/api/xray")
+def api_xray():
+    now = datetime.now()
+    hours = [(now.replace(hour=h, minute=0, second=0)).strftime("%I:%M %p") for h in range(6, now.hour + 1)]
+    if not hours:
+        hours = [now.strftime("%I:%M %p")]
+    inspected = random.randint(1800, 3000)
+    rejects = random.randint(5, 30)
+    reject_rate = round((rejects / inspected) * 100, 2)
+    tube_hours = random.randint(3000, 8500)
+    tube_max = 10000
+    return jsonify({
+        "summary": {
+            "inspected_today": inspected,
+            "rejects_today": rejects,
+            "reject_rate_pct": reject_rate,
+            "uptime_pct": round(random.uniform(95, 100), 1)
+        },
+        "machine": {
+            "sensitivity_mm": round(random.uniform(0.8, 1.5), 1),
+            "tube_hours": tube_hours,
+            "tube_max_hours": tube_max,
+            "days_since_calibration": random.randint(1, 25)
+        },
+        "diagnostics": {
+            "xray_tube": True,
+            "conveyor_belt": True,
+            "detection_algo": random.random() > 0.05,
+            "reject_mech": True,
+            "shielding_ok": True
+        },
+        "readings": [
+            {"time": h, "reject_rate_pct": round(random.uniform(0.1, 1.5), 2)} for h in hours
+        ],
+        "hourly_throughput": [
+            {"hour": h, "inspected": random.randint(150, 350), "rejected": random.randint(0, 5)} for h in hours
+        ],
+        "reject_log": [
+            {
+                "time": now.replace(hour=random.randint(6, now.hour), minute=random.randint(0, 59)).strftime("%I:%M %p"),
+                "product": random.choice(["Chicken Fillet", "Fish Cake", "Spring Roll", "Prawn Dumpling"]),
+                "detection_type": random.choice(["Metal Fragment", "Bone Fragment", "Foreign Object"])
+            }
+            for _ in range(rejects if rejects <= 8 else 8)
+        ]
+    })
+
+@app.route("/api/checkweigher")
+def api_checkweigher():
+    now = datetime.now()
+    hours = [(now.replace(hour=h, minute=0, second=0)).strftime("%I:%M %p") for h in range(6, now.hour + 1)]
+    if not hours:
+        hours = [now.strftime("%I:%M %p")]
+    target_g = 250.0
+    tol_g = 5.0
+    lower_g = target_g - tol_g
+    upper_g = target_g + tol_g
+    total = random.randint(1500, 2500)
+    under = random.randint(5, 40)
+    over = random.randint(3, 25)
+    passed = total - under - over
+    pass_rate = round((passed / total) * 100, 1)
+    avg_weight = round(random.uniform(248, 252), 1)
+    bins = []
+    for low in range(235, 270, 5):
+        high = low + 5
+        zone = "under" if high <= lower_g else "over" if low >= upper_g else "pass"
+        bins.append({"label": f"{low}-{high}g", "count": random.randint(0, 80 if zone == "pass" else 15), "zone": zone})
+    products = ["Chicken Fillet", "Fish Cake", "Spring Roll", "Prawn Dumpling"]
+    return jsonify({
+        "spec": {"target_g": target_g, "tolerance_g": tol_g, "lower_g": lower_g, "upper_g": upper_g},
+        "summary": {
+            "total_today": total,
+            "under_rejects": under,
+            "over_rejects": over,
+            "avg_weight_g": avg_weight,
+            "pass_rate_pct": pass_rate
+        },
+        "diagnostics": {
+            "cw01": {
+                "load_cell_a": True,
+                "load_cell_b": True,
+                "conveyor": True,
+                "reject_mech": random.random() > 0.05,
+                "auto_zero": random.random() > 0.1
+            },
+            "cw02": {
+                "load_cell_a": True,
+                "load_cell_b": random.random() > 0.05,
+                "conveyor": True,
+                "reject_mech": True,
+                "auto_zero": random.random() > 0.1
+            }
+        },
+        "distribution": bins,
+        "readings": [
+            {"time": h, "pass_rate_pct": round(random.uniform(96, 99.5), 1)} for h in hours
+        ],
+        "recent_log": [
+            {
+                "time": now.replace(hour=random.randint(6, now.hour), minute=random.randint(0, 59)).strftime("%I:%M %p"),
+                "product": random.choice(products),
+                "weight_g": round(random.gauss(target_g, 3), 1)
+            }
+            for _ in range(20)
+        ]
+    })
+
+
+# =====================================================
 # MASTER EXPORT ROUTE
 # =====================================================
 @app.route("/api/export/report")
@@ -1526,12 +1762,22 @@ def export_report():
             # --- MDB Energy Distribution ---
             mdb_panels = ["mdb_6", "mdb_7", "mdb_8", "mdb_9", "mdb_10"]
             mdb_energy = {}
+            mdb_periods = {}
+            panel_files = {
+                "mdb_6":  "mdb6_energy.csv",
+                "mdb_7":  "mdb7_energy.csv",
+                "mdb_8":  "mdb8_energy.csv",
+                "mdb_9":  "mdb9_energy.csv",
+                "mdb_10": "mdb10_energy.csv",
+            }
 
             for key in mdb_panels:
+                label = key.upper().replace("_", "-")
                 readings = mdb_data["energy"].get(key, [])
-                mdb_energy[key.upper().replace("_", "-")] = readings[-1]["kwh"] if readings else 0
+                mdb_energy[label] = readings[-1]["kwh"] if readings else 0
+                mdb_periods[label] = get_mdb_period(panel_files[key])
 
-            render_mdb_energy_table(pdf, mdb_energy)
+            render_mdb_energy_table(pdf, mdb_energy, periods=mdb_periods)
 
             # --- EMDB Summary ---
             emdb_list = mdb_data["energy"].get("emdb_1", [])
@@ -2028,9 +2274,10 @@ def export_report():
                 # 1. Summary Statistics
                 total_cams = len(cctv_df)
                 offline_cams = len(cctv_df[cctv_df['Current Status'].str.lower() != 'online'])
-                
+                offline_pct = (offline_cams / total_cams * 100) if total_cams > 0 else 0.0
+
                 pdf.set_font('helvetica', 'B', 12)
-                pdf.cell(0, 10, f"System Overview: {total_cams} Total Cameras | {offline_cams} Offline", 
+                pdf.cell(0, 10, f"System Overview: {total_cams} Total Cameras | {offline_cams} Offline | Offline Rate: {offline_pct:.1f}%",
                          new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 pdf.ln(2)
 

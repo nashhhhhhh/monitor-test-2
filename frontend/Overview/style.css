@@ -147,6 +147,8 @@ body {
 .normal .badge { background: #d1fae5; color: #065f46; }
 .attention .badge { background: #fef3c7; color: #92400e; }
 .critical .badge { background: #fee2e2; color: #991b1b; }
+.warning .badge { background: #fef3c7; color: #92400e; }
+.offline .badge { background: #f1f5f9; color: #475569; }
 
 .status-msg {
     font-size: 0.95rem;
