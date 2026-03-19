@@ -4,42 +4,146 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SATS Stage 2 | Lighting Control</title>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <link rel="stylesheet" href="/shared/navbar.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <div id="navbar"></div>
 
     <main class="dashboard-content">
-        <header class="page-header">
-            <div class="header-left">
-                <h1>Lighting & Illumination</h1>
-                <p>Real-time status and energy monitoring for Stage 2 lighting zones</p>
+        <header class="page-hero">
+            <div>
+                <p class="eyebrow">Lighting Monitoring</p>
+                <h1>Operational Lighting Health Dashboard</h1>
+                <p class="hero-copy">Track room-by-room fixture condition, operating availability, and fault exposure across Stage 2.</p>
             </div>
-            <div class="header-right">
-                <div class="kpi-card">
-                    <span class="label">Total Consumption (Today)</span>
-                    <span id="total-lighting-kwh" class="value">0 <small>kWh</small></span>
+            <div class="hero-panel">
+                <div class="hero-stat-label">Current Portfolio Availability</div>
+                <div class="hero-stat-value" id="hero-availability">--%</div>
+                <div class="hero-stat-meta">
+                    <span id="hero-fixture-summary">--</span>
+                    <span id="hero-sync-time">--</span>
                 </div>
             </div>
         </header>
 
-        <section class="zone-grid" id="zone-container">
-            </section>
+        <section class="summary-grid">
+            <article class="summary-card accent-blue">
+                <span class="summary-label">Total Fixtures</span>
+                <strong class="summary-value" id="summary-total-fixtures">0</strong>
+                <span class="summary-meta">Monitored lighting assets</span>
+            </article>
+            <article class="summary-card accent-green">
+                <span class="summary-label">Healthy Fixtures</span>
+                <strong class="summary-value" id="summary-healthy-fixtures">0</strong>
+                <span class="summary-meta" id="summary-active-meta">0 operational</span>
+            </article>
+            <article class="summary-card accent-red">
+                <span class="summary-label">Faulty Fixtures</span>
+                <strong class="summary-value" id="summary-faulty-fixtures">0</strong>
+                <span class="summary-meta" id="summary-fault-meta">0% fault rate</span>
+            </article>
+            <article class="summary-card accent-cyan">
+                <span class="summary-label">Operating Availability</span>
+                <strong class="summary-value" id="summary-availability">0%</strong>
+                <span class="summary-meta">Operational fixtures / total fixtures</span>
+            </article>
+            <article class="summary-card accent-amber">
+                <span class="summary-label">Avg Health Score</span>
+                <strong class="summary-value" id="summary-health-score">0%</strong>
+                <span class="summary-meta">Average room health condition</span>
+            </article>
+            <article class="summary-card accent-orange">
+                <span class="summary-label">Critical Rooms</span>
+                <strong class="summary-value" id="summary-critical-rooms">0</strong>
+                <span class="summary-meta">Rooms below critical threshold</span>
+            </article>
+        </section>
 
-        <section class="analytics-row">
-            <h3>Lighting Energy Consumption (24h)</h3>
-            <div class="chart-container">
-                <canvas id="lightingTrendChart"></canvas>
-            </div>
+        <section class="dashboard-grid">
+            <article class="panel panel-span-8">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-kicker">Room Fixture Health</p>
+                        <h2>Room-by-room fixture performance</h2>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Room Name</th>
+                                <th>Total Fixtures</th>
+                                <th>Healthy</th>
+                                <th>Faulty</th>
+                                <th>Availability %</th>
+                                <th>Health %</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="room-health-tbody"></tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="panel panel-span-4">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-kicker">Lighting Health Statistics</p>
+                        <h2>Operational summary</h2>
+                    </div>
+                </div>
+                <div class="stats-list" id="lighting-stats-list"></div>
+            </article>
+        </section>
+
+        <section class="chart-grid">
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-kicker">Health Comparison</p>
+                        <h2>Fixture health by room</h2>
+                    </div>
+                </div>
+                <div class="chart-wrap"><canvas id="roomHealthChart"></canvas></div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-kicker">Availability Comparison</p>
+                        <h2>Availability by room</h2>
+                    </div>
+                </div>
+                <div class="chart-wrap"><canvas id="roomAvailabilityChart"></canvas></div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-kicker">Fault Distribution</p>
+                        <h2>Fault count by room</h2>
+                    </div>
+                </div>
+                <div class="chart-wrap"><canvas id="roomFaultChart"></canvas></div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-kicker">Fixture Distribution</p>
+                        <h2>Healthy vs faulty fixtures</h2>
+                    </div>
+                </div>
+                <div class="chart-wrap compact"><canvas id="fixtureStatusChart"></canvas></div>
+            </article>
         </section>
     </main>
 
@@ -49,7 +153,8 @@
             .then(res => res.text())
             .then(html => document.getElementById('navbar').innerHTML = html);
     </script>
-
+    <script src="mockData.js"></script>
+    <script src="utils.js"></script>
     <script src="script.js" defer></script>
 </body>
 </html>

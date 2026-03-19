@@ -1,82 +1,223 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const dataset = window.lightingMonitoringMockData;
+    const utils = window.lightingMonitoringUtils;
 
-    // MOCK DATA — hourly kWh readings per zone over 24 hours
-    const mockData = [
-        {
-            zone: 'Main Hall', id: 'L-101', status: 'Active', life: 98,
-            hourly_kwh: [1.2, 1.1, 1.0, 1.0, 1.1, 1.3, 3.8, 5.2, 5.4, 5.3, 5.1, 5.4,
-                         5.5, 5.3, 5.2, 5.4, 5.6, 5.0, 4.2, 3.1, 2.5, 2.0, 1.6, 1.3]
-        },
-        {
-            zone: 'Loading Bay', id: 'L-204', status: 'Warning', life: 12,
-            hourly_kwh: [0.8, 0.7, 0.7, 0.7, 0.8, 1.0, 2.5, 3.4, 3.5, 3.4, 3.3, 3.5,
-                         3.6, 3.4, 3.3, 3.5, 3.6, 3.2, 2.8, 2.0, 1.6, 1.2, 1.0, 0.9]
-        },
-        {
-            zone: 'Office A', id: 'L-055', status: 'Active', life: 85,
-            hourly_kwh: [0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 1.2, 2.1, 2.2, 2.2, 2.1, 2.2,
-                         2.3, 2.2, 2.1, 2.2, 2.3, 2.0, 1.4, 0.8, 0.5, 0.4, 0.3, 0.3]
-        }
-    ];
+    if (!dataset || !utils) {
+        console.error('Lighting monitoring dataset/helpers are unavailable.');
+        return;
+    }
 
-    const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+    const summary = utils.summarizePortfolio(dataset);
+    const charts = {};
 
-    // Compute total kWh per hour across all zones
-    const totalPerHour = hours.map((_, i) =>
-        mockData.reduce((sum, z) => sum + z.hourly_kwh[i], 0)
-    );
+    const roomTableBody = document.getElementById('room-health-tbody');
+    const statsList = document.getElementById('lighting-stats-list');
 
-    // Compute grand total for the KPI header
-    const grandTotal = totalPerHour.reduce((a, b) => a + b, 0).toFixed(1);
-    document.getElementById('total-lighting-kwh').innerHTML = `${grandTotal} <small>kWh</small>`;
+    function formatNumber(value, digits = 1) {
+        return utils.round(value, digits).toLocaleString();
+    }
 
-    // Zone colours
-    const palette = ['#3b82f6', '#10b981', '#f59e0b'];
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
 
-    // Build datasets: one line per zone + one total line
-    const datasets = mockData.map((z, i) => ({
-        label: `${z.zone} (${z.id})`,
-        data: z.hourly_kwh,
-        borderColor: palette[i],
-        backgroundColor: 'transparent',
-        fill: false,
-        tension: 0.4,
-        pointRadius: 2
-    }));
+    function statusClass(status) {
+        return status.toLowerCase();
+    }
 
-    datasets.push({
-        label: 'Total Consumption',
-        data: totalPerHour,
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99,102,241,0.04)',
-        fill: false,
-        tension: 0.4,
-        borderWidth: 2.5,
-        borderDash: [6, 3],
-        pointRadius: 0
-    });
+    function fixtureStatusLabel(fixture) {
+        if (!fixture.isOperational || fixture.status === 'faulty') return 'Critical';
+        return utils.classifyStatus(fixture.healthScore);
+    }
 
-    // Render chart
-    const ctx = document.getElementById('lightingTrendChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: { labels: hours, datasets },
-        options: {
+    function renderSummaryCards() {
+        setText('summary-total-fixtures', summary.totals.totalFixtures.toLocaleString());
+        setText('summary-healthy-fixtures', summary.totals.healthyFixtures.toLocaleString());
+        setText('summary-active-meta', `${summary.totals.activeFixtures} operational`);
+        setText('summary-faulty-fixtures', summary.totals.faultyFixtures.toLocaleString());
+        setText('summary-fault-meta', `${summary.faultPercentage}% fault rate`);
+        setText('summary-availability', `${summary.operatingAvailability}%`);
+        setText('summary-health-score', `${summary.averageHealthScore}%`);
+        setText('summary-critical-rooms', summary.criticalRoomsCount.toLocaleString());
+
+        setText('hero-availability', `${summary.operatingAvailability}%`);
+        setText('hero-fixture-summary', `${summary.totals.activeFixtures}/${summary.totals.totalFixtures} fixtures operating`);
+        setText(
+            'hero-sync-time',
+            `Snapshot ${new Date(dataset.generatedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+        );
+    }
+
+    function renderRoomTable() {
+        roomTableBody.innerHTML = summary.rooms.map((room) => `
+            <tr class="room-row" data-room-id="${room.roomId}">
+                <td class="room-name-cell">
+                    <strong>${room.roomName}</strong>
+                    <span>${room.zone}</span>
+                </td>
+                <td>${room.totalFixtures}</td>
+                <td>${room.healthyFixtures}</td>
+                <td>${room.faultyFixtures}</td>
+                <td>${room.operatingAvailability}%</td>
+                <td>${room.avgHealthScore}%</td>
+                <td><span class="status-pill ${statusClass(room.status)}">${room.status}</span></td>
+            </tr>
+        `).join('');
+    }
+
+    function renderStats() {
+        const statCards = [
+            {
+                label: 'Best Performing Room',
+                value: summary.bestRoom ? summary.bestRoom.roomName : '--',
+                caption: summary.bestRoom ? `${summary.bestRoom.avgHealthScore}% health score` : 'No data'
+            },
+            {
+                label: 'Worst Performing Room',
+                value: summary.worstRoom ? summary.worstRoom.roomName : '--',
+                caption: summary.worstRoom ? `${summary.worstRoom.avgHealthScore}% health score` : 'No data'
+            },
+            {
+                label: 'Median Room Health',
+                value: `${summary.medianRoomHealthScore}%`,
+                caption: 'Middle room health score across monitored rooms'
+            },
+            {
+                label: 'Mean Availability',
+                value: `${summary.meanAvailability}%`,
+                caption: 'Operational fixtures vs total fixtures'
+            },
+            {
+                label: 'Total Fault %',
+                value: `${summary.faultPercentage}%`,
+                caption: `${summary.totals.faultyFixtures} faulty fixtures across the portfolio`
+            }
+        ];
+
+        statsList.innerHTML = statCards.map((item) => `
+            <div class="stat-item">
+                <div class="stat-item-label">${item.label}</div>
+                <div class="stat-item-value">${item.value}</div>
+                <div class="stat-item-caption">${item.caption}</div>
+            </div>
+        `).join('');
+    }
+
+    function createChart(id, config) {
+        const canvas = document.getElementById(id);
+        if (!canvas) return;
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(canvas, config);
+    }
+
+    function baseBarOptions(horizontal = false, suggestedMax) {
+        return {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
+            indexAxis: horizontal ? 'y' : 'x',
             plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} kWh`
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 10,
+                        usePointStyle: true,
+                        font: { family: 'Inter', size: 11 }
                     }
                 }
             },
             scales: {
-                x: { title: { display: true, text: 'Hour of Day' } },
-                y: { title: { display: true, text: 'Energy (kWh)' }, beginAtZero: true }
+                x: {
+                    beginAtZero: true,
+                    suggestedMax,
+                    grid: { color: 'rgba(148, 163, 184, 0.12)' },
+                    ticks: { color: '#64748b' }
+                },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax,
+                    grid: { display: horizontal ? false : true, color: 'rgba(148, 163, 184, 0.12)' },
+                    ticks: { color: '#64748b' }
+                }
             }
-        }
-    });
+        };
+    }
+
+    function renderCharts() {
+        const labels = summary.rooms.map((room) => room.roomName);
+
+        createChart('roomHealthChart', {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Health Score (%)',
+                    data: summary.rooms.map((room) => room.avgHealthScore),
+                    backgroundColor: '#2563eb',
+                    borderRadius: 10
+                }]
+            },
+            options: baseBarOptions(true, 100)
+        });
+
+        createChart('roomAvailabilityChart', {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Availability (%)',
+                    data: summary.rooms.map((room) => room.operatingAvailability),
+                    backgroundColor: '#0891b2',
+                    borderRadius: 10
+                }]
+            },
+            options: baseBarOptions(true, 100)
+        });
+
+        createChart('roomFaultChart', {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Faulty Fixtures',
+                    data: summary.rooms.map((room) => room.faultyFixtures),
+                    backgroundColor: '#dc2626',
+                    borderRadius: 10
+                }]
+            },
+            options: baseBarOptions(false)
+        });
+
+        createChart('fixtureStatusChart', {
+            type: 'doughnut',
+            data: {
+                labels: ['Healthy', 'Faulty'],
+                datasets: [{
+                    data: [summary.totals.healthyFixtures, summary.totals.faultyFixtures],
+                    backgroundColor: ['#15803d', '#dc2626'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '66%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 10,
+                            font: { family: 'Inter', size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    renderSummaryCards();
+    renderRoomTable();
+    renderStats();
+    renderCharts();
 });

@@ -1,87 +1,230 @@
-async function initDashboard() {
-    try {
-        const res = await fetch('/api/xray');
-        const text = await res.text();
-        const data = JSON.parse(text.replace(/: NaN/g, ': null'));
-        renderKPIs(data);
-        renderDiagnostics(data);
-        renderCharts(data);
-        renderRejectLog(data);
-        checkAlerts(data);
-    } catch (e) { console.error('X-Ray Error:', e); }
+const mockXrayData = {
+    summary: {
+        inspectedToday: 18420,
+        rejectedUnits: 133,
+        uptime: 99.4,
+        avgSpeed: 31.5,
+        avgTubeTemp: 61.8,
+        bestSensitivityMm: 1.2,
+        falseRejects: 19,
+        metalEvents: 7,
+        densityEvents: 11,
+        verificationCompletion: 96
+    },
+    lanes: [
+        { name: 'XR-01', product: 'Meal Tray Line A', sensitivity: '1.2 mm SS', status: 'Running' },
+        { name: 'XR-02', product: 'Packed Rice Bowls', sensitivity: '1.5 mm SS', status: 'Running' },
+        { name: 'XR-03', product: 'Sauce Sachets', sensitivity: '1.0 mm SS', status: 'Calibration' }
+    ],
+    throughput: {
+        labels: ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00'],
+        inspected: [1820, 2440, 2710, 2630, 2860, 3010, 2950],
+        rejected: [14, 17, 16, 23, 21, 19, 23]
+    },
+    rejectReasons: {
+        labels: ['Metal', 'Calcified Bone', 'Dense Product', 'Missing Product', 'Seal Fault'],
+        values: [7, 22, 11, 38, 55]
+    },
+    health: {
+        labels: ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00'],
+        tubeTemp: [58, 59, 60, 62, 63, 64, 61],
+        doseCurrent: [2.4, 2.5, 2.6, 2.8, 2.7, 2.9, 2.6],
+        conveyorSpeed: [30.8, 31.1, 31.4, 31.0, 31.8, 32.0, 32.1]
+    },
+    events: [
+        { time: '17:42', lane: 'XR-03', product: 'Sauce Sachets', reason: 'Calibration deviation', action: 'Auto hold and QA check' },
+        { time: '16:18', lane: 'XR-01', product: 'Meal Tray Line A', reason: 'Seal fault reject', action: 'Operator removed pack' },
+        { time: '14:56', lane: 'XR-02', product: 'Packed Rice Bowls', reason: 'Dense product alarm', action: 'Review image and release' },
+        { time: '12:11', lane: 'XR-01', product: 'Meal Tray Line A', reason: 'Metal contaminant reject', action: 'Bin lock and escalation' }
+    ]
+};
+
+function updateClock() {
+    const clock = document.getElementById('clock');
+    if (!clock) return;
+
+    clock.innerText = new Date().toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
 }
 
-function renderKPIs(data) {
-    document.getElementById('val-inspected').innerText   = data.summary.inspected_today.toLocaleString();
-    document.getElementById('val-rejects').innerText     = data.summary.rejects_today.toLocaleString();
-    document.getElementById('val-reject-rate').innerHTML = `${data.summary.reject_rate_pct.toFixed(2)}<span class="kpi-unit"> %</span>`;
-    document.getElementById('val-uptime').innerHTML      = `${data.summary.uptime_pct.toFixed(1)}<span class="kpi-unit"> %</span>`;
-    document.getElementById('val-sensitivity').innerHTML = `${data.machine.sensitivity_mm}<span class="kpi-unit"> mm</span>`;
-    const tubePct = Math.min((data.machine.tube_hours / data.machine.tube_max_hours) * 100, 100);
-    document.getElementById('val-tube-hours').innerHTML   = `${data.machine.tube_hours.toLocaleString()} <span class="kpi-unit">hrs</span>`;
-    document.getElementById('bar-tube-hours').style.width = tubePct + '%';
-    document.getElementById('bar-tube-hours').style.background = tubePct > 85 ? '#ef4444' : tubePct > 70 ? '#f59e0b' : '#3b82f6';
-    document.getElementById('tube-hours-label').innerText = `Replacement at ${data.machine.tube_max_hours.toLocaleString()} hrs`;
-    document.getElementById('val-cal-days').innerHTML = `${data.machine.days_since_calibration} <span class="kpi-unit">days</span>`;
+function populateSummary(data) {
+    const rejectRate = (data.summary.rejectedUnits / data.summary.inspectedToday) * 100;
+
+    document.getElementById('val-inspected').innerText = data.summary.inspectedToday.toLocaleString();
+    document.getElementById('val-reject-rate').innerText = `${rejectRate.toFixed(2)}%`;
+    document.getElementById('val-uptime').innerText = `${data.summary.uptime.toFixed(1)}%`;
+    document.getElementById('val-speed').innerText = `${data.summary.avgSpeed.toFixed(1)} m/min`;
+    document.getElementById('val-temp').innerText = `${data.summary.avgTubeTemp.toFixed(1)} C`;
+
+    document.getElementById('val-sensitivity').innerText = `${data.summary.bestSensitivityMm.toFixed(1)} mm SS`;
+    document.getElementById('val-false-rejects').innerText = data.summary.falseRejects.toString();
+    document.getElementById('val-metal-events').innerText = data.summary.metalEvents.toString();
+    document.getElementById('val-density-events').innerText = data.summary.densityEvents.toString();
+    document.getElementById('val-verification').innerText = `${data.summary.verificationCompletion}%`;
+    document.getElementById('bar-verification').style.width = `${data.summary.verificationCompletion}%`;
 }
 
-function renderDiagnostics(data) {
-    const setDot  = (id, s) => { const e = document.getElementById(id); if (e) e.className = 'dot ' + s; };
-    const setPill = (id, label, s) => { const e = document.getElementById(id); if (e) { e.innerText = label; e.className = 'status-pill ' + s; } };
-    const d = data.diagnostics;
-    setDot('dot-xr01-tube',   d.xray_tube      ? 'active' : 'offline');
-    setDot('dot-xr01-belt',   d.conveyor_belt  ? 'active' : 'offline');
-    setDot('dot-xr01-algo',   d.detection_algo ? 'active' : 'warning');
-    setDot('dot-xr01-reject', d.reject_mech    ? 'active' : 'offline');
-    setDot('dot-xr01-shield', d.shielding_ok   ? 'active' : 'offline');
-    const critical = d.xray_tube && d.conveyor_belt && d.shielding_ok && d.reject_mech;
-    setPill('status-xr01', !critical ? 'OFFLINE' : !d.detection_algo ? 'DEGRADED' : 'ONLINE', !critical ? 'offline' : !d.detection_algo ? 'warning' : 'active');
+function populateLanes(data) {
+    const laneStatusList = document.getElementById('lane-status-list');
+    laneStatusList.innerHTML = data.lanes.map((lane) => {
+        const statusClass = lane.status === 'Running' ? 'active' : lane.status === 'Calibration' ? 'warning' : 'offline';
+        return `
+            <div class="status-item">
+                <div class="status-meta">
+                    <strong>${lane.name}</strong>
+                    <span>${lane.product} - Sensitivity ${lane.sensitivity}</span>
+                </div>
+                <span class="status-pill ${statusClass}">${lane.status}</span>
+            </div>
+        `;
+    }).join('');
 }
 
-const _charts = {};
+function populateEvents(data) {
+    const body = document.getElementById('event-table-body');
+    body.innerHTML = data.events.map((event) => `
+        <tr>
+            <td>${event.time}</td>
+            <td>${event.lane}</td>
+            <td>${event.product}</td>
+            <td>${event.reason}</td>
+            <td>${event.action}</td>
+        </tr>
+    `).join('');
+}
 
 function renderCharts(data) {
-    const labels = data.readings.map(r => r.time);
-    if (_charts.rejectRate) _charts.rejectRate.destroy();
-    _charts.rejectRate = new Chart(document.getElementById('rejectRateChart'), {
-        type: 'line',
-        data: { labels, datasets: [
-            { label: 'Rejection Rate (%)', data: data.readings.map(r => r.reject_rate_pct), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.07)', fill: true, tension: 0.4 },
-            { label: 'Alert Threshold (2%)', data: data.readings.map(() => 2.0), borderColor: '#f59e0b', borderDash: [6,4], borderWidth: 1.5, pointRadius: 0, fill: false }
-        ] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }, scales: { y: { title: { display: true, text: 'Rejection Rate (%)' }, beginAtZero: true } } }
-    });
-    if (_charts.throughput) _charts.throughput.destroy();
-    _charts.throughput = new Chart(document.getElementById('throughputChart'), {
+    new Chart(document.getElementById('throughputChart'), {
         type: 'bar',
-        data: { labels: data.hourly_throughput.map(h => h.hour), datasets: [
-            { label: 'Inspected', data: data.hourly_throughput.map(h => h.inspected), backgroundColor: '#10b981', borderRadius: 4, stack: 'a' },
-            { label: 'Rejected',  data: data.hourly_throughput.map(h => h.rejected),  backgroundColor: '#ef4444', borderRadius: 4, stack: 'a' }
-        ] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }, scales: { y: { title: { display: true, text: 'Items' }, beginAtZero: true } } }
+        data: {
+            labels: data.throughput.labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Inspected Packs',
+                    data: data.throughput.inspected,
+                    backgroundColor: '#2563eb',
+                    borderRadius: 8,
+                    yAxisID: 'y'
+                },
+                {
+                    type: 'line',
+                    label: 'Rejected Packs',
+                    data: data.throughput.rejected,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+                    fill: true,
+                    tension: 0.35,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Inspected Packs' }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Rejects' }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('rejectReasonChart'), {
+        type: 'doughnut',
+        data: {
+            labels: data.rejectReasons.labels,
+            datasets: [{
+                data: data.rejectReasons.values,
+                backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#14b8a6', '#3b82f6']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('healthChart'), {
+        type: 'line',
+        data: {
+            labels: data.health.labels,
+            datasets: [
+                {
+                    label: 'Tube Temp (C)',
+                    data: data.health.tubeTemp,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+                    tension: 0.35,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Dose Current (mA)',
+                    data: data.health.doseCurrent,
+                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(124, 58, 237, 0.14)',
+                    tension: 0.35,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'Conveyor Speed (m/min)',
+                    data: data.health.conveyorSpeed,
+                    borderColor: '#0f766e',
+                    backgroundColor: 'rgba(15, 118, 110, 0.14)',
+                    tension: 0.35,
+                    yAxisID: 'y2'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    position: 'left',
+                    title: { display: true, text: 'Tube Temp (C)' }
+                },
+                y1: {
+                    beginAtZero: false,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Dose Current (mA)' }
+                },
+                y2: {
+                    beginAtZero: false,
+                    display: false
+                }
+            }
+        }
     });
 }
 
-function renderRejectLog(data) {
-    const tbody = document.getElementById('reject-log-body');
-    if (!data.reject_log || data.reject_log.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No rejects today</td></tr>';
-        return;
-    }
-    tbody.innerHTML = data.reject_log.map(e => `<tr><td>${e.time}</td><td>${e.product}</td><td>${e.detection_type}</td><td><span class="badge reject">REJECTED</span></td></tr>`).join('');
-}
-
-function checkAlerts(data) {
-    const alerts = [];
-    if (data.summary.reject_rate_pct > 2) alerts.push(`Rejection rate elevated: ${data.summary.reject_rate_pct.toFixed(2)}%`);
-    if (data.machine.days_since_calibration > 30) alerts.push(`Calibration overdue: ${data.machine.days_since_calibration} days`);
-    const tubePct = (data.machine.tube_hours / data.machine.tube_max_hours) * 100;
-    if (tubePct > 85) alerts.push(`X-Ray tube near end of life: ${tubePct.toFixed(0)}%`);
-    if (alerts.length) {
-        document.getElementById('alert-msg').innerText = alerts.join('  |  ');
-        document.getElementById('alert-banner').classList.add('visible');
-    }
-}
-
-initDashboard();
-setInterval(initDashboard, 60000);
+document.addEventListener('DOMContentLoaded', () => {
+    populateSummary(mockXrayData);
+    populateLanes(mockXrayData);
+    populateEvents(mockXrayData);
+    renderCharts(mockXrayData);
+    updateClock();
+    setInterval(updateClock, 1000);
+});

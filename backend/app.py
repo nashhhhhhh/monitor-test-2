@@ -540,6 +540,8 @@ def mdb_history():
             # 4. Filtering Logic
             df['date_only'] = df['dt'].dt.strftime('%Y-%m-%d')
             available_dates = df['date_only'].unique()
+            if len(available_dates) == 0:
+                return {"date_used": None, "points": []}
             
             # Use provided date or the latest one in the file
             target_date = date_str
@@ -2368,10 +2370,10 @@ def export_report():
         )
 
     except Exception as e:
-        print(f"🔥 EXPORT FAILED: {str(e)}")
+        print(f"EXPORT FAILED: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-
+ 
 # =====================================================
 # SERVER START
 # =====================================================

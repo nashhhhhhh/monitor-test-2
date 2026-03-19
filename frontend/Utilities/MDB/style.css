@@ -93,6 +93,10 @@ body {
     gap: 24px;
 }
 
+.lighting-energy-section {
+    margin-bottom: 24px;
+}
+
 .card {
     background: var(--card);
     border-radius: 12px;
@@ -113,6 +117,84 @@ body {
 .chart-container {
     height: 320px;
     position: relative;
+}
+
+.lighting-energy-card {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(255, 255, 255, 0.98));
+}
+
+.lighting-energy-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.1fr) minmax(280px, 1fr);
+    gap: 24px;
+    align-items: center;
+}
+
+.lighting-energy-value {
+    font-size: 2.3rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.lighting-energy-meta {
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.lighting-energy-note {
+    margin-top: 12px;
+    color: var(--accent);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.lighting-mini-chart {
+    height: 220px;
+    position: relative;
+}
+
+.lighting-breakdown-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.lighting-breakdown-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 12px;
+}
+
+.lighting-breakdown-list {
+    display: grid;
+    gap: 10px;
+}
+
+.lighting-breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+
+.lighting-breakdown-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.lighting-breakdown-room {
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.lighting-breakdown-kwh {
+    color: var(--accent);
+    font-weight: 700;
 }
 
 /* =========================================
@@ -167,6 +249,12 @@ th {
 /* Utilities for text colors */
 .pos { color: var(--success); }
 .neg { color: var(--danger); }
+
+@media (max-width: 920px) {
+    .lighting-energy-grid {
+        grid-template-columns: 1fr;
+    }
+}
 
 
 
