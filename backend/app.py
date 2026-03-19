@@ -2379,6 +2379,6 @@ def export_report():
 # =====================================================
 
 if __name__ == "__main__":
-    print("\n🚀 Server running at http://127.0.0.1:5000")
+    print("\n🚀 Server running at http://127.0.0.1:5001")
     print(f"📂 Data directory: {DATA_DIR}\n")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)
