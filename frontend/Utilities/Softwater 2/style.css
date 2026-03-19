@@ -49,53 +49,11 @@ body {
 /* =========================================
    KPI SECTION
    ========================================= */
-.kpi-with-distribution {
+.kpi-grid {
     display: grid;
-    grid-template-columns: 1fr 520px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 24px;
     margin-bottom: 32px;
-    align-items: stretch;
-}
-
-.kpi-section {
-    min-width: 0;
-}
-
-.distribution-section {
-    min-width: 0;
-}
-
-.distribution-section .card {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.distribution-section .chart-container {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.kpi-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 0;
-}
-
-.system-row {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    align-items: start;
-    max-width: 900px;
 }
 
 .kpi-card {
@@ -121,51 +79,10 @@ body {
     color: var(--text-dark);
 }
 
-.system-row .kpi-label {
-    font-size: 0.65rem;
-    margin: 0;
-}
-
-.system-row .kpi-value {
-    font-size: 1.8rem;
-    margin-top: 4px;
-}
-
-.system-row .metric-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.kpi-status {
-    font-size: 0.75rem;
-    font-weight: 700;
-    margin-top: 12px;
-    padding: 4px 12px;
-    border-radius: 6px;
-    display: inline-block;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.kpi-status.pos {
-    background: #dcfce7;
-    color: #166534;
-}
-
-.kpi-status.neg {
-    background: #fee2e2;
-    color: #991b1b;
-    animation: pulse-red 2s infinite;
-}
-
-.kpi-status.unavailable {
-    background: #f3f4f6;
-    color: #6b7280;
-}
-
 /* Dynamic Classes for System Status */
 .kpi-value.pos { color: var(--success); }
 .kpi-value.neg { color: var(--danger); animation: pulse-red 2s infinite; }
+.kpi-value.unavailable { color: #9ca3af; }
 
 @keyframes pulse-red {
     0% { opacity: 1; }
@@ -289,4 +206,32 @@ th {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--accent);
+}
+.kpi-status {
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: 12px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.kpi-status.pos {
+    background: #dcfce7;
+    color: #166534;
+}
+.kpi-status.neg {
+    background: #fee2e2;
+    color: #991b1b;
+    animation: pulse-red 2s infinite;
+}
+.kpi-status.unavailable {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+@keyframes pulse-red {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
 }

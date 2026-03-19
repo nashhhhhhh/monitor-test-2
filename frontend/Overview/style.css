@@ -118,7 +118,9 @@ body {
 .status-card.normal { border-left-color: var(--status-ok); }
 .status-card.critical { border-left-color: var(--status-crit); background: #fff5f5; }
 .status-card.warning { border-left-color: var(--status-warn); }
+.status-card.attention { border-left-color: var(--status-warn); background: #fffbeb; }
 .status-card.offline { border-left-color: var(--status-off); opacity: 0.7; }
+.status-card.unavailable { border-left-color: var(--status-off); background: #f3f4f6; opacity: 0.7; }
 
 .card-header {
     display: flex;
@@ -143,6 +145,7 @@ body {
 }
 
 .normal .badge { background: #d1fae5; color: #065f46; }
+.attention .badge { background: #fef3c7; color: #92400e; }
 .critical .badge { background: #fee2e2; color: #991b1b; }
 
 .status-msg {

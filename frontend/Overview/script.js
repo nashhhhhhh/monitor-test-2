@@ -38,6 +38,22 @@ document.addEventListener("DOMContentLoaded", () => {
         // Fetch all system data in parallel
         processedData = await Promise.all(systems.map(s => fetchSystem(s)));
 
+        // For WTP, also fetch chlorine status for all 3 plants
+        const wtpEntry = processedData.find(s => s.id === 'wtp');
+        if (wtpEntry && !wtpEntry.error) {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const [clRo, clSw1, clSw2] = await Promise.all([
+                    fetch(`/api/wtp/chlorine?date=${today}&source=ro`).then(r => r.json()),
+                    fetch(`/api/wtp/chlorine?date=${today}&source=softwater1`).then(r => r.json()),
+                    fetch(`/api/wtp/chlorine?date=${today}&source=softwater2`).then(r => r.json())
+                ]);
+                wtpEntry.chlorineData = { ro: clRo, softwater1: clSw1, softwater2: clSw2 };
+            } catch (e) {
+                wtpEntry.chlorineData = null;
+            }
+        }
+
         container.innerHTML = ""; // Clear loader
 
         processedData.forEach(sys => {
@@ -89,8 +105,33 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const d = sys.data;
             if (sys.id === 'wtp') {
-                const cl2 = d.quality?.ro_chlorine?.slice(-1)[0]?.mg || 0;
-                displayValue = cl2.toFixed(2) + ' mg';
+                const cl = sys.chlorineData;
+                const plants = [
+                    { name: 'RO',          data: cl?.ro },
+                    { name: 'Softwater 1', data: cl?.softwater1 },
+                    { name: 'Softwater 2', data: cl?.softwater2 },
+                ];
+                const attention = plants.filter(p => {
+                    if (!p.data || p.data.length === 0) return false;
+                    const mg = p.data[p.data.length - 1].mg;
+                    return mg < 0.5 || mg > 1.0;
+                });
+                if (attention.length > 0) {
+                    return {
+                        status: 'ATTENTION',
+                        message: 'Low Cl₂: ' + attention.map(p => p.name).join(', '),
+                        value: attention.map(p => {
+                            const val = p.data[p.data.length - 1].mg.toFixed(2);
+                            return `${p.name}: ${val} mg`;
+                        }).join(' | ')
+                    };
+                }
+                // All OK — show latest chlorine readings
+                const readings = plants
+                    .filter(p => p.data && p.data.length > 0)
+                    .map(p => `${p.name}: ${p.data[p.data.length - 1].mg.toFixed(2)} mg`)
+                    .join(' | ');
+                displayValue = readings || '--';
             } else if (sys.id === 'mdb') {
                 const load = d.energy?.emdb_1?.slice(-1)[0]?.kwh || 0;
                 displayValue = load.toLocaleString() + ' kWh';

@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/shared/navbar.css" />
 
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/shared/modal.css">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,51 +36,113 @@
       <p class="subtitle">Live analysis of system pressure, chlorine safety, and real-time flow rates</p>
     </header>
 
+    </section>
+
+    <section class="kpi-with-distribution">
+      <div class="kpi-section">
+
     <section class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-label">RO Water Supply (m³)</div>
-        <div class="kpi-value" id="kpi-ro-total">--</div>
+      <!-- RO Water -->
+      <div class="system-row">
+        <div class="metric-item">
+          <div class="kpi-label">RO Water Supply (m³)</div>
+          <div class="kpi-value" id="kpi-ro-total">--</div>
+        </div>
+        
+        <div class="metric-item">
+          <div class="kpi-label">RO Pressure (bar)</div>
+          <div class="kpi-value" id="kpi-ro-pressure">--</div>
+          <div class="kpi-status" id="kpi-ro-pres-status">NORMAL</div>
+        </div>
+        
+        <div class="metric-item">
+          <div class="kpi-label">RO Chlorine (mg)</div>
+          <div class="kpi-value" id="kpi-ro-chlorine">--</div>
+          <div class="kpi-status" id="kpi-ro-status">NORMAL</div>
+        </div>
       </div>
 
-      <div class="kpi-card">
-        <div class="kpi-label">RO Supply Pressure (bar)</div>
-        <div class="kpi-value" id="kpi-ro-pres">--</div>
+      <!-- Softwater 1 -->
+      <div class="system-row">
+        <div class="metric-item">
+          <div class="kpi-label">Softwater 1 Supply (m³)</div>
+          <div class="kpi-value" id="kpi-soft1-total">--</div>
+        </div>
+        
+        <div class="metric-item">
+          <div class="kpi-label">Softwater 1 Pressure (bar)</div>
+          <div class="kpi-value" id="kpi-soft1-pressure">--</div>
+          <div class="kpi-status" id="kpi-soft1-pres-status">NORMAL</div>
+        </div>
+        
+        <div class="metric-item">
+          <div class="kpi-label">Softwater 1 Chlorine (mg)</div>
+          <div class="kpi-value" id="kpi-soft1-chlorine">--</div>
+          <div class="kpi-status" id="kpi-soft1-status">NORMAL</div>
+        </div>
       </div>
 
-      <div class="kpi-card">
-        <div class="kpi-label">Residual Chlorine (mg)</div>
-        <div class="kpi-value" id="kpi-chlorine">--</div>
+      <!-- Softwater 2 -->
+      <div class="system-row">
+        <div class="metric-item">
+          <div class="kpi-label">Softwater 2 Supply (m³)</div>
+          <div class="kpi-value" id="kpi-soft2-total">--</div>
+        </div>
+        
+        <div class="metric-item">
+          <div class="kpi-label">Softwater 2 Pressure (bar)</div>
+          <div class="kpi-value" id="kpi-soft2-pressure">--</div>
+          <div class="kpi-status" id="kpi-soft2-pres-status">NORMAL</div>
+        </div>
+        
+        <div class="metric-item">
+          <div class="kpi-label">Softwater 2 Chlorine (mg)</div>
+          <div class="kpi-value" id="kpi-soft2-chlorine">--</div>
+          <div class="kpi-status" id="kpi-soft2-status">NORMAL</div>
+        </div>
+      </div>
+    </section>
+
       </div>
 
-      <div class="kpi-card">
-        <div class="kpi-label">System Status</div>
-        <div class="kpi-value" id="kpi-wtp-status">NORMAL</div>
+      <div class="distribution-section">
+        <div class="card">
+          <div class="card-title">Water Source Distribution (m³)</div>
+          <div class="chart-container">
+            <canvas id="flowDistributionChart"></canvas>
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="main-grid">
       
       <div class="card">
-  <div class="card-title flex-header">
-    <span>System Pressure Trends (bar)</span>
-    <input type="date" id="pressure-date-picker" class="date-input">
-  </div>
-  <div class="chart-container">
-    <canvas id="pressureChart"></canvas>
-  </div>
-</div>
-
-      <div class="card">
-        <div class="card-title">Water Source Distribution (m³)</div>
+        <div class="card-title flex-header">
+          <span>System Pressure Trends (bar)</span>
+          <div class="chart-controls">
+            <input type="date" id="pressure-start" class="date-input">
+            <span class="date-sep">to</span>
+            <input type="date" id="pressure-end" class="date-input">
+            <button class="btn-apply" id="pressure-apply">Apply</button>
+            <button class="zoom-btn" id="zoom-pressure-btn" title="Zoom">⛶</button>
+          </div>
+        </div>
         <div class="chart-container">
-          <canvas id="flowDistributionChart"></canvas>
+          <canvas id="pressureChart"></canvas>
         </div>
       </div>
 
       <div class="card">
         <div class="card-title flex-header">
           <span>Chlorine Monitoring (mg)</span>
-          <input type="date" id="chlorine-date-picker" class="date-input">
+          <div class="chart-controls">
+            <input type="date" id="chlorine-start" class="date-input">
+            <span class="date-sep">to</span>
+            <input type="date" id="chlorine-end" class="date-input">
+            <button class="btn-apply" id="chlorine-apply">Apply</button>
+            <button class="zoom-btn" id="zoom-chlorine-btn" title="Zoom">⛶</button>
+          </div>
         </div>
         <div class="chart-container">
           <canvas id="chlorineChart"></canvas>
@@ -114,6 +177,25 @@
 
     </section>
   </main>
+
+  <!-- Zoom Modal -->
+  <div id="zoomModal" class="zoom-modal">
+    <div class="zoom-backdrop" id="zoomBackdrop"></div>
+    <div class="zoom-content">
+      <div class="zoom-header">
+        <h3 id="zoomTitle">Graph Details</h3>
+        <button class="zoom-close" id="zoomClose">&times;</button>
+      </div>
+      <div class="zoom-controls">
+        <label>From: <input type="date" id="zoom-start-date" class="date-input"></label>
+        <label>To: <input type="date" id="zoom-end-date" class="date-input"></label>
+        <button class="btn-apply" id="zoom-apply">Apply</button>
+      </div>
+      <div class="zoom-chart-container">
+        <canvas id="zoomedChart"></canvas>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js" defer></script>
 

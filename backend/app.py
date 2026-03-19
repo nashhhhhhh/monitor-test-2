@@ -71,6 +71,19 @@ def read_csv(file_name, value_key="value"):
             content = "".join(lines[header_idx:])
             reader = csv.DictReader(io.StringIO(content))
 
+            # Identify the value column once (first non-Timestamp column)
+            fieldnames = reader.fieldnames or []
+            value_col = None
+            for fn in fieldnames:
+                fns = fn.strip()
+                if "timestamp" not in fns.lower():
+                    # prefer a column with "value" in name, else take first non-timestamp
+                    if "value" in fns.lower():
+                        value_col = fns
+                        break
+                    elif value_col is None:
+                        value_col = fns
+
             for row in reader:
                 # Clean keys (strip whitespace)
                 clean_row = {k.strip(): v for k, v in row.items() if k}
@@ -78,13 +91,21 @@ def read_csv(file_name, value_key="value"):
                 ts_val = None
                 real_val = None
 
-                # Find the Timestamp and Value columns dynamically
+                # Find the Timestamp column dynamically
                 for k, v in clean_row.items():
                     kl = k.lower()
                     if "timestamp" in kl:
                         ts_val = v
-                    if "value" in kl:
-                        real_val = v
+
+                # Use the pre-identified value column
+                if value_col and value_col in clean_row:
+                    real_val = clean_row[value_col]
+                else:
+                    # fallback: first non-timestamp column
+                    for k, v in clean_row.items():
+                        if "timestamp" not in k.lower():
+                            real_val = v
+                            break
 
                 if ts_val and real_val:
                     try:
@@ -561,29 +582,45 @@ def mdb_history():
 # =====================================================
 
 def get_flow_rate(file_name):
-    """Calculates flow rate (m3/hr) from 15-minute totalizer logs."""
+    """Reads current flow rate (m3/hr) directly from a Flow CSV file."""
     path = os.path.join(DATA_DIR, file_name)
     if not os.path.exists(path): return 0
     try:
-        df = pd.read_csv(path, skiprows=2)
+        df = pd.read_csv(path, encoding='utf-8-sig')
         df.columns = [c.strip() for c in df.columns]
-        val_col = [c for c in df.columns if 'Value' in c][0]
-        last_two = df.tail(2)
-        if len(last_two) == 2:
-            # (Latest Total - Previous Total) / 0.25 hours = m3/hr
-            diff = float(last_two.iloc[1][val_col]) - float(last_two.iloc[0][val_col])
-            return round(diff * 4, 2)
-    except: pass
+        # Find the flow value column (first non-Timestamp column)
+        val_col = next((c for c in df.columns if 'timestamp' not in c.lower()), None)
+        if not val_col:
+            return 0
+        df[val_col] = pd.to_numeric(df[val_col], errors='coerce')
+        last = df.dropna(subset=[val_col]).tail(1)
+        if not last.empty:
+            return round(float(last.iloc[0][val_col]), 2)
+    except Exception as e:
+        print(f"Flow rate error ({file_name}): {e}")
     return 0
 
 @app.route("/api/wtp/chlorine")
 def wtp_chlorine():
-    date_str = request.args.get('date') # Expected format: YYYY-MM-DD
-    file_name = "RES102ROWaterSupply_ResCl2.csv"
+    date_str = request.args.get('date')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    source = request.args.get('source', 'ro')
+    
+    # Map source to CSV file
+    file_map = {
+        'ro': 'RES102ROWaterSupply_ResCl2.csv',
+        'softwater1': 'RES101SoftwaterSupplyNo1_ResCl2.csv',
+        'softwater2': 'RES103SoftWaterSupplyNo2_ResCl2.csv'
+    }
+    
+    file_name = file_map.get(source, 'RES102ROWaterSupply_ResCl2.csv')
     path = os.path.join(DATA_DIR, file_name)
     data = []
     
-    if not os.path.exists(path): return jsonify([])
+    if not os.path.exists(path): 
+        print(f"❌ FILE MISSING: {path}")
+        return jsonify([])
 
     try:
         df = pd.read_csv(path, skiprows=2)
@@ -591,15 +628,19 @@ def wtp_chlorine():
         df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
         df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
         
-        # Filter by date if provided, otherwise show latest 50 points
-        if date_str:
+        # Filter by date range, single date, or fall back to latest 50
+        if start_date and end_date:
+            df = df[(df['dt'].dt.strftime('%Y-%m-%d') >= start_date) &
+                    (df['dt'].dt.strftime('%Y-%m-%d') <= end_date)]
+        elif date_str:
             df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
         else:
             df = df.tail(50)
 
+        multi_day = (start_date and end_date and start_date != end_date) or (not date_str and not start_date)
         for _, row in df.iterrows():
             data.append({
-                "time": row['dt'].strftime('%H:%M'),
+                "time": row['dt'].strftime('%d %b %H:%M') if multi_day else row['dt'].strftime('%H:%M'),
                 "mg": float(row.get('Value (mg)', row.get('Value', 0)))
             })
     except Exception as e:
@@ -608,49 +649,73 @@ def wtp_chlorine():
 
 @app.route("/api/wtp/pressure")
 def wtp_pressure():
-    date_str = request.args.get('date') # Format: YYYY-MM-DD
-    # We have two files for pressure
-    file_ro = "PT102ROWaterSupply_Pres.csv"
-    file_soft = "PT101SoftWaterSupplyNo1_Pres.csv"
+    date_str = request.args.get('date')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    source = request.args.get('source', 'ro')
     
-    def get_filtered_data(file_name, value_key):
-        path = os.path.join(DATA_DIR, file_name)
-        if not os.path.exists(path): return []
-        try:
-            df = pd.read_csv(path, skiprows=2)
-            df.columns = [c.strip() for c in df.columns]
-            df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
-            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
-            
-            if date_str:
-                df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
-            else:
-                df = df.tail(50)
+    # Map source to CSV file
+    file_map = {
+        'ro': 'PT102ROWaterSupply_Pres.csv',
+        'softwater1': 'PT101SoftWaterSupplyNo1_Pres.csv',
+        'softwater2': 'PT103SoftWaterSupplyNo2_Pres.csv'
+    }
 
-            val_col = [c for c in df.columns if 'Value' in c][0]
-            return [{"time": r['dt'].strftime('%H:%M'), value_key: float(r[val_col])} for _, r in df.iterrows()]
-        except: return []
+    file_name = file_map.get(source, 'PT102ROWaterSupply_Pres.csv')
+    path = os.path.join(DATA_DIR, file_name)
+    data = []
 
-    return jsonify({
-        "ro_supply": get_filtered_data(file_ro, "bar"),
-        "soft_water": get_filtered_data(file_soft, "bar")
-    })
+    if not os.path.exists(path):
+        print(f"❌ FILE MISSING: {path}")
+        return jsonify([])
+
+    try:
+        df = pd.read_csv(path)
+        df.columns = [c.strip() for c in df.columns]
+        df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+
+        # Find the bar value column dynamically
+        bar_col = next((c for c in df.columns if 'bar' in c.lower() or 'pres' in c.lower()), None)
+        if not bar_col:
+            print(f"Pressure: no bar/pres column found in {file_name}, columns: {list(df.columns)}")
+            return jsonify([])
+
+        # Filter by date range, single date, or fall back to latest 50
+        if start_date and end_date:
+            df = df[(df['dt'].dt.strftime('%Y-%m-%d') >= start_date) &
+                    (df['dt'].dt.strftime('%Y-%m-%d') <= end_date)]
+        elif date_str:
+            df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
+        else:
+            df = df.tail(50)
+
+        multi_day = (start_date and end_date and start_date != end_date) or (not date_str and not start_date)
+        for _, row in df.iterrows():
+            data.append({
+                "time": row['dt'].strftime('%d %b %H:%M') if multi_day else row['dt'].strftime('%H:%M'),
+                "bar": float(row[bar_col])
+            })
+    except Exception as e:
+        print(f"Pressure Filter Error: {e}")
+    
+    return jsonify(data)
 
 def get_wtp_raw_data():
     return {
         "flow_totals": {
             "deep_well":     read_csv("FIT-101-DeepWellWater_Total.csv", "m3"),
             "soft_water_1":  read_csv("FIT-102-SoftWaterSupply-01_Total.csv", "m3"),
-            "soft_water_2":  read_csv("_FIT-104-SoftWaterSupply-02_Total.csv", "m3"),
+            "soft_water_2":  read_csv("FIT-104-SoftWaterSupply-02_Total.csv", "m3"),
             "ro_water":      read_csv("FIT-103-ROWaterSupply_Total.csv", "m3"),
             "fire_water":    read_csv("FIT-105-FireWaterTank_Total.csv", "m3")
         },
         "flow_rates": {
-            "deep_well":    get_flow_rate("FIT-101-DeepWellWater_Total.csv"),
-            "soft_water_1": get_flow_rate("FIT-102-SoftWaterSupply-01_Total.csv"),
-            "soft_water_2": get_flow_rate("_FIT-104-SoftWaterSupply-02_Total.csv"),
-            "ro_water":     get_flow_rate("FIT-103-ROWaterSupply_Total.csv"),
-            "fire_water":   get_flow_rate("FIT-105-FireWaterTank_Total.csv")
+            "deep_well":    get_flow_rate("FIT101DeepWellWater_Flow.csv"),
+            "soft_water_1": get_flow_rate("FIT102SoftWaterSupplyNo1_Flow.csv"),
+            "soft_water_2": get_flow_rate("FIT104SoftWaterSupplyNo2_Flow.csv"),
+            "ro_water":     get_flow_rate("FIT103ROWaterSupply_Flow.csv"),
+            "fire_water":   get_flow_rate("FIT105FireWaterTank_Flow.csv")
         },
         "pressure": {
             "soft_water":    read_csv("PT101SoftWaterSupplyNo1_Pres.csv", "bar"),
@@ -753,12 +818,8 @@ def save_wtp_chart(data_list, val_key, title, ylabel, filename, color='#f59e0b')
     """Generates a line chart for WTP metrics."""
     if not data_list:
         return None
-    
-    # Convert list of dicts to DataFrame for easy plotting
     df = pd.DataFrame(data_list)
-    # Extract just the last 24 points for clarity
-    df = df.tail(24) 
-
+    df = df.tail(24)
     plt.figure(figsize=(6, 3))
     plt.plot(df['time'], df[val_key], color=color, linewidth=2, marker='o', markersize=4)
     plt.title(title, fontsize=10, fontweight='bold')
@@ -766,13 +827,120 @@ def save_wtp_chart(data_list, val_key, title, ylabel, filename, color='#f59e0b')
     plt.xticks(rotation=45, fontsize=7)
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.tight_layout()
-    
     path = os.path.join(BASE_DIR, filename)
     plt.savefig(path, dpi=150)
     plt.close()
     return path
 
-def render_temperature_table(pdf, df):
+def load_wtp_pressure_data(source):
+    """Load all pressure data for a source. Returns list of {time, bar}."""
+    file_map = {
+        'ro':         'PT102ROWaterSupply_Pres.csv',
+        'softwater1': 'PT101SoftWaterSupplyNo1_Pres.csv',
+        'softwater2': 'PT103SoftWaterSupplyNo2_Pres.csv'
+    }
+    path = os.path.join(DATA_DIR, file_map.get(source, ''))
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+        df.columns = [c.strip() for c in df.columns]
+        df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+        bar_col = next((c for c in df.columns if 'bar' in c.lower() or 'pres' in c.lower()), None)
+        if not bar_col:
+            return []
+        return [{'time': row['dt'].strftime('%d %b %H:%M'), 'bar': float(row[bar_col])} for _, row in df.iterrows()]
+    except Exception as e:
+        print(f"load_wtp_pressure_data error ({source}): {e}")
+        return []
+
+def load_wtp_chlorine_data(source):
+    """Load all chlorine data for a source. Returns list of {time, mg}."""
+    file_map = {
+        'ro':         'RES102ROWaterSupply_ResCl2.csv',
+        'softwater1': 'RES101SoftwaterSupplyNo1_ResCl2.csv',
+        'softwater2': 'RES103SoftWaterSupplyNo2_ResCl2.csv'
+    }
+    path = os.path.join(DATA_DIR, file_map.get(source, ''))
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path, skiprows=2)
+        df.columns = [c.strip() for c in df.columns]
+        df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
+        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
+        return [{'time': row['dt'].strftime('%d %b %H:%M'), 'mg': float(row.get('Value (mg)', row.get('Value', 0)))} for _, row in df.iterrows()]
+    except Exception as e:
+        print(f"load_wtp_chlorine_data error ({source}): {e}")
+        return []
+
+def save_wtp_line_chart(data_list, val_key, title, ylabel, filename, color='#3b82f6'):
+    """Single-source line chart showing full date range with period label."""
+    if not data_list:
+        return None
+    labels = [p['time'] for p in data_list]
+    vals   = [p[val_key] for p in data_list]
+    n = len(labels)
+    tick_step = max(1, n // 14)
+    date_range = f"{labels[0]}   to   {labels[-1]}" if n > 1 else (labels[0] if labels else '')
+    fig, ax = plt.subplots(figsize=(15, 3.8))
+    ax.plot(range(n), vals, color=color, linewidth=1.8,
+            marker='o' if n <= 48 else None, markersize=3)
+    ax.fill_between(range(n), vals, alpha=0.08, color=color)
+    ax.set_xticks(range(0, n, tick_step))
+    ax.set_xticklabels([labels[i] for i in range(0, n, tick_step)],
+                       rotation=40, fontsize=7, ha='right')
+    ax.set_title(title, fontsize=10, fontweight='bold')
+    ax.set_ylabel(ylabel, fontsize=9)
+    ax.set_xlabel(f"Period: {date_range}", fontsize=8, color='#64748b')
+    ax.grid(True, linestyle='--', alpha=0.4)
+    if vals:
+        ax.annotate(f'Latest: {vals[-1]:.2f}', xy=(n - 1, vals[-1]),
+                    xytext=(-40, 8), textcoords='offset points',
+                    fontsize=8, color=color, fontweight='bold')
+    plt.tight_layout()
+    path = os.path.join(BASE_DIR, filename)
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    return path
+
+def save_wtp_multi_line_chart(datasets, title, ylabel, filename):
+    """
+    Multi-source line chart for the WTP summary page.
+    datasets: list of {label, data (list of {time, value}), val_key, color}
+    """
+    if not any(d['data'] for d in datasets):
+        return None
+    base = max(datasets, key=lambda d: len(d['data']))
+    labels = [p['time'] for p in base['data']]
+    n = len(labels)
+    if n == 0:
+        return None
+    tick_step = max(1, n // 14)
+    date_range = f"{labels[0]}   to   {labels[-1]}" if n > 1 else labels[0]
+    fig, ax = plt.subplots(figsize=(15, 4.5))
+    for d in datasets:
+        if not d['data']:
+            continue
+        vals = [p[d['val_key']] for p in d['data']]
+        ax.plot(range(len(vals)), vals, label=d['label'],
+                color=d['color'], linewidth=1.8)
+    ax.set_xticks(range(0, n, tick_step))
+    ax.set_xticklabels([labels[i] for i in range(0, n, tick_step)],
+                       rotation=40, fontsize=7, ha='right')
+    ax.set_title(title, fontsize=11, fontweight='bold')
+    ax.set_ylabel(ylabel, fontsize=9)
+    ax.set_xlabel(f"Period: {date_range}", fontsize=8, color='#64748b')
+    ax.legend(fontsize=9, loc='upper right', framealpha=0.8)
+    ax.grid(True, linestyle='--', alpha=0.4)
+    plt.tight_layout()
+    path = os.path.join(BASE_DIR, filename)
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    return path
+
+def render_temperature_table(pdf, df, generated_time=None):
     # ---------- TABLE CONFIG ----------
     headers = [
         "Cold Room",
@@ -796,7 +964,18 @@ def render_temperature_table(pdf, df):
             pdf.cell(w, header_height, h, border=1, align='C', fill=True)
         pdf.ln()
 
-    # ---------- INITIAL HEADER ----------
+    def draw_timestamp_header():
+        if generated_time:
+            pdf.set_font('helvetica', '', 10)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 8, f"Temperature data as of {generated_time}", 
+                     new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(2)
+
+    # ---------- INITIAL TIMESTAMP HEADER ----------
+    draw_timestamp_header()
+
+    # ---------- INITIAL TABLE HEADER ----------
     draw_header()
 
     pdf.set_font('helvetica', '', 9)
@@ -808,6 +987,7 @@ def render_temperature_table(pdf, df):
         # ---------- PAGE BREAK ----------
         if pdf.get_y() > 265:
             pdf.add_page()
+            draw_timestamp_header()
             draw_header()
             pdf.set_font('helvetica', '', 9)
 
@@ -1212,6 +1392,7 @@ def calculate_aircompressor_kpis(data):
 def export_report():
     temp_files = []
     excel_path = os.path.join(DATA_DIR, 'Temperature_Reading.xlsx')
+    generated_time = datetime.now().strftime('%d %b %Y, %I:%M %p')
 
     try:
         pdf = SATS_Report()
@@ -1242,7 +1423,7 @@ def export_report():
         pdf.set_font('helvetica', '', 14)
         pdf.cell(
             0, 10,
-            f"Generated: {datetime.now().strftime('%d %b %Y, %I:%M %p')}",
+            f"Generated: {generated_time}",
             align='C',
             new_x=XPos.LMARGIN,
             new_y=YPos.NEXT
@@ -1317,7 +1498,7 @@ def export_report():
             conn = sqlite3.connect(os.path.join(BASE_DIR, "temps.db"))
             df_temp = pd.read_sql("SELECT * FROM room_temperature", conn)
             conn.close()
-            render_temperature_table(pdf, df_temp)
+            render_temperature_table(pdf, df_temp, generated_time)
         except:
             pdf.cell(0, 10, "Temperature data unavailable",
                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -1370,114 +1551,355 @@ def export_report():
             )
 
 
-        # --- PAGE 5: WTP ---
+        # =====================================================
+        # --- PAGE 5: WTP MAIN SUMMARY ---
+        # =====================================================
         pdf.add_page()
         pdf.set_link(lnk_util, page=pdf.page_no())
         pdf.set_font('helvetica', 'B', 16)
         pdf.cell(0, 10, "3. Water Treatment Plant (WTP)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(3)
 
         try:
-            # CALL THE RAW FUNCTION, NOT THE ROUTE
             wtp = get_wtp_raw_data()
+            ft  = wtp["flow_totals"]
 
-            # -------------------------------
-            # 1. EXECUTIVE KPI SUMMARY
-            # -------------------------------
-            pdf.set_font('helvetica', 'B', 13)
-            pdf.cell(0, 8, "3.1 Executive Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(2)
+            # --- Load per-source data ---
+            ro_pres_data  = load_wtp_pressure_data('ro')
+            sw1_pres_data = load_wtp_pressure_data('softwater1')
+            sw2_pres_data = load_wtp_pressure_data('softwater2')
+            ro_cl_data    = load_wtp_chlorine_data('ro')
+            sw1_cl_data   = load_wtp_chlorine_data('softwater1')
+            sw2_cl_data   = load_wtp_chlorine_data('softwater2')
 
-            # --- Data Extraction ---
-            ft = wtp["flow_totals"]
-            
-            # Fetch last readings for all 5 sources
-            last_well = ft.get("deep_well", [])[-1]["m3"] if ft.get("deep_well") else 0
-            last_soft1 = ft.get("soft_water_1", [])[-1]["m3"] if ft.get("soft_water_1") else 0
-            last_soft2 = ft.get("soft_water_2", [])[-1]["m3"] if ft.get("soft_water_2") else 0
-            last_ro = ft.get("ro_water", [])[-1]["m3"] if ft.get("ro_water") else 0
-            last_fire = ft.get("fire_water", [])[-1]["m3"] if ft.get("fire_water") else 0
+            # Latest values
+            last_well  = ft.get("deep_well",   [{}])[-1].get("m3", 0) if ft.get("deep_well")   else 0
+            last_soft1 = ft.get("soft_water_1",[{}])[-1].get("m3", 0) if ft.get("soft_water_1") else 0
+            last_soft2 = ft.get("soft_water_2",[{}])[-1].get("m3", 0) if ft.get("soft_water_2") else 0
+            last_ro    = ft.get("ro_water",    [{}])[-1].get("m3", 0) if ft.get("ro_water")    else 0
+            last_fire  = ft.get("fire_water",  [{}])[-1].get("m3", 0) if ft.get("fire_water")  else 0
 
-            # Fetch Pressure and Quality
-            ro_pres_list = wtp["pressure"].get("ro_supply", [])
-            soft_pres_list = wtp["pressure"].get("soft_water", [])
-            last_ro_pres = ro_pres_list[-1]["bar"] if ro_pres_list else 0
-            last_soft_pres = soft_pres_list[-1]["bar"] if soft_pres_list else 0
+            fr = wtp.get("flow_rates", {})
 
-            cl_list = wtp["quality"].get("ro_chlorine", [])
-            last_cl = cl_list[-1]["mg"] if cl_list else 0
+            ro_pres_val  = ro_pres_data[-1]["bar"]  if ro_pres_data  else None
+            sw1_pres_val = sw1_pres_data[-1]["bar"] if sw1_pres_data else None
+            sw2_pres_val = sw2_pres_data[-1]["bar"] if sw2_pres_data else None
+            ro_cl_val    = ro_cl_data[-1]["mg"]     if ro_cl_data    else None
+            sw1_cl_val   = sw1_cl_data[-1]["mg"]    if sw1_cl_data   else None
+            sw2_cl_val   = sw2_cl_data[-1]["mg"]    if sw2_cl_data   else None
 
-            # Combined Status Logic
-            status = "ATTENTION" if (last_cl < 0.1 or last_ro_pres > 7.5 or last_soft_pres > 7.5) else "NORMAL"
+            def fmt(v, decimals=2): return f"{v:.{decimals}f}" if v is not None else "--"
+            def cl_status(v):       return ("ATTENTION" if v < 0.1 else "NORMAL") if v is not None else "UNAVAILABLE"
 
-            # Render Table 1: Compliance & Pressure
-            render_simple_table(
-                pdf,
-                ["Compliance Metric", "Current Reading"],
-                [
-                    ["Chlorine (mg/L)", f"{last_cl:.2f}"],
-                    ["RO Supply Pressure (bar)", f"{last_ro_pres:.1f}"],
-                    ["Soft Water Pressure (bar)", f"{last_soft_pres:.1f}"],
-                    ["Overall System Status", status],
-                ],
-                [90, 60]
-            )
-            pdf.ln(5)
-
-            # Render Table 2: Full Water Source Inventory (5 Sources)
+            # ── 3.1 Water Source Flow Summary ───────────────────────────────
             pdf.set_font('helvetica', 'B', 12)
-            pdf.cell(0, 10, "3.2 Accumulated Water Source Volumes", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, "3.1  Water Source Flow Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
             render_simple_table(
                 pdf,
-                ["Water Source", "Total Accumulation (m3)"],
+                ["Water Source", "Total Accumulation (m\xb3)", "Flow Rate (m\xb3/hr)"],
                 [
-                    ["Deep Well", f"{last_well:,.0f}"],
-                    ["Soft Water 1", f"{last_soft1:,.0f}"],
-                    ["Soft Water 2", f"{last_soft2:,.0f}"],
-                    ["RO Water", f"{last_ro:,.0f}"],
-                    ["Fire Water Tank", f"{last_fire:,.0f}"],
+                    ["Deep Well",       f"{last_well:,.0f}",  fmt(fr.get('deep_well'), 2)],
+                    ["Softwater No. 1", f"{last_soft1:,.0f}", fmt(fr.get('soft_water_1'), 2)],
+                    ["Softwater No. 2", f"{last_soft2:,.0f}", fmt(fr.get('soft_water_2'), 2)],
+                    ["RO Water",        f"{last_ro:,.0f}",    fmt(fr.get('ro_water'), 2)],
+                    ["Fire Water Tank", f"{last_fire:,.0f}",  fmt(fr.get('fire_water'), 2)],
                 ],
-                [90, 60]
+                [70, 60, 60]
             )
-            
-            # -------------------------------
-            # 4. VISUAL TREND ANALYSIS
-            # -------------------------------
-            pdf.set_font('helvetica', 'B', 14)
-            pdf.cell(0, 10, "3.3 Visual Trend Analysis", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(5)
+            pdf.ln(6)
 
-            # --- Chart 1: Residual Chlorine Trend ---
-            cl_chart_path = save_wtp_chart(
-                wtp["quality"].get("ro_chlorine", []), 'mg', 
-                "Chlorine Trend", "mg/L", "tmp_cl_trend.png", color='#f59e0b'
+            # ── 3.2 Pressure & Chlorine Status ──────────────────────────────
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "3.2  Pressure & Water Quality Status", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            render_simple_table(
+                pdf,
+                ["Source", "Latest Pressure (bar)", "Latest Chlorine (mg)", "Chlorine Status"],
+                [
+                    ["RO Water",        fmt(ro_pres_val,  1), fmt(ro_cl_val),  cl_status(ro_cl_val)],
+                    ["Softwater No. 1", fmt(sw1_pres_val, 1), fmt(sw1_cl_val), cl_status(sw1_cl_val)],
+                    ["Softwater No. 2", fmt(sw2_pres_val, 1), fmt(sw2_cl_val), cl_status(sw2_cl_val)],
+                ],
+                [50, 50, 50, 45]
             )
-            if cl_chart_path:
-                temp_files.append(cl_chart_path)
-                pdf.image(cl_chart_path, x=15, w=180)
-                pdf.ln(2)
+            pdf.ln(6)
 
-            # --- Chart 2: RO Supply Pressure Trend ---
-            ro_chart_path = save_wtp_chart(
-                wtp["pressure"].get("ro_supply", []), 'bar', 
-                "RO Supply Pressure Trend", "Bar", "tmp_ro_pres.png", color='#3b82f6'
+            # ── 3.3 Pressure Trend (all 3 sources) ──────────────────────────
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "3.3  System Pressure Trends (bar)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            pres_chart = save_wtp_multi_line_chart(
+                [
+                    {'label': 'RO Water',        'data': ro_pres_data,  'val_key': 'bar', 'color': '#10b981'},
+                    {'label': 'Softwater No. 1', 'data': sw1_pres_data, 'val_key': 'bar', 'color': '#3b82f6'},
+                    {'label': 'Softwater No. 2', 'data': sw2_pres_data, 'val_key': 'bar', 'color': '#f59e0b'},
+                ],
+                "System Pressure Trends  to  All Sources", "bar", "tmp_wtp_pres_multi.png"
             )
-            if ro_chart_path:
-                temp_files.append(ro_chart_path)
-                pdf.image(ro_chart_path, x=15, w=180)
-                pdf.ln(2)
+            if pres_chart:
+                temp_files.append(pres_chart)
+                pdf.image(pres_chart, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "No pressure data available.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(4)
 
-            # --- Chart 3: Soft Water Pressure Trend (NEW) ---
-            soft_chart_path = save_wtp_chart(
-                wtp["pressure"].get("soft_water", []), 'bar', 
-                "Soft Water Supply Pressure Trend", "Bar", "tmp_soft_pres.png", color='#64748b'
+            # ── 3.4 Chlorine Trend (all 3 sources) ──────────────────────────
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "3.4  Chlorine Monitoring (mg)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            cl_chart = save_wtp_multi_line_chart(
+                [
+                    {'label': 'RO Water',        'data': ro_cl_data,  'val_key': 'mg', 'color': '#10b981'},
+                    {'label': 'Softwater No. 1', 'data': sw1_cl_data, 'val_key': 'mg', 'color': '#3b82f6'},
+                    {'label': 'Softwater No. 2', 'data': sw2_cl_data, 'val_key': 'mg', 'color': '#f59e0b'},
+                ],
+                "Residual Chlorine Trends  to  All Sources", "mg/L", "tmp_wtp_cl_multi.png"
             )
-            if soft_chart_path:
-                temp_files.append(soft_chart_path)
-                pdf.image(soft_chart_path, x=15, w=180)
+            if cl_chart:
+                temp_files.append(cl_chart)
+                pdf.image(cl_chart, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "No chlorine data available.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         except Exception as e:
-            print(f"PDF WTP Error: {e}")
-            pdf.cell(0, 10, "Water Treatment Plant data error: " + str(e), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            import traceback
+            print(f"PDF WTP Main Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"WTP data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # =====================================================
+        # --- PAGE 6: RO WATER ---
+        # =====================================================
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "3.A  RO Water Supply", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(3)
+
+        try:
+            wtp_ro     = get_wtp_raw_data()
+            ro_pres    = load_wtp_pressure_data('ro')
+            ro_cl      = load_wtp_chlorine_data('ro')
+
+            ro_total   = wtp_ro["flow_totals"].get("ro_water", [{}])[-1].get("m3", 0) if wtp_ro["flow_totals"].get("ro_water") else 0
+            ro_pv      = ro_pres[-1]["bar"] if ro_pres else None
+            ro_cv      = ro_cl[-1]["mg"]    if ro_cl   else None
+
+            cl_vals    = [p["mg"] for p in ro_cl] if ro_cl else []
+            avg_cl     = sum(cl_vals) / len(cl_vals) if cl_vals else None
+            max_cl     = max(cl_vals) if cl_vals else None
+            min_cl     = min(cl_vals) if cl_vals else None
+            cl_period  = f"{ro_cl[0]['time']}   to   {ro_cl[-1]['time']}" if ro_cl else "--"
+            pr_period  = f"{ro_pres[0]['time']}   to   {ro_pres[-1]['time']}" if ro_pres else "--"
+
+            # KPI table
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Key Performance Indicators", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            render_simple_table(
+                pdf,
+                ["Metric", "Value"],
+                [
+                    ["RO Water Supply Total (m\xb3)",     f"{ro_total:,.0f}"],
+                    ["Latest Supply Pressure (bar)",        fmt(ro_pv, 1)],
+                    ["Pressure Data Period",                pr_period],
+                    ["Latest Chlorine (mg)",               fmt(ro_cv)],
+                    ["Average Chlorine (mg)",              fmt(avg_cl)],
+                    ["Maximum Chlorine (mg)",              fmt(max_cl)],
+                    ["Minimum Chlorine (mg)",              fmt(min_cl)],
+                    ["Chlorine Data Period",               cl_period],
+                    ["System Status",                      cl_status(ro_cv)],
+                ],
+                [100, 85]
+            )
+            pdf.ln(5)
+
+            # Pressure chart
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Supply Pressure Trend (bar)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            p = save_wtp_line_chart(ro_pres, 'bar', "RO Water  to  Supply Pressure", "bar", "tmp_ro_pres_sub.png", '#3b82f6')
+            if p:
+                temp_files.append(p)
+                pdf.image(p, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9); pdf.cell(0, 7, "No pressure data.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(4)
+
+            # Chlorine chart
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Residual Chlorine Monitoring (mg)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            p = save_wtp_line_chart(ro_cl, 'mg', "RO Water  to  Residual Chlorine", "mg/L", "tmp_ro_cl_sub.png", '#f59e0b')
+            if p:
+                temp_files.append(p)
+                pdf.image(p, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9); pdf.cell(0, 7, "No chlorine data.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        except Exception as e:
+            import traceback
+            print(f"PDF RO Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"RO data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # =====================================================
+        # --- PAGE 7: SOFTWATER NO. 1 ---
+        # =====================================================
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "3.B  Softwater Supply No. 1", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(3)
+
+        try:
+            wtp_s1    = get_wtp_raw_data()
+            sw1_pres  = load_wtp_pressure_data('softwater1')
+            sw1_cl    = load_wtp_chlorine_data('softwater1')
+
+            sw1_total = wtp_s1["flow_totals"].get("soft_water_1", [{}])[-1].get("m3", 0) if wtp_s1["flow_totals"].get("soft_water_1") else 0
+            sw1_pv    = sw1_pres[-1]["bar"] if sw1_pres else None
+            sw1_cv    = sw1_cl[-1]["mg"]    if sw1_cl   else None
+
+            cl_vals   = [p["mg"] for p in sw1_cl] if sw1_cl else []
+            avg_cl    = sum(cl_vals) / len(cl_vals) if cl_vals else None
+            max_cl    = max(cl_vals) if cl_vals else None
+            min_cl    = min(cl_vals) if cl_vals else None
+            cl_period = f"{sw1_cl[0]['time']}   to   {sw1_cl[-1]['time']}" if sw1_cl else "--"
+            pr_period = f"{sw1_pres[0]['time']}   to   {sw1_pres[-1]['time']}" if sw1_pres else "--"
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Key Performance Indicators", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            render_simple_table(
+                pdf,
+                ["Metric", "Value"],
+                [
+                    ["Softwater 1 Supply Total (m\xb3)",  f"{sw1_total:,.0f}"],
+                    ["Latest Supply Pressure (bar)",        fmt(sw1_pv, 1)],
+                    ["Pressure Data Period",                pr_period],
+                    ["Latest Chlorine (mg)",               fmt(sw1_cv)],
+                    ["Average Chlorine (mg)",              fmt(avg_cl)],
+                    ["Maximum Chlorine (mg)",              fmt(max_cl)],
+                    ["Minimum Chlorine (mg)",              fmt(min_cl)],
+                    ["Chlorine Data Period",               cl_period],
+                    ["System Status",                      cl_status(sw1_cv)],
+                ],
+                [100, 85]
+            )
+            pdf.ln(5)
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Supply Pressure Trend (bar)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            p = save_wtp_line_chart(sw1_pres, 'bar', "Softwater No. 1  to  Supply Pressure", "bar", "tmp_sw1_pres_sub.png", '#3b82f6')
+            if p:
+                temp_files.append(p)
+                pdf.image(p, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9); pdf.cell(0, 7, "No pressure data.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(4)
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Residual Chlorine Monitoring (mg)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            p = save_wtp_line_chart(sw1_cl, 'mg', "Softwater No. 1  to  Residual Chlorine", "mg/L", "tmp_sw1_cl_sub.png", '#f59e0b')
+            if p:
+                temp_files.append(p)
+                pdf.image(p, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9); pdf.cell(0, 7, "No chlorine data.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        except Exception as e:
+            import traceback
+            print(f"PDF SW1 Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"Softwater 1 data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # =====================================================
+        # --- PAGE 8: SOFTWATER NO. 2 ---
+        # =====================================================
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "3.C  Softwater Supply No. 2", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(3)
+
+        try:
+            wtp_s2    = get_wtp_raw_data()
+            sw2_pres  = load_wtp_pressure_data('softwater2')
+            sw2_cl    = load_wtp_chlorine_data('softwater2')
+
+            sw2_total = wtp_s2["flow_totals"].get("soft_water_2", [{}])[-1].get("m3", 0) if wtp_s2["flow_totals"].get("soft_water_2") else 0
+            sw2_pv    = sw2_pres[-1]["bar"] if sw2_pres else None
+            sw2_cv    = sw2_cl[-1]["mg"]    if sw2_cl   else None
+
+            cl_vals   = [p["mg"] for p in sw2_cl] if sw2_cl else []
+            avg_cl    = sum(cl_vals) / len(cl_vals) if cl_vals else None
+            max_cl    = max(cl_vals) if cl_vals else None
+            min_cl    = min(cl_vals) if cl_vals else None
+            cl_period = f"{sw2_cl[0]['time']}   to   {sw2_cl[-1]['time']}" if sw2_cl else "--"
+            pr_period = f"{sw2_pres[0]['time']}   to   {sw2_pres[-1]['time']}" if sw2_pres else "No data yet"
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Key Performance Indicators", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            render_simple_table(
+                pdf,
+                ["Metric", "Value"],
+                [
+                    ["Softwater 2 Supply Total (m\xb3)",  f"{sw2_total:,.0f}"],
+                    ["Latest Supply Pressure (bar)",        fmt(sw2_pv, 1)],
+                    ["Pressure Data Period",                pr_period],
+                    ["Latest Chlorine (mg)",               fmt(sw2_cv)],
+                    ["Average Chlorine (mg)",              fmt(avg_cl)],
+                    ["Maximum Chlorine (mg)",              fmt(max_cl)],
+                    ["Minimum Chlorine (mg)",              fmt(min_cl)],
+                    ["Chlorine Data Period",               cl_period],
+                    ["System Status",                      cl_status(sw2_cv)],
+                ],
+                [100, 85]
+            )
+            pdf.ln(5)
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Supply Pressure Trend (bar)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            p = save_wtp_line_chart(sw2_pres, 'bar', "Softwater No. 2  to  Supply Pressure", "bar", "tmp_sw2_pres_sub.png", '#f59e0b')
+            if p:
+                temp_files.append(p)
+                pdf.image(p, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9); pdf.cell(0, 7, "No pressure data available yet.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(4)
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "Residual Chlorine Monitoring (mg)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            p = save_wtp_line_chart(sw2_cl, 'mg', "Softwater No. 2  to  Residual Chlorine", "mg/L", "tmp_sw2_cl_sub.png", '#f59e0b')
+            if p:
+                temp_files.append(p)
+                pdf.image(p, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9); pdf.cell(0, 7, "No chlorine data available yet.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        except Exception as e:
+            import traceback
+            print(f"PDF SW2 Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"Softwater 2 data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
 
         # --- PAGE 6: WWTP ---

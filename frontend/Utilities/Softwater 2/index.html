@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Softwater 2 | Stage 2</title>
+
+  <link rel="stylesheet" href="/shared/navbar.css" />
+
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/shared/modal.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+
+<body>
+
+  <div id="navbar"></div>
+  <script src="/shared/navbar.js"></script>
+  <script>
+    fetch('/shared/navbar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('navbar').innerHTML = html)
+      .catch(err => console.error(err));
+  </script>
+
+  <main class="dashboard-content">
+    
+    <header class="dash-header">
+      <h1>Softwater 2</h1>
+      <p class="subtitle">Live analysis of system pressure, chlorine safety, and real-time flow rates</p>
+    </header>
+
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Softwater 2 Supply (m³)</div>
+        <div class="kpi-value" id="kpi-ro-total">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Softwater 2 Pressure (bar)</div>
+        <div class="kpi-value" id="kpi-ro-pres">--</div>
+        <div class="kpi-status unavailable" id="kpi-pressure-status">UNAVAILABLE</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Latest Chlorine (mg)</div>
+        <div class="kpi-value" id="kpi-chlorine">--</div>
+        <div class="kpi-status unavailable" id="kpi-chlorine-status">UNAVAILABLE</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Chlorine (mg)</div>
+        <div class="kpi-value" id="kpi-chlorine-avg">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Max Chlorine (mg)</div>
+        <div class="kpi-value" id="kpi-chlorine-max">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Min Chlorine (mg)</div>
+        <div class="kpi-value" id="kpi-chlorine-min">--</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">System Status</div>
+        <div class="kpi-value" id="kpi-wtp-status">NORMAL</div>
+      </div>
+    </section>
+
+    <section class="main-grid">
+      
+      <div class="card">
+        <div class="card-title flex-header">
+          <span>System Pressure Trends (bar)</span>
+          <div class="chart-controls">
+            <input type="date" id="pressure-start" class="date-input">
+            <span class="date-sep">to</span>
+            <input type="date" id="pressure-end" class="date-input">
+            <button class="btn-apply" id="pressure-apply">Apply</button>
+            <button class="zoom-btn" id="zoom-pressure-btn" title="Zoom">⛶</button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="pressureChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title flex-header">
+          <span>Chlorine Monitoring (mg)</span>
+          <div class="chart-controls">
+            <input type="date" id="chlorine-start" class="date-input">
+            <span class="date-sep">to</span>
+            <input type="date" id="chlorine-end" class="date-input">
+            <button class="btn-apply" id="chlorine-apply">Apply</button>
+            <button class="zoom-btn" id="zoom-chlorine-btn" title="Zoom">⛶</button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chlorineChart"></canvas>
+        </div>
+      </div>
+
+
+    </section>
+  </main>
+
+  <!-- Zoom Modal -->
+  <div id="zoomModal" class="zoom-modal">
+    <div class="zoom-backdrop" id="zoomBackdrop"></div>
+    <div class="zoom-content">
+      <div class="zoom-header">
+        <h3 id="zoomTitle">Graph Details</h3>
+        <button class="zoom-close" id="zoomClose">&times;</button>
+      </div>
+      <div class="zoom-controls">
+        <label>From: <input type="date" id="zoom-start-date" class="date-input"></label>
+        <label>To: <input type="date" id="zoom-end-date" class="date-input"></label>
+        <button class="btn-apply" id="zoom-apply">Apply</button>
+      </div>
+      <div class="zoom-chart-container">
+        <canvas id="zoomedChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js" defer></script>
+
+</body>
+</html>
