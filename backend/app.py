@@ -160,7 +160,9 @@ def read_sbf_csv(file_path):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # 5. Fill NaNs with None (becomes null in JSON)
+        # 5. Drop trailing empty rows (no TIME value), then fill remaining NaNs with None
+        if 'time' in df.columns:
+            df = df.dropna(subset=['time'])
         df = df.where(pd.notnull(df), None)
 
         # Return latest data (or all data if needed for charts)
@@ -356,26 +358,33 @@ def wwtp_history():
         path = os.path.join(DATA_DIR, file_name)
         if not os.path.exists(path): return []
         try:
-            # Skip metadata lines 1 & 2
-            df = pd.read_csv(path, skiprows=2)
+            df = pd.read_csv(path, encoding='utf-8-sig')
             df.columns = [c.strip() for c in df.columns]
-            
-            # Clean ' ICT' and parse timestamps
+            # Handle metadata-prefixed files (history:SM/... uses 2 header rows)
+            if 'Timestamp' not in df.columns:
+                df = pd.read_csv(path, skiprows=2, encoding='utf-8-sig')
+                df.columns = [c.strip() for c in df.columns]
+
             df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
-            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
-            
-            # Filter by the user-selected date
+            df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p', errors='coerce')
+            df = df.dropna(subset=['dt'])
+
+            # Identify the Value column dynamically (first non-meta column)
+            skip = {'timestamp', 'trend flags', 'status'}
+            val_col = next((c for c in df.columns if c.lower() not in skip), None)
+            if not val_col:
+                return []
+
+            df[val_col] = pd.to_numeric(df[val_col], errors='coerce')
+
             if date_str:
                 df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
             else:
                 df = df.tail(50)
 
-            # Identify the Value column dynamically
-            val_col = [c for c in df.columns if 'Value' in c][0]
-            
             return [{
-                "time": r['dt'].strftime('%H:%M'), 
-                "value": float(r[val_col])
+                "time": r['dt'].strftime('%H:%M'),
+                "value": float(r[val_col]) if pd.notna(r[val_col]) else 0.0
             } for _, r in df.iterrows()]
         except Exception as e:
             print(f"Error filtering {file_name}: {e}")
@@ -613,7 +622,7 @@ def wtp_chlorine():
     # Map source to CSV file
     file_map = {
         'ro': 'RES102ROWaterSupply_ResCl2.csv',
-        'softwater1': 'RES101SoftwaterSupplyNo1_ResCl2.csv',
+        'softwater1': 'RES101SoftWaterSupplyNo1_ResCl2.csv',
         'softwater2': 'RES103SoftWaterSupplyNo2_ResCl2.csv'
     }
     
@@ -626,11 +635,19 @@ def wtp_chlorine():
         return jsonify([])
 
     try:
-        df = pd.read_csv(path, skiprows=2)
+        df = pd.read_csv(path, encoding='utf-8-sig')
         df.columns = [c.strip() for c in df.columns]
+        # Handle metadata-prefixed files (history:SM/... header takes 2 rows)
+        if 'Timestamp' not in df.columns:
+            df = pd.read_csv(path, skiprows=2, encoding='utf-8-sig')
+            df.columns = [c.strip() for c in df.columns]
         df['Timestamp'] = df['Timestamp'].str.replace(' ICT', '', regex=False)
-        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p')
-        
+        df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p', errors='coerce')
+        df = df.dropna(subset=['dt'])
+
+        # Find the value column (mg)
+        val_col = next((c for c in df.columns if c.lower() not in ('timestamp', 'trend flags', 'status') and 'timestamp' not in c.lower()), None)
+
         # Filter by date range, single date, or fall back to latest 50
         if start_date and end_date:
             df = df[(df['dt'].dt.strftime('%Y-%m-%d') >= start_date) &
@@ -644,7 +661,7 @@ def wtp_chlorine():
         for _, row in df.iterrows():
             data.append({
                 "time": row['dt'].strftime('%d %b %H:%M') if multi_day else row['dt'].strftime('%H:%M'),
-                "mg": float(row.get('Value (mg)', row.get('Value', 0)))
+                "mg": float(row.get('Value (mg)', row.get(val_col, 0) if val_col else 0))
             })
     except Exception as e:
         print(f"Chlorine Filter Error: {e}")
@@ -862,7 +879,7 @@ def load_wtp_chlorine_data(source):
     """Load all chlorine data for a source. Returns list of {time, mg}."""
     file_map = {
         'ro':         'RES102ROWaterSupply_ResCl2.csv',
-        'softwater1': 'RES101SoftwaterSupplyNo1_ResCl2.csv',
+        'softwater1': 'RES101SoftWaterSupplyNo1_ResCl2.csv',
         'softwater2': 'RES103SoftWaterSupplyNo2_ResCl2.csv'
     }
     path = os.path.join(DATA_DIR, file_map.get(source, ''))
@@ -1290,36 +1307,30 @@ def get_wwtp_raw_data():
                 results[cat][key] = pd.DataFrame()
     return results
 
-def get_wwtp_report_data(): # Ensure this matches what you call in the route
-    files = {
-        "effluent": "EffluentPump_Total.csv",
-        "raw_pump": "_RawWaterWastePump-01_Total.csv",
-        "raw_temp": "_RawWasteWater_Temp.csv", # 🔑 This must match l_temp's key
-        "pmg_energy": "PMG-WWTP_Energy.csv",
-        "ctrl_energy": "_PM-WWTP-CONTROL-PANEL_Energy.csv"
+def get_wwtp_report_data():
+    """Load WWTP CSVs for PDF export using the generic read_csv helper,
+    which handles both plain (no metadata) and metadata-prefixed files."""
+    file_map = {
+        "effluent":    "EffluentPump_Total.csv",
+        "raw_pump":    "_RawWaterWastePump-01_Total.csv",
+        "raw_temp":    "_RawWasteWater_Temp.csv",
+        "pmg_energy":  "PMG-WWTP_Energy.csv",
+        "ctrl_energy": "_PM-WWTP-CONTROL-PANEL_Energy.csv",
     }
-    
     data_output = {}
-    for key, file_name in files.items():
-        path = os.path.join(DATA_DIR, file_name)
-        if os.path.exists(path):
-            try:
-                # Read CSV skipping metadata
-                df = pd.read_csv(path, skiprows=2)
-                df.columns = [c.strip() for c in df.columns]
-                val_col = [c for c in df.columns if 'Value' in c][0]
-                
-                # 🔑 THE FIX: Force numeric conversion
-                # errors='coerce' turns "{ }" into NaN
-                # .fillna(0.0) turns NaN into 0.0
-                df[val_col] = pd.to_numeric(df[val_col], errors='coerce').fillna(0.0)
-                
-                df['Timestamp'] = df['Timestamp'].astype(str).str.replace(' ICT', '', regex=False)
-                df['dt'] = pd.to_datetime(df['Timestamp'], format='%d-%b-%y %I:%M:%S %p', errors='coerce')
-                
-                data_output[key] = df.dropna(subset=['dt'])
-            except Exception as e:
-                data_output[key] = pd.DataFrame()
+    for key, file_name in file_map.items():
+        records = read_csv(file_name, "value")
+        if records:
+            df = pd.DataFrame(records)
+            df.rename(columns={"time": "Timestamp", "value": "Value"}, inplace=True)
+            df["Value"] = pd.to_numeric(df["Value"], errors="coerce").fillna(0.0)
+            df["Timestamp"] = df["Timestamp"].astype(str).str.replace(" ICT", "", regex=False)
+            # read_csv strips dates to time-only strings (e.g. "6:45:00 PM")
+            # Try full datetime first, fall back to time-only
+            df["dt"] = pd.to_datetime(df["Timestamp"], format="%d-%b-%y %I:%M:%S %p", errors="coerce")
+            if df["dt"].isna().all():
+                df["dt"] = pd.to_datetime(df["Timestamp"], format="%I:%M:%S %p", errors="coerce")
+            data_output[key] = df.dropna(subset=["dt"])
         else:
             data_output[key] = pd.DataFrame()
     return data_output
@@ -1368,35 +1379,36 @@ def generate_aircompressor_charts(data):
 
     tmp_dir = tempfile.gettempdir()
 
+    step = _xtick_step(len(labels))
+    tick_pos = range(0, len(labels), step)
+
     # --- Efficiency Chart ---
-    fig, ax1 = plt.subplots(figsize=(7, 3.5))
+    fig, ax1 = plt.subplots(figsize=(9, 3.5))
     ax2 = ax1.twinx()
-
-    ax1.plot(labels, flow_vals, label="Flow (m³)", linewidth=2)
-    ax2.plot(labels, energy_vals, label="Energy (kWh)", linewidth=2)
-
-    ax1.set_ylabel("Flow (m³)")
-    ax2.set_ylabel("Energy (kWh)")
-    ax1.set_title("Air Compressor Efficiency")
-
-    fig.tight_layout()
+    ax1.plot(range(len(labels)), flow_vals,   color='#3b82f6', label="Flow (m³)",   linewidth=2)
+    ax2.plot(range(len(labels)), energy_vals, color='#f59e0b', label="Energy (kWh)", linewidth=2)
+    ax1.set_xticks(list(tick_pos))
+    ax1.set_xticklabels([labels[i] for i in tick_pos], rotation=35, fontsize=7, ha='right')
+    ax1.set_ylabel("Flow (m³)"); ax2.set_ylabel("Energy (kWh)")
+    ax1.set_title("Air Compressor — Flow vs Energy Consumption")
+    l1, n1 = ax1.get_legend_handles_labels(); l2, n2 = ax2.get_legend_handles_labels()
+    ax1.legend(l1 + l2, n1 + n2, fontsize=7); ax1.grid(True, alpha=0.3); fig.tight_layout()
     eff_path = os.path.join(tmp_dir, "air_efficiency.png")
-    plt.savefig(eff_path, dpi=150)
+    plt.savefig(eff_path, dpi=150, bbox_inches='tight')
     plt.close()
-
     img_paths["efficiency"] = eff_path
 
     # --- Dewpoint Chart ---
-    plt.figure(figsize=(7, 3.5))
-    plt.plot(labels, dew_vals, linewidth=2)
-    plt.title("Compressed Air Dewpoint")
-    plt.ylabel("Dewpoint (°C)")
-    plt.tight_layout()
-
+    fig, ax = plt.subplots(figsize=(9, 3))
+    ax.plot(range(len(labels)), dew_vals, color='#10b981', linewidth=2, label="Dewpoint (°C)")
+    ax.fill_between(range(len(labels)), dew_vals, alpha=0.12, color='#10b981')
+    ax.set_xticks(list(tick_pos))
+    ax.set_xticklabels([labels[i] for i in tick_pos], rotation=35, fontsize=7, ha='right')
+    ax.set_ylabel("Dewpoint (°C)"); ax.set_title("Compressed Air Dewpoint Trend")
+    ax.legend(fontsize=7); ax.grid(True, alpha=0.3); fig.tight_layout()
     dew_path = os.path.join(tmp_dir, "air_dewpoint.png")
-    plt.savefig(dew_path, dpi=150)
+    plt.savefig(dew_path, dpi=150, bbox_inches='tight')
     plt.close()
-
     img_paths["dewpoint"] = dew_path
 
     return img_paths
@@ -1553,7 +1565,7 @@ def api_xray():
         ],
         "reject_log": [
             {
-                "time": now.replace(hour=random.randint(6, now.hour), minute=random.randint(0, 59)).strftime("%I:%M %p"),
+                "time": now.replace(hour=random.randint(6, max(6, now.hour)), minute=random.randint(0, 59)).strftime("%I:%M %p"),
                 "product": random.choice(["Chicken Fillet", "Fish Cake", "Spring Roll", "Prawn Dumpling"]),
                 "detection_type": random.choice(["Metal Fragment", "Bone Fragment", "Foreign Object"])
             }
@@ -1621,7 +1633,7 @@ def api_checkweigher():
         ],
         "recent_log": [
             {
-                "time": now.replace(hour=random.randint(6, now.hour), minute=random.randint(0, 59)).strftime("%I:%M %p"),
+                "time": now.replace(hour=random.randint(6, max(6, now.hour)), minute=random.randint(0, 59)).strftime("%I:%M %p"),
                 "product": shift_product,
                 "weight_g": round(random.gauss(target_g, 3), 1)
             }
@@ -1904,6 +1916,141 @@ def generate_checkweigher_charts(data):
     return paths
 
 
+# ─── MDB Charts ───────────────────────────────────────────────────────────────
+def generate_mdb_charts(mdb_data):
+    paths = {}
+    energy = mdb_data.get("energy", {})
+    generators = mdb_data.get("generators", {})
+
+    # 1. Bar chart — latest kWh per MDB panel + EMDB-1
+    try:
+        panel_keys   = ["emdb_1", "mdb_6", "mdb_7", "mdb_8", "mdb_9", "mdb_10"]
+        panel_labels = ["EMDB-1", "MDB-6", "MDB-7", "MDB-8", "MDB-9", "MDB-10"]
+        panel_colors = ["#f59e0b", "#3b82f6", "#6366f1", "#10b981", "#ef4444", "#8b5cf6"]
+        kwh_vals = []
+        for key in panel_keys:
+            readings = energy.get(key, [])
+            val = readings[-1].get("kwh") if readings else 0
+            kwh_vals.append(val if val is not None else 0)
+
+        fig, ax = plt.subplots(figsize=(9, 3.5))
+        bars = ax.bar(panel_labels, kwh_vals, color=panel_colors, edgecolor='white', linewidth=0.5)
+        for bar, val in zip(bars, kwh_vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max(kwh_vals) * 0.01,
+                    f"{val:,.0f}", ha='center', va='bottom', fontsize=8, fontweight='bold')
+        ax.set_ylabel("Energy (kWh)")
+        ax.set_title("MDB Energy Distribution — Latest Reading per Panel")
+        ax.grid(True, alpha=0.3, axis='y')
+        fig.tight_layout()
+        paths["energy_bar"] = _save_chart(fig, "tmp_mdb_energy_bar.png")
+    except Exception as e:
+        print(f"MDB energy bar chart error: {e}"); plt.close()
+
+    # 2. Line chart — EMDB-1 trend (last 50 readings)
+    try:
+        emdb_records = energy.get("emdb_1", [])[-50:]
+        if emdb_records:
+            times = [str(r.get("time", "")) for r in emdb_records]
+            vals  = [r.get("kwh") for r in emdb_records]
+            fig, ax = plt.subplots(figsize=(9, 3))
+            ax.plot(range(len(vals)), vals, color="#f59e0b", linewidth=2, label="EMDB-1 (kWh)")
+            ax.fill_between(range(len(vals)), vals, alpha=0.15, color="#f59e0b")
+            step = _xtick_step(len(times))
+            ax.set_xticks(range(0, len(times), step))
+            ax.set_xticklabels([times[i] for i in range(0, len(times), step)], rotation=30, fontsize=7)
+            ax.set_ylabel("kWh"); ax.set_title("EMDB-1 Consumption Trend")
+            ax.legend(fontsize=8); ax.grid(True, alpha=0.3); fig.tight_layout()
+            paths["emdb_trend"] = _save_chart(fig, "tmp_mdb_emdb_trend.png")
+    except Exception as e:
+        print(f"MDB EMDB trend chart error: {e}"); plt.close()
+
+    # 3. Bar chart — Generator total runtime hours
+    try:
+        gen_labels, gen_vals, gen_colors = [], [], ['#10b981', '#3b82f6', '#f59e0b', '#6366f1']
+        for gid in ["gen_1", "gen_2", "gen_3", "gen_4"]:
+            records = generators.get(gid, [])
+            total = sum(r.get("runtime") or 0 for r in records)
+            gen_labels.append(gid.replace("_", " ").upper())
+            gen_vals.append(total)
+        fig, ax = plt.subplots(figsize=(9, 3))
+        bars = ax.bar(gen_labels, gen_vals, color=gen_colors[:len(gen_labels)], edgecolor='white', linewidth=0.5)
+        for bar, val in zip(bars, gen_vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max(gen_vals, default=1) * 0.01,
+                    f"{val:.1f} h", ha='center', va='bottom', fontsize=8, fontweight='bold')
+        ax.set_ylabel("Total Runtime (hrs)")
+        ax.set_title("Generator Cumulative Runtime")
+        ax.grid(True, alpha=0.3, axis='y'); fig.tight_layout()
+        paths["gen_runtime"] = _save_chart(fig, "tmp_mdb_gen_runtime.png")
+    except Exception as e:
+        print(f"MDB generator chart error: {e}"); plt.close()
+
+    return paths
+
+
+# ─── Downtime mock data (matches frontend JS) ──────────────────────────────────
+def generate_downtime_data():
+    """Replicates the frontend mock downtime dataset for PDF reporting."""
+    from datetime import datetime, timedelta
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    MINUTES_IN_DAY = 24 * 60
+
+    def ev(sh, sm, dur):
+        s = today + timedelta(hours=sh, minutes=sm)
+        return {"start": s, "end": s + timedelta(minutes=dur), "dur": dur}
+
+    equipment_raw = [
+        {"name": "CCTV C.16",           "cat": "CCTV",       "events": [ev(1,15,12),ev(4,30,8),ev(7,45,20),ev(11,0,15),ev(14,20,9),ev(18,5,11)], "rec": [5,4,7,6,4,6]},
+        {"name": "CCTV C.08",           "cat": "CCTV",       "events": [ev(3,10,10),ev(9,45,25),ev(16,30,8)],                                      "rec": [6,12,5]},
+        {"name": "Spiral Blast Freezer","cat": "Freezer",    "events": [ev(2,0,45),ev(13,30,30)],                                                   "rec": [20,18]},
+        {"name": "Boiler 01",           "cat": "Boiler",     "events": [ev(6,15,25)],                                                               "rec": [15]},
+        {"name": "Boiler 02",           "cat": "Boiler",     "events": [],                                                                          "rec": []},
+        {"name": "Air Compressor",      "cat": "Utilities",  "events": [ev(8,0,15),ev(17,45,20)],                                                   "rec": [10,12]},
+        {"name": "MDB Generator",       "cat": "MDB",        "events": [ev(5,30,10)],                                                               "rec": [8]},
+        {"name": "Wastewater Pump",     "cat": "Wastewater", "events": [ev(10,0,35),ev(19,15,20)],                                                  "rec": [18,12]},
+        {"name": "Hobart Dishwasher",   "cat": "Kitchen",    "events": [ev(7,0,10),ev(12,30,8)],                                                    "rec": [5,4]},
+        {"name": "X-Ray Inspector",     "cat": "Kitchen",    "events": [ev(9,15,5)],                                                                "rec": [3]},
+    ]
+
+    results = []
+    for eq in equipment_raw:
+        total_down = sum(e["dur"] for e in eq["events"])
+        n_events   = len(eq["events"])
+        uptime_pct = max(0, (MINUTES_IN_DAY - total_down) / MINUTES_IN_DAY * 100)
+        avg_dur    = total_down / n_events if n_events else 0
+        avg_rec    = sum(eq["rec"]) / len(eq["rec"]) if eq["rec"] else 0
+        mtbf       = (MINUTES_IN_DAY - total_down) / n_events if n_events else MINUTES_IN_DAY
+        status     = ("CRITICAL" if n_events >= 4 or total_down >= 180
+                      else "WARNING" if total_down >= 60
+                      else "OK")
+        results.append({
+            "name": eq["name"], "cat": eq["cat"],
+            "events": n_events, "total_down": total_down,
+            "avg_dur": avg_dur, "avg_rec": avg_rec,
+            "uptime_pct": uptime_pct, "mtbf": mtbf, "status": status,
+        })
+    return results
+
+
+def generate_downtime_reliability_chart(dt_data):
+    """Horizontal bar chart of system reliability %."""
+    try:
+        names  = [d["name"] for d in dt_data]
+        uptimes = [d["uptime_pct"] for d in dt_data]
+        colors = ["#10b981" if u >= 90 else "#f59e0b" if u >= 80 else "#ef4444" for u in uptimes]
+        fig, ax = plt.subplots(figsize=(9, max(3, len(names) * 0.45)))
+        bars = ax.barh(range(len(names)), uptimes, color=colors, edgecolor='white', linewidth=0.4)
+        for bar, val in zip(bars, uptimes):
+            ax.text(min(val + 0.3, 99.5), bar.get_y() + bar.get_height() / 2,
+                    f"{val:.1f}%", va='center', ha='left', fontsize=8, fontweight='bold')
+        ax.set_yticks(range(len(names))); ax.set_yticklabels(names, fontsize=8)
+        ax.set_xlim(0, 105); ax.axvline(90, color='#f59e0b', linestyle='--', linewidth=0.8, label='90% threshold')
+        ax.set_xlabel("Uptime (%)"); ax.set_title("System Reliability Scores")
+        ax.legend(fontsize=7); ax.grid(True, alpha=0.3, axis='x'); fig.tight_layout()
+        return _save_chart(fig, "tmp_downtime_reliability.png")
+    except Exception as e:
+        print(f"Downtime reliability chart error: {e}"); plt.close(); return None
+
+
 # =====================================================
 # MASTER EXPORT ROUTE
 # =====================================================
@@ -2164,6 +2311,29 @@ def export_report():
 
             # --- Generator Status ---
             render_generator_status_table(pdf, mdb_data["generators"])
+
+            # --- MDB Charts ---
+            pdf.ln(4)
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "2.2  MDB Energy & Generator Charts", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            try:
+                mdb_charts = generate_mdb_charts(mdb_data)
+                for chart_key, chart_label in [
+                    ("energy_bar",  "Energy Distribution by Panel (Latest Reading)"),
+                    ("emdb_trend",  "EMDB-1 Consumption Trend"),
+                    ("gen_runtime", "Generator Cumulative Runtime (hrs)"),
+                ]:
+                    cp = mdb_charts.get(chart_key)
+                    if cp:
+                        temp_files.append(cp)
+                        pdf.set_font('helvetica', 'B', 10)
+                        pdf.cell(0, 7, chart_label, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.image(cp, x=10, w=190)
+                        pdf.ln(3)
+            except Exception as ce:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, f"Charts unavailable: {ce}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         except Exception as e:
             pdf.set_font('helvetica', '', 11)
@@ -2565,54 +2735,100 @@ def export_report():
             # -------------------------------
             pdf.set_font('helvetica', 'B', 12)
             pdf.cell(0, 10, "4.2 Waste Water Temperature Trend", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            
-            df_temp = wwtp_data.get('raw_temp')
 
-            # 🔑 THE FIX: Use 'is not None' and '.empty'
+            # KPI summary row (mirrors the dashboard cards)
+            df_ctrl   = wwtp_data.get('ctrl_energy')
+            df_pmg    = wwtp_data.get('pmg_energy')
+            total_kwh = 0.0
+            if df_pmg is not None and not df_pmg.empty:
+                total_kwh += float(df_pmg.iloc[-1]['Value'])
+            if df_ctrl is not None and not df_ctrl.empty:
+                total_kwh += float(df_ctrl.iloc[-1]['Value'])
+
+            df_eff = wwtp_data.get('effluent')
+            df_raw = wwtp_data.get('raw_pump')
+            eff_latest = float(df_eff.iloc[-1]['Value']) if df_eff is not None and not df_eff.empty else 0.0
+            raw_latest = float(df_raw.iloc[-1]['Value']) if df_raw is not None and not df_raw.empty else 0.0
+            pump_eff   = round(((raw_latest - eff_latest) / raw_latest * 100), 1) if raw_latest > 0 else 0.0
+            active_pumps = sum(1 for v in [eff_latest, raw_latest] if v > 0)
+
+            pdf.ln(2)
+            kpi_items_wwtp = [
+                ("TOTAL ENERGY", f"{total_kwh:,.0f}", "kWh"),
+                ("ACTIVE PUMPS", str(active_pumps), ""),
+                ("RAW WATER TEMP", f"{l_temp:.1f}", "deg C"),
+                ("PUMP EFFICIENCY", f"{pump_eff:.1f}", "%"),
+            ]
+            card_w = 44; card_h = 20; card_y = pdf.get_y()
+            for i, (label, val, unit) in enumerate(kpi_items_wwtp):
+                x = pdf.l_margin + i * (card_w + 3)
+                pdf.set_draw_color(220, 230, 240)
+                pdf.set_fill_color(248, 250, 252)
+                pdf.rect(x, card_y, card_w, card_h, style='FD')
+                pdf.set_font('helvetica', 'B', 6); pdf.set_text_color(100, 116, 139)
+                pdf.set_xy(x + 2, card_y + 2)
+                pdf.cell(card_w - 4, 5, label)
+                pdf.set_font('helvetica', 'B', 12); pdf.set_text_color(15, 23, 42)
+                pdf.set_xy(x + 2, card_y + 8)
+                pdf.cell(card_w - 4, 7, f"{val} {unit}".strip())
+            pdf.set_text_color(0); pdf.set_xy(pdf.l_margin, card_y + card_h + 4)
+            pdf.ln(2)
+
+            df_temp = wwtp_data.get('raw_temp')
             if df_temp is not None and not df_temp.empty:
                 chart_df = df_temp.tail(24).copy()
                 chart_df['time'] = chart_df['dt'].dt.strftime('%H:%M')
-                
-                # Dynamically get the Value column name
-                val_col = [c for c in chart_df.columns if 'Value' in c][0]
-                
-                # Convert DataFrame to a list of dicts for your save_wtp_chart helper
-                data_list = chart_df.to_dict('records')
-                
                 temp_path = save_wtp_chart(
-                    data_list, val_col, "Inflow Temp (Last 24 Readings)", 
+                    chart_df.to_dict('records'), 'Value',
+                    "Inflow Temperature Trend (deg C)",
                     "deg C", "tmp_wwtp_temp.png", color='#f59e0b'
                 )
-                
                 if temp_path:
                     temp_files.append(temp_path)
-                    pdf.image(temp_path, x=15, w=150)
-                    pdf.ln(5)
+                    pdf.set_font('helvetica', 'B', 10)
+                    pdf.cell(0, 7, "Inflow Temperature Trend", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    pdf.image(temp_path, x=15, w=170)
+                    pdf.ln(3)
 
             # -------------------------------
             # 4.3 Effluent Flow & Energy
             # -------------------------------
-            pdf.set_font('helvetica', 'B', 12)
-            pdf.cell(0, 10, "4.3 Effluent Flow & Energy Consumption", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            df_energy   = wwtp_data.get('pmg_energy')
+            df_effluent = wwtp_data.get('effluent')
+            has_43_data = (df_energy is not None and not df_energy.empty) or \
+                          (df_effluent is not None and not df_effluent.empty)
 
-            df_energy = wwtp_data.get('pmg_energy')
-            
-            # 🔑 THE FIX: Again, use .empty check
-            if df_energy is not None and not df_energy.empty:
-                chart_df = df_energy.tail(24).copy()
-                chart_df['time'] = chart_df['dt'].dt.strftime('%H:%M')
-                val_col = [c for c in chart_df.columns if 'Value' in c][0]
-                
-                data_list = chart_df.to_dict('records')
-                
-                energy_path = save_wtp_chart(
-                    data_list, val_col, "Main WWTP Energy (kWh)", 
-                    "kWh", "tmp_wwtp_energy.png", color='#3b82f6'
-                )
-                
-                if energy_path:
-                    temp_files.append(energy_path)
-                    pdf.image(energy_path, x=15, w=150)
+            if has_43_data:
+                pdf.set_font('helvetica', 'B', 12)
+                pdf.cell(0, 10, "4.3 Effluent Flow & Energy Consumption", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+                if df_effluent is not None and not df_effluent.empty:
+                    chart_df = df_effluent.tail(24).copy()
+                    chart_df['time'] = chart_df['dt'].dt.strftime('%H:%M')
+                    eff_path = save_wtp_chart(
+                        chart_df.to_dict('records'), 'Value',
+                        "Effluent Pump Total (m3)", "m3", "tmp_wwtp_effluent.png", color='#10b981'
+                    )
+                    if eff_path:
+                        temp_files.append(eff_path)
+                        pdf.set_font('helvetica', 'B', 10)
+                        pdf.cell(0, 7, "Effluent Pump Total", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.image(eff_path, x=15, w=170)
+                        pdf.ln(4)
+
+                if df_energy is not None and not df_energy.empty:
+                    chart_df = df_energy.tail(24).copy()
+                    chart_df['time'] = chart_df['dt'].dt.strftime('%H:%M')
+                    energy_path = save_wtp_chart(
+                        chart_df.to_dict('records'), 'Value',
+                        "Main WWTP Energy (kWh)", "kWh", "tmp_wwtp_energy.png", color='#3b82f6'
+                    )
+                    if energy_path:
+                        temp_files.append(energy_path)
+                        pdf.set_font('helvetica', 'B', 10)
+                        pdf.cell(0, 7, "WWTP Energy Consumption", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.image(energy_path, x=15, w=170)
+                        pdf.ln(4)
 
         except Exception as e:
             print(f"🔥 PDF WWTP Error: {e}")
@@ -3037,10 +3253,28 @@ def export_report():
             pdf.set_font('helvetica', 'B', 12)
             pdf.cell(0, 10, "Air Compressor Performance Trends",
                     new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
 
-            pdf.image(charts["efficiency"], w=180)
-            pdf.ln(5)
-            pdf.image(charts["dewpoint"], w=180)
+            eff_path = charts.get("efficiency")
+            dew_path = charts.get("dewpoint")
+            if eff_path:
+                temp_files.append(eff_path)
+                pdf.set_font('helvetica', 'B', 10)
+                pdf.cell(0, 7, "Specific Power & Flow Efficiency Trend", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.image(eff_path, x=10, w=190)
+                pdf.ln(5)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "Efficiency trend chart unavailable.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            if dew_path:
+                temp_files.append(dew_path)
+                pdf.set_font('helvetica', 'B', 10)
+                pdf.cell(0, 7, "Dewpoint Trend (Air Quality)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.image(dew_path, x=10, w=190)
+            else:
+                pdf.set_font('helvetica', 'I', 9)
+                pdf.cell(0, 7, "Dewpoint trend chart unavailable.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # --- KITCHEN EQUIPMENT PAGE ---
         pdf.add_page()
@@ -3106,11 +3340,7 @@ def export_report():
 
             pdf.ln(6)
 
-            # 9.2 Per-equipment details
-            pdf.set_font('helvetica', 'B', 12)
-            pdf.cell(0, 8, "9.2  Detailed Equipment Metrics & Charts", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(1)
-
+            # 9.2 Per-equipment details (each gets its own page below)
             chart_generators = {
                 "Hobart Sanitizer":  generate_hobart_charts,
                 "Steambox":          generate_steambox_charts,
@@ -3133,13 +3363,226 @@ def export_report():
                     with app.test_request_context():
                         data = fn().get_json()
 
-                    # Summary table
+                    # ── Summary table (all equipment) ──────────────────────────
+                    pdf.set_font('helvetica', 'B', 11)
+                    pdf.cell(0, 8, "Performance Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    pdf.ln(1)
                     summary = data.get("summary", {})
                     detail_rows = [[k.replace("_", " ").title(), str(v)] for k, v in summary.items()]
-                    render_simple_table(pdf, ["Metric", "Value"], detail_rows, [90, 95])
+                    render_simple_table(pdf, ["Metric", "Value"], detail_rows, [100, 85])
                     pdf.ln(5)
 
-                    # Charts
+                    # ── HOBART specific sections ───────────────────────────────
+                    if name == "Hobart Sanitizer":
+                        readings = data.get("readings", [])
+                        diag     = data.get("diagnostics", {})
+
+                        # Latest readings table
+                        if readings:
+                            latest = readings[-1]
+                            pdf.set_font('helvetica', 'B', 11)
+                            pdf.cell(0, 8, "Latest Readings", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.ln(1)
+                            render_simple_table(
+                                pdf,
+                                ["Parameter", "Value", "Target", "Status"],
+                                [
+                                    ["Wash Temperature",  f"{latest.get('wash_temp', '--'):.1f} °C",   ">= 60 °C",      "OK" if latest.get('wash_temp', 0) >= 60 else "LOW"],
+                                    ["Rinse Temperature", f"{latest.get('rinse_temp', '--'):.1f} °C",  ">= 82 °C",      "OK" if latest.get('rinse_temp', 0) >= 82 else "LOW"],
+                                    ["Sanitizer Conc.",  f"{int(latest.get('sanitizer_ppm', 0))} ppm", "200-400 ppm",   "OK" if 200 <= latest.get('sanitizer_ppm', 0) <= 400 else "CHECK"],
+                                ],
+                                [60, 45, 45, 35]
+                            )
+                            pdf.ln(5)
+
+                        # Unit diagnostics table
+                        if diag:
+                            pdf.set_font('helvetica', 'B', 11)
+                            pdf.cell(0, 8, "Unit Diagnostics", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.ln(1)
+                            unit_rows = []
+                            comp_labels = {"wash_arm": "Wash Arm", "rinse_pump": "Rinse Pump", "dose_pump": "Dose Pump", "door_seal": "Door Seal"}
+                            for uid, udata in diag.items():
+                                for comp_key, comp_label in comp_labels.items():
+                                    ok = udata.get(comp_key, False)
+                                    unit_rows.append([uid.upper(), comp_label, "ACTIVE" if ok else "FAULT", "OK" if ok else "ACTION REQUIRED"])
+                            render_simple_table(pdf, ["Unit", "Component", "State", "Status"], unit_rows, [30, 55, 40, 60])
+                            pdf.ln(5)
+
+                    # ── STEAMBOX specific sections ──────────────────────────────
+                    elif name == "Steambox":
+                        readings = data.get("readings", [])
+                        diag     = data.get("diagnostics", {})
+
+                        # Latest readings table
+                        if readings:
+                            latest = readings[-1]
+                            pdf.set_font('helvetica', 'B', 11)
+                            pdf.cell(0, 8, "Latest Readings", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.ln(1)
+                            render_simple_table(
+                                pdf,
+                                ["Parameter", "Value", "Target", "Status"],
+                                [
+                                    ["Avg Chamber Temp",  f"{latest.get('avg_chamber_temp', '--'):.1f} °C", ">= 95 °C",     "OK" if latest.get('avg_chamber_temp', 0) >= 95 else "LOW"],
+                                    ["SB-01 Chamber Temp",f"{latest.get('sb01_temp', '--'):.1f} °C",        ">= 95 °C",     "OK" if latest.get('sb01_temp', 0) >= 95 else "LOW"],
+                                    ["SB-02 Chamber Temp",f"{latest.get('sb02_temp', '--'):.1f} °C",        ">= 95 °C",     "OK" if latest.get('sb02_temp', 0) >= 95 else "LOW"],
+                                    ["SB-03 Chamber Temp",f"{latest.get('sb03_temp', '--'):.1f} °C",        ">= 95 °C",     "OK" if latest.get('sb03_temp', 0) >= 95 else "LOW"],
+                                    ["Steam Pressure",    f"{latest.get('pressure_bar', '--'):.2f} bar",    "2.0-3.5 bar",  "OK" if 2.0 <= latest.get('pressure_bar', 0) <= 3.5 else "CHECK"],
+                                ],
+                                [60, 45, 45, 35]
+                            )
+                            pdf.ln(5)
+
+                        # Unit diagnostics table
+                        if diag:
+                            pdf.set_font('helvetica', 'B', 11)
+                            pdf.cell(0, 8, "Unit Diagnostics", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.ln(1)
+                            unit_rows = []
+                            comp_labels = {"heating_element": "Heating Element", "steam_generator": "Steam Generator", "pressure_valve": "Pressure Valve", "door_seal": "Door Seal"}
+                            for uid, udata in diag.items():
+                                for comp_key, comp_label in comp_labels.items():
+                                    ok = udata.get(comp_key, False)
+                                    unit_rows.append([uid.upper(), comp_label, "ACTIVE" if ok else "FAULT", "OK" if ok else "ACTION REQUIRED"])
+                            render_simple_table(pdf, ["Unit", "Component", "State", "Status"], unit_rows, [30, 55, 40, 60])
+                            pdf.ln(5)
+
+                    # ── X-RAY specific sections ────────────────────────────────
+                    if name == "X-Ray Inspection":
+                        # Machine details
+                        machine = data.get("machine", {})
+                        diag    = data.get("diagnostics", {})
+                        tube_h  = machine.get("tube_hours", 0)
+                        tube_mx = machine.get("tube_max_hours", 10000)
+                        tube_pct = round(tube_h / tube_mx * 100, 1) if tube_mx else 0
+
+                        pdf.set_font('helvetica', 'B', 11)
+                        pdf.cell(0, 8, "Machine Health", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.ln(1)
+                        render_simple_table(
+                            pdf,
+                            ["Parameter", "Value", "Status"],
+                            [
+                                ["Detection Sensitivity", f"{machine.get('sensitivity_mm', '--')} mm",  "OK"],
+                                ["X-Ray Tube Hours",      f"{tube_h:,} / {tube_mx:,} hrs ({tube_pct}%)",
+                                 "WARNING" if tube_pct > 80 else "OK"],
+                                ["Days Since Calibration", str(machine.get("days_since_calibration", "--")) + " days",
+                                 "WARNING" if machine.get("days_since_calibration", 0) > 14 else "OK"],
+                                ["X-Ray Tube",            "ACTIVE" if diag.get("xray_tube") else "FAULT",
+                                 "OK" if diag.get("xray_tube") else "FAULT"],
+                                ["Conveyor Belt",         "ACTIVE" if diag.get("conveyor_belt") else "FAULT",
+                                 "OK" if diag.get("conveyor_belt") else "FAULT"],
+                                ["Detection Algorithm",   "ACTIVE" if diag.get("detection_algo") else "DEGRADED",
+                                 "OK" if diag.get("detection_algo") else "WARNING"],
+                                ["Reject Mechanism",      "ACTIVE" if diag.get("reject_mech") else "FAULT",
+                                 "OK" if diag.get("reject_mech") else "FAULT"],
+                                ["Shielding",             "INTACT" if diag.get("shielding_ok") else "CHECK",
+                                 "OK" if diag.get("shielding_ok") else "WARNING"],
+                            ],
+                            [80, 75, 30]
+                        )
+                        pdf.ln(5)
+
+                        # Reject log table
+                        reject_log = data.get("reject_log", [])
+                        if reject_log:
+                            pdf.set_font('helvetica', 'B', 11)
+                            pdf.cell(0, 8, f"Recent Reject Events  ({len(reject_log)} shown)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.ln(1)
+                            render_simple_table(
+                                pdf,
+                                ["Time", "Product", "Detection Type"],
+                                [[r.get("time","--"), r.get("product","--"), r.get("detection_type","--")] for r in reject_log],
+                                [40, 80, 65]
+                            )
+                            pdf.ln(5)
+
+                    # ── CHECKWEIGHER specific sections ─────────────────────────
+                    elif name == "Checkweigher":
+                        spec = data.get("spec", {})
+
+                        # Specification table
+                        pdf.set_font('helvetica', 'B', 11)
+                        pdf.cell(0, 8, "Weight Specification", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.ln(1)
+                        render_simple_table(
+                            pdf,
+                            ["Parameter", "Value"],
+                            [
+                                ["Target Weight",     f"{spec.get('target_g', '--')} g"],
+                                ["Tolerance (±)",     f"{spec.get('tolerance_g', '--')} g"],
+                                ["Lower Limit (LSL)", f"{spec.get('lower_g', '--')} g"],
+                                ["Upper Limit (USL)", f"{spec.get('upper_g', '--')} g"],
+                            ],
+                            [100, 85]
+                        )
+                        pdf.ln(5)
+
+                        # Machine diagnostics
+                        diag = data.get("diagnostics", {})
+                        pdf.set_font('helvetica', 'B', 11)
+                        pdf.cell(0, 8, "Machine Status", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                        pdf.ln(1)
+                        unit_rows = []
+                        for uid, udata in diag.items():
+                            cal = udata.get("last_cal_days", 0)
+                            unit_rows.append([
+                                uid.upper(),
+                                udata.get("status", "--").upper(),
+                                f"{udata.get('speed_mpm', '--')} m/min",
+                                f"{udata.get('items_checked', '--'):,}",
+                                f"{cal} days {'!' if cal > 10 else ''}",
+                            ])
+                        render_simple_table(
+                            pdf,
+                            ["Unit", "Status", "Conv. Speed", "Items Checked", "Last Calibration"],
+                            unit_rows,
+                            [22, 25, 32, 35, 35]
+                        )
+                        pdf.ln(5)
+
+                        # Recent weight log
+                        recent_log = data.get("recent_log", [])[:15]
+                        if recent_log:
+                            target_g = spec.get("target_g", 250)
+                            lower_g  = spec.get("lower_g",  245)
+                            upper_g  = spec.get("upper_g",  255)
+                            pdf.set_font('helvetica', 'B', 11)
+                            pdf.cell(0, 8, "Recent Weight Log  (last 15 items)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                            pdf.ln(1)
+
+                            # Header
+                            pdf.set_font('helvetica', 'B', 8)
+                            pdf.set_fill_color(30, 41, 59); pdf.set_text_color(255)
+                            for hdr, cw in [("Time",35),("Product",70),("Weight (g)",35),("Variance",35),("Result",20)]:
+                                pdf.cell(cw, 9, f" {hdr}", border=1, fill=True)
+                            pdf.ln(); pdf.set_text_color(0)
+
+                            for i, r in enumerate(recent_log):
+                                wt  = r.get("weight_g", target_g)
+                                var = wt - target_g
+                                result = "UNDER" if wt < lower_g else "OVER" if wt > upper_g else "PASS"
+                                pdf.set_font('helvetica', '', 8)
+                                fill = i % 2 == 0
+                                pdf.set_fill_color(248,250,252) if fill else pdf.set_fill_color(255,255,255)
+                                pdf.cell(35, 8, f" {r.get('time','--')}",     border=1, fill=fill)
+                                pdf.cell(70, 8, f" {r.get('product','--')}",  border=1, fill=fill)
+                                pdf.cell(35, 8, f" {wt:.1f} g",               border=1, fill=fill)
+                                pdf.cell(35, 8, f" {var:+.1f} g",             border=1, fill=fill)
+                                # Result cell — colour coded
+                                if result == "PASS":
+                                    pdf.set_fill_color(220,252,231); pdf.set_text_color(22,101,52)
+                                elif result == "UNDER":
+                                    pdf.set_fill_color(254,226,226); pdf.set_text_color(220,38,38)
+                                else:
+                                    pdf.set_fill_color(254,243,199); pdf.set_text_color(161,98,7)
+                                pdf.cell(20, 8, f" {result}", border=1, fill=True)
+                                pdf.set_text_color(0)
+                                pdf.ln()
+                            pdf.ln(4)
+
+                    # ── Charts (all equipment) ─────────────────────────────────
                     charts = chart_generators[name](data)
                     for key, label in chart_labels.get(name, []):
                         chart_path = charts.get(key)
@@ -3157,6 +3600,112 @@ def export_report():
             import traceback
             print(f"PDF Kitchen Error: {e}\n{traceback.format_exc()}")
             pdf.cell(0, 10, f"Kitchen Equipment data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # --- DOWNTIME & RELIABILITY PAGE ---
+        pdf.add_page()
+        pdf.set_font('helvetica', 'B', 16)
+        pdf.cell(0, 10, "10. Downtime & Reliability", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 5, f"Report generated: {datetime.now().strftime('%d %b %Y  %H:%M')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0)
+        pdf.ln(3)
+        pdf.set_font('helvetica', '', 11)
+        pdf.multi_cell(0, 8, "Equipment failure tracking and reliability metrics for today's operational shift. "
+                             "Downtime events, recovery times, MTBF, and overall uptime are summarised below.")
+        pdf.ln(4)
+
+        try:
+            dt_data = generate_downtime_data()
+
+            # KPI summary row
+            total_down   = sum(d["total_down"] for d in dt_data)
+            total_events = sum(d["events"] for d in dt_data)
+            worst        = max(dt_data, key=lambda d: d["total_down"])
+            all_uptime   = [(24*60 * len(dt_data) - total_down) / (24*60 * len(dt_data)) * 100]
+            mtbf_vals    = [d["mtbf"] for d in dt_data if d["events"] > 0]
+            avg_mtbf     = sum(mtbf_vals) / len(mtbf_vals) if mtbf_vals else 24*60
+
+            def fmt_dur(mins):
+                h = int(mins // 60); m = int(mins % 60)
+                return f"{h}h {m}m" if h > 0 else f"{m} min"
+
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "10.1  Summary KPIs", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            render_simple_table(
+                pdf,
+                ["Metric", "Value"],
+                [
+                    ["Total Downtime Today",     fmt_dur(total_down)],
+                    ["Total Downtime Events",    str(total_events)],
+                    ["Overall Uptime",           f"{all_uptime[0]:.1f}%"],
+                    ["Avg MTBF (across systems)",fmt_dur(avg_mtbf)],
+                    ["Worst Performing System",  f"{worst['name']} ({fmt_dur(worst['total_down'])})"],
+                ],
+                [100, 90]
+            )
+            pdf.ln(6)
+
+            # Equipment Downtime Log table
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "10.2  Equipment Downtime Log", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+
+            headers = ["Equipment", "Events", "Total Down", "Avg Duration", "Avg Recovery", "Uptime %", "Status"]
+            col_w   = [48, 18, 28, 28, 28, 22, 18]
+
+            pdf.set_font('helvetica', 'B', 8)
+            pdf.set_fill_color(30, 41, 59)
+            pdf.set_text_color(255)
+            for h, w in zip(headers, col_w):
+                pdf.cell(w, 10, f" {h}", border=1, fill=True)
+            pdf.ln()
+            pdf.set_text_color(0)
+
+            for i, d in enumerate(dt_data):
+                pdf.set_font('helvetica', '', 8)
+                fill = i % 2 == 0
+                pdf.set_fill_color(248, 250, 252) if fill else pdf.set_fill_color(255, 255, 255)
+                row = [
+                    d["name"],
+                    str(d["events"]),
+                    fmt_dur(d["total_down"]),
+                    fmt_dur(d["avg_dur"]),
+                    fmt_dur(d["avg_rec"]),
+                    f"{d['uptime_pct']:.1f}%",
+                    d["status"],
+                ]
+                for j, (val, w) in enumerate(zip(row, col_w)):
+                    if j == 6:  # Status cell — colour coded
+                        if d["status"] == "CRITICAL":
+                            pdf.set_fill_color(254, 226, 226); pdf.set_text_color(220, 38, 38)
+                        elif d["status"] == "WARNING":
+                            pdf.set_fill_color(254, 243, 199); pdf.set_text_color(161, 98, 7)
+                        else:
+                            pdf.set_fill_color(220, 252, 231); pdf.set_text_color(22, 101, 52)
+                        pdf.cell(w, 9, f" {val}", border=1, fill=True)
+                        pdf.set_text_color(0)
+                        pdf.set_fill_color(248, 250, 252) if fill else pdf.set_fill_color(255, 255, 255)
+                    else:
+                        pdf.cell(w, 9, f" {val}", border=1, fill=fill)
+                pdf.ln()
+
+            pdf.ln(6)
+
+            # Reliability chart
+            pdf.set_font('helvetica', 'B', 12)
+            pdf.cell(0, 8, "10.3  System Reliability Scores", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
+            rel_chart = generate_downtime_reliability_chart(dt_data)
+            if rel_chart:
+                temp_files.append(rel_chart)
+                pdf.image(rel_chart, x=10, w=190)
+
+        except Exception as e:
+            import traceback
+            print(f"PDF Downtime Error: {e}\n{traceback.format_exc()}")
+            pdf.cell(0, 10, f"Downtime data error: {e}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # --- FINAL EXPORT (ONLY ONCE) ---
         pdf_raw = pdf.output() 

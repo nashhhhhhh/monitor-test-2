@@ -13,58 +13,64 @@
 <body>
     <div id="navbar"></div>
 
-    <main class="dashboard-content">
-        <header class="dash-header">
-            <div>
-                <h1>CCTV System Status</h1>
-                <p class="text-muted">Click any zone on the floor plan to filter cameras below</p>
-            </div>
-            <div class="kpi-group">
-                <div class="kpi-pill online">
-                    <div class="kpi-label">ONLINE</div>
-                    <div class="kpi-value" id="onlineCount">0</div>
-                </div>
-                <div class="kpi-pill offline">
-                    <div class="kpi-label">OFFLINE</div>
-                    <div class="kpi-value" id="offlineCount">0</div>
-                </div>
-                <div class="kpi-pill">
-                    <div class="kpi-label">TOTAL</div>
-                    <div class="kpi-value" id="totalCount">0</div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Controls -->
-        <div class="controls-row">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="online">Online Only</button>
-            <button class="filter-btn" data-filter="offline">Offline Only</button>
-            <input class="search-bar" id="camera-search" type="text" placeholder="Search camera name or zone...">
-            <span id="active-zone-tag" class="active-zone-tag" style="display:none"></span>
+    <header>
+        <div>
+            <h1>CCTV System Status</h1>
+            <p>Click any zone on the floor plan to filter cameras below</p>
         </div>
+    </header>
 
-        <!-- Floorplan + legend -->
-        <div class="fp-header">
-            <span class="fp-title">Facility Floor Plan — Production Zones &amp; CCTV Status</span>
-            <div class="fp-legend">
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#ca8a04"></span> Stage 01 Entry</span>
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#16a34a"></span> Stage 02 Preparation</span>
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#e11d48"></span> Stage 03 Cooking (CCP)</span>
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#3b82f6"></span> Stage 04 Chilling</span>
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#f59e0b"></span> Stage 05 Assembly (CCP)</span>
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#6366f1"></span> Stage 06 Utilities</span>
-                <span class="fp-leg-item"><span class="fp-dot" style="background:#0284c7"></span> Stage 07 Storage</span>
-                <span class="fp-leg-hint">Label dot = health · Scroll/drag to navigate · Click zone to filter</span>
-            </div>
+    <section class="summary">
+        <div class="card online-card">
+            <h2 id="onlineCount">0</h2>
+            <span>Online</span>
         </div>
-        <div id="floorplan-container" class="floorplan-wrap">
+        <div class="card offline-card">
+            <h2 id="offlineCount">0</h2>
+            <span>Offline</span>
+        </div>
+        <div class="card total-card">
+            <h2 id="totalCount">0</h2>
+            <span>Total Cameras</span>
+        </div>
+    </section>
+
+    <section class="controls">
+        <button onclick="filterRooms('all')" class="btn active" id="btn-all">Show All</button>
+        <button onclick="filterRooms('online')" class="btn success" id="btn-online">All Online</button>
+        <button onclick="filterRooms('offline')" class="btn danger" id="btn-offline">Has Offline</button>
+        <input class="search-bar" id="camera-search" type="text" placeholder="Search camera name or zone...">
+        <button id="lockBtn" class="btn lock">Unlock Layout</button>
+    </section>
+
+    <section class="legend">
+        <div class="legend-item">
+            <span class="legend-color" style="background:#22c55e"></span>
+            <span>All Online</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color" style="background:#f59e0b"></span>
+            <span>Mostly Online (&ge;80%)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color" style="background:#ef4444"></span>
+            <span>Has Offline Cameras</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color" style="background:#475569"></span>
+            <span>No Camera Data</span>
+        </div>
+    </section>
+
+    <section class="floorplan-wrapper">
+        <div id="floorplan-container">
             <div class="fp-loading">Loading floor plan…</div>
         </div>
+    </section>
 
-        <!-- Camera sections grouped by zone -->
+    <section class="camera-list-section">
         <div class="zone-sections" id="zone-sections"></div>
-    </main>
+    </section>
 
     <script src="/shared/navbar.js"></script>
     <script>
