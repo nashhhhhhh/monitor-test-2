@@ -327,6 +327,206 @@ def cctv_log():
 
 
 # =====================================================
+# LIGHTING API
+# =====================================================
+
+LIGHTING_REQUIRED_COLUMNS = [
+    "Fixture Name",
+    "Area Name",
+    "Circuit Name",
+    "Hours On In Period",
+    "Notional Energy",
+    "Hours On Running",
+    "Lamp Life Remaining"
+]
+
+LIGHTING_COLUMN_ALIASES = {
+    "Fixture Name": "Fixture Name",
+    "Area Name": "Area Name",
+    "Circuit Name": "Circuit Name",
+    "Hours On In Period": "Hours On In Period",
+    "Notional Energy (kWh)": "Notional Energy",
+    "Notional Energy": "Notional Energy",
+    "Hours On Running Total": "Hours On Running",
+    "Hours On Running": "Hours On Running",
+    "Lamp Life Remaining": "Lamp Life Remaining"
+}
+
+LIGHTING_WORKBOOK_CANDIDATES = [
+    os.environ.get("LIGHTING_WORKBOOK_PATH"),
+    os.path.join(DATA_DIR, "Channel Runtime_Light.xlsx"),
+    os.path.abspath(r"C:\Users\merri\Downloads\Channel Runtime_Light.xlsx")
+]
+
+
+def normalize_text(value):
+    if value is None or pd.isna(value):
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "none", "null"}:
+        return None
+    return text
+
+
+def normalize_number(value):
+    if value is None or pd.isna(value):
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    lowered = text.lower()
+    if lowered in {"nan", "none", "null", "no data", "-"}:
+        return None
+
+    text = text.replace(",", "")
+    try:
+        number = float(text)
+    except ValueError:
+        return None
+
+    return int(number) if number.is_integer() else round(number, 3)
+
+
+def find_existing_path(candidates):
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def detect_lighting_header_row(raw_df):
+    for idx, row in raw_df.iterrows():
+        values = {
+            str(value).strip()
+            for value in row.tolist()
+            if value is not None and not pd.isna(value) and str(value).strip()
+        }
+        if "Fixture Name" in values and "Area Name" in values and "Lamp Life Remaining" in values:
+            return idx
+    return 13
+
+
+def extract_lighting_metadata(raw_df):
+    metadata = {
+        "reportGenerationTime": None,
+        "site": None,
+        "reportingPeriodStart": None,
+        "reportingPeriodEnd": None,
+        "reportingPeriodDuration": None
+    }
+
+    label_map = {
+        "Report Generation Time:": "reportGenerationTime",
+        "Site:": "site",
+        "Reporting Period Start Time:": "reportingPeriodStart",
+        "Reporting Period End Time:": "reportingPeriodEnd",
+        "Reporting Period Duration:": "reportingPeriodDuration"
+    }
+
+    for _, row in raw_df.head(20).iterrows():
+        cleaned = [normalize_text(value) for value in row.tolist()]
+        cleaned = [value for value in cleaned if value]
+        if len(cleaned) < 2:
+            continue
+
+        label = cleaned[0]
+        if label in label_map:
+            metadata[label_map[label]] = cleaned[-1]
+
+    report_ts = pd.to_datetime(metadata["reportGenerationTime"], errors="coerce")
+    metadata["generatedAt"] = report_ts.isoformat() if pd.notna(report_ts) else None
+    return metadata
+
+
+def load_lighting_data():
+    workbook_path = find_existing_path(LIGHTING_WORKBOOK_CANDIDATES)
+    if not workbook_path:
+        return {
+            "generatedAt": None,
+            "sourcePath": None,
+            "fixtures": [],
+            "meta": {
+                "reportGenerationTime": None,
+                "site": None,
+                "reportingPeriodStart": None,
+                "reportingPeriodEnd": None,
+                "reportingPeriodDuration": None
+            }
+        }
+
+    try:
+        raw_df = pd.read_excel(workbook_path, sheet_name=0, header=None)
+        header_row = detect_lighting_header_row(raw_df)
+        metadata = extract_lighting_metadata(raw_df)
+
+        df = pd.read_excel(workbook_path, sheet_name=0, header=header_row)
+        df.columns = [normalize_text(col) or "" for col in df.columns]
+        df = df.rename(columns={src: dest for src, dest in LIGHTING_COLUMN_ALIASES.items() if src in df.columns})
+
+        for col in LIGHTING_REQUIRED_COLUMNS:
+            if col not in df.columns:
+                df[col] = None
+
+        df = df[LIGHTING_REQUIRED_COLUMNS].copy()
+
+        df["Fixture Name"] = df["Fixture Name"].apply(normalize_text)
+        df["Area Name"] = df["Area Name"].apply(normalize_text)
+        df["Circuit Name"] = df["Circuit Name"].apply(normalize_text)
+
+        for col in ["Hours On In Period", "Notional Energy", "Hours On Running", "Lamp Life Remaining"]:
+            df[col] = df[col].apply(normalize_number)
+
+        df = df[df["Fixture Name"].notna() & df["Area Name"].notna()].copy()
+
+        fixtures = [
+            {
+                "Fixture Name": row["Fixture Name"],
+                "Area Name": row["Area Name"],
+                "Circuit Name": row["Circuit Name"],
+                "Hours On In Period": row["Hours On In Period"],
+                "Notional Energy": row["Notional Energy"],
+                "Hours On Running": row["Hours On Running"],
+                "Lamp Life Remaining": row["Lamp Life Remaining"]
+            }
+            for _, row in df.iterrows()
+        ]
+
+        return {
+            "generatedAt": metadata.get("generatedAt"),
+            "sourcePath": workbook_path,
+            "fixtures": fixtures,
+            "meta": {
+                "reportGenerationTime": metadata.get("reportGenerationTime"),
+                "site": metadata.get("site"),
+                "reportingPeriodStart": metadata.get("reportingPeriodStart"),
+                "reportingPeriodEnd": metadata.get("reportingPeriodEnd"),
+                "reportingPeriodDuration": metadata.get("reportingPeriodDuration")
+            }
+        }
+    except Exception as exc:
+        print(f"Lighting workbook read error: {exc}")
+        return {
+            "generatedAt": None,
+            "sourcePath": workbook_path,
+            "fixtures": [],
+            "meta": {
+                "reportGenerationTime": None,
+                "site": None,
+                "reportingPeriodStart": None,
+                "reportingPeriodEnd": None,
+                "reportingPeriodDuration": None
+            }
+        }
+
+
+@app.route("/api/lighting")
+def lighting_data():
+    return jsonify(load_lighting_data())
+
+
+# =====================================================
 # WWTP API ROUTES (REFINED)
 # =====================================================
 

@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
         { id: "temp", name: "Room Temperatures", path: "/Temperature/index.html", api: "/api/temperature/rooms" },
         { id: "sbf", name: "Spiral Blast Freezer", path: "/Spiral%20Blast%20Freezer/index.html", api: "/api/spiral_blast_freezer" },
         { id: "cctv", name: "CCTV Monitoring", path: "/CCTV/index.html", api: "/api/cctv/log" },
-        { id: "lighting", name: "Lighting Control", path: "/Lighting/index.html", localData: true },
+        { id: "lighting", name: "Lighting Control", path: "/Lighting/index.html", api: "/api/lighting", localData: true },
         { id: "boiler", name: "Boiler Systems", path: "/Utilities/Boiler/index.html", api: "/api/boiler" },
         { id: "air", name: "Air Compressor", path: "/Utilities/Air%20Compressor/index.html", api: "/api/aircompressor" },
         { id: "kitchen", name: "Kitchen Equipment", path: "/Kitchen%20Equipment/index.html", api: "/api/kitchen" }
@@ -22,14 +22,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function updateHeartbeat() {
         const fetchSystem = async (sys) => {
-            if (sys.localData) {
-                if (sys.id === "lighting" && lightingDataset && lightingUtils) {
+            if (sys.id === "lighting" && lightingUtils) {
+                try {
+                    const res = await fetch(sys.api);
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+                    const data = await res.json();
+                    if (Array.isArray(data?.fixtures) && data.fixtures.length) {
+                        return {
+                            ...sys,
+                            data: lightingUtils.summarizePortfolio(data),
+                            error: false
+                        };
+                    }
+                } catch (e) {
+                    console.warn(`${sys.name} API unavailable, using fallback dataset.`, e);
+                }
+
+                if (lightingDataset) {
                     return {
                         ...sys,
                         data: lightingUtils.summarizePortfolio(lightingDataset),
                         error: false
                     };
                 }
+
+                return { ...sys, data: null, error: true };
+            }
+
+            if (sys.localData) {
                 return { ...sys, data: null, error: true };
             }
 
@@ -119,7 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const temp = data.rawTemp?.slice(-1)[0]?.value || 0;
                 displayValue = `${temp.toFixed(1)} C`;
             } else if (sys.id === "lighting") {
-                displayValue = `${data.operatingAvailability || 0}% Online`;
+                displayValue = `${data.averageHealthScore || 0}% Avg Health`;
             } else if (sys.id === "kitchen") {
                 displayValue = `${data.online ?? 0} / ${data.total ?? 4} Online`;
             }
@@ -159,6 +181,35 @@ document.addEventListener("DOMContentLoaded", () => {
                     value: displayValue
                 };
             }
+        }
+
+        if (sys.id === "lighting") {
+            const criticalFixtures = data.totals?.criticalFixtures ?? 0;
+            const warningFixtures = data.totals?.warningFixtures ?? 0;
+            const totalFixtures = data.totals?.totalFixtures ?? 0;
+            const totalEnergy = data.totals?.totalEnergyConsumption ?? 0;
+
+            if (criticalFixtures > 0) {
+                return {
+                    status: "ATTENTION",
+                    message: `${criticalFixtures} critical fixture(s) across ${totalFixtures} monitored lights`,
+                    value: `${totalEnergy.toLocaleString()} kWh`
+                };
+            }
+
+            if (warningFixtures > 0) {
+                return {
+                    status: "WARNING",
+                    message: `${warningFixtures} fixture(s) approaching maintenance threshold`,
+                    value: displayValue
+                };
+            }
+
+            return {
+                status: "NORMAL",
+                message: `${totalFixtures} fixtures monitored`,
+                value: displayValue
+            };
         }
 
         return {

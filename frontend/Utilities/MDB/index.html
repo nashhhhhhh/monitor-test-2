@@ -58,19 +58,34 @@
 
     <section class="lighting-energy-section">
       <div class="card lighting-energy-card">
-        <div class="card-title">Total Energy Consumption of Light</div>
+        <div class="lighting-section-head">
+          <div>
+            <div class="lighting-kicker">Lighting Consumption Only</div>
+            <div class="card-title card-title-no-border">Lighting Notional Energy Overview</div>
+            <div class="lighting-section-note">This module reflects lighting fixtures only and excludes other electrical loads on the MDB network.</div>
+          </div>
+          <div class="lighting-scope-badge">Lighting Only</div>
+        </div>
         <div class="lighting-energy-grid">
-          <div class="lighting-energy-copy">
-            <div class="lighting-energy-value" id="kpi-lighting-energy">-- kWh</div>
-            <div class="lighting-energy-meta" id="lighting-energy-share">--</div>
-            <div class="lighting-energy-note" id="lighting-energy-room">--</div>
+          <div class="lighting-overview-stack">
+            <div class="lighting-energy-copy">
+              <div class="lighting-energy-value" id="kpi-lighting-energy">-- kWh</div>
+              <div class="lighting-energy-meta" id="lighting-energy-share">--</div>
+              <div class="lighting-energy-note" id="lighting-energy-room">--</div>
+            </div>
+            <div class="lighting-mini-chart">
+              <canvas id="lightingAreaEnergyChart"></canvas>
+            </div>
           </div>
-          <div class="lighting-mini-chart">
-            <canvas id="lightingEnergyTrendChart"></canvas>
-          </div>
-          <div class="lighting-breakdown-card">
-            <div class="lighting-breakdown-title">Room Lighting Energy Breakdown</div>
-            <div class="lighting-breakdown-list" id="lighting-energy-breakdown"></div>
+          <div class="lighting-breakdown-panels">
+            <div class="lighting-breakdown-card">
+              <div class="lighting-breakdown-title">Area-wise Lighting Energy</div>
+              <div class="lighting-breakdown-list" id="lighting-energy-breakdown"></div>
+            </div>
+            <div class="lighting-breakdown-card">
+              <div class="lighting-breakdown-title">Circuit-wise Lighting Energy</div>
+              <div class="lighting-breakdown-list" id="lighting-circuit-breakdown"></div>
+            </div>
           </div>
         </div>
       </div>

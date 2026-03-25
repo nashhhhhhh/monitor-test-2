@@ -18,19 +18,16 @@
     <div id="navbar"></div>
 
     <main class="dashboard-content">
-        <header class="page-hero">
+        <header class="page-header">
             <div>
                 <p class="eyebrow">Lighting Monitoring</p>
-                <h1>Operational Lighting Health Dashboard</h1>
-                <p class="hero-copy">Track room-by-room fixture condition, operating availability, and fault exposure across Stage 2.</p>
+                <h1>Lighting Fixture Health Overview</h1>
+                <p class="subtitle">Grouped by area with lifecycle health, energy visibility, and targeted fixture alerts.</p>
             </div>
-            <div class="hero-panel">
-                <div class="hero-stat-label">Current Portfolio Availability</div>
-                <div class="hero-stat-value" id="hero-availability">--%</div>
-                <div class="hero-stat-meta">
-                    <span id="hero-fixture-summary">--</span>
-                    <span id="hero-sync-time">--</span>
-                </div>
+            <div class="header-meta-card">
+                <div class="meta-label">Data Snapshot</div>
+                <div class="meta-value" id="lighting-generated-at">--</div>
+                <div class="meta-subtext" id="lighting-period">--</div>
             </div>
         </header>
 
@@ -38,112 +35,96 @@
             <article class="summary-card accent-blue">
                 <span class="summary-label">Total Fixtures</span>
                 <strong class="summary-value" id="summary-total-fixtures">0</strong>
-                <span class="summary-meta">Monitored lighting assets</span>
+                <span class="summary-meta">Fixtures monitored in current lighting dataset</span>
             </article>
             <article class="summary-card accent-green">
                 <span class="summary-label">Healthy Fixtures</span>
                 <strong class="summary-value" id="summary-healthy-fixtures">0</strong>
-                <span class="summary-meta" id="summary-active-meta">0 operational</span>
-            </article>
-            <article class="summary-card accent-red">
-                <span class="summary-label">Faulty Fixtures</span>
-                <strong class="summary-value" id="summary-faulty-fixtures">0</strong>
-                <span class="summary-meta" id="summary-fault-meta">0% fault rate</span>
-            </article>
-            <article class="summary-card accent-cyan">
-                <span class="summary-label">Operating Availability</span>
-                <strong class="summary-value" id="summary-availability">0%</strong>
-                <span class="summary-meta">Operational fixtures / total fixtures</span>
+                <span class="summary-meta">Fixture health at or above 70%</span>
             </article>
             <article class="summary-card accent-amber">
-                <span class="summary-label">Avg Health Score</span>
-                <strong class="summary-value" id="summary-health-score">0%</strong>
-                <span class="summary-meta">Average room health condition</span>
+                <span class="summary-label">Warning Fixtures</span>
+                <strong class="summary-value" id="summary-warning-fixtures">0</strong>
+                <span class="summary-meta">Fixture health between 40% and 69.9%</span>
             </article>
-            <article class="summary-card accent-orange">
-                <span class="summary-label">Critical Rooms</span>
-                <strong class="summary-value" id="summary-critical-rooms">0</strong>
-                <span class="summary-meta">Rooms below critical threshold</span>
+            <article class="summary-card accent-red">
+                <span class="summary-label">Critical Fixtures</span>
+                <strong class="summary-value" id="summary-critical-fixtures">0</strong>
+                <span class="summary-meta">Fixture health below 40% or severe alert condition</span>
+            </article>
+            <article class="summary-card accent-cyan">
+                <span class="summary-label">Total Lighting Energy</span>
+                <strong class="summary-value" id="summary-total-energy">0</strong>
+                <span class="summary-meta">Total notional lighting energy</span>
+            </article>
+            <article class="summary-card accent-violet">
+                <span class="summary-label">Average Fixture Health</span>
+                <strong class="summary-value" id="summary-average-health">0%</strong>
+                <span class="summary-meta">Portfolio average based on lamp life remaining</span>
             </article>
         </section>
 
-        <section class="dashboard-grid">
-            <article class="panel panel-span-8">
-                <div class="panel-head">
-                    <div>
-                        <p class="panel-kicker">Room Fixture Health</p>
-                        <h2>Room-by-room fixture performance</h2>
-                    </div>
+        <section class="control-panel">
+            <div class="control-group control-search">
+                <label for="lighting-search">Search Fixtures</label>
+                <input id="lighting-search" type="text" placeholder="Search fixture, area, or circuit">
+            </div>
+            <div class="control-group">
+                <label for="status-filter">Status</label>
+                <select id="status-filter">
+                    <option value="all">All Statuses</option>
+                    <option value="healthy">Healthy</option>
+                    <option value="warning">Warning</option>
+                    <option value="critical">Critical</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Areas</label>
+                <div class="area-filter-toolbar">
+                    <button type="button" class="btn area-filter-btn active" id="area-filter-all">All Areas</button>
+                    <button type="button" class="btn area-filter-btn" id="area-filter-clear">Clear</button>
                 </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Room Name</th>
-                                <th>Total Fixtures</th>
-                                <th>Healthy</th>
-                                <th>Faulty</th>
-                                <th>Availability %</th>
-                                <th>Health %</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="room-health-tbody"></tbody>
-                    </table>
-                </div>
-            </article>
+                <div class="area-filter-list" id="area-filter-list"></div>
+            </div>
+            <div class="control-group control-toggle">
+                <label for="alert-only-toggle">Alert Filter</label>
+                <button type="button" class="btn" id="alert-only-toggle" aria-pressed="false">Show Alerted Fixtures Only</button>
+            </div>
+        </section>
 
-            <article class="panel panel-span-4">
-                <div class="panel-head">
-                    <div>
-                        <p class="panel-kicker">Lighting Health Statistics</p>
-                        <h2>Operational summary</h2>
-                    </div>
+        <section class="panel alert-panel">
+            <div class="panel-head">
+                <div>
+                    <p class="panel-kicker">Critical Alerts</p>
+                    <h2>Fixtures needing immediate attention</h2>
                 </div>
-                <div class="stats-list" id="lighting-stats-list"></div>
-            </article>
+            </div>
+            <div class="alerts-list" id="critical-alerts-list"></div>
         </section>
 
         <section class="chart-grid">
             <article class="panel">
                 <div class="panel-head">
                     <div>
-                        <p class="panel-kicker">Health Comparison</p>
-                        <h2>Fixture health by room</h2>
+                        <p class="panel-kicker">Area Health</p>
+                        <h2>Average fixture health by area</h2>
                     </div>
                 </div>
-                <div class="chart-wrap"><canvas id="roomHealthChart"></canvas></div>
+                <div class="chart-wrap"><canvas id="area-health-chart"></canvas></div>
             </article>
-
             <article class="panel">
                 <div class="panel-head">
                     <div>
-                        <p class="panel-kicker">Availability Comparison</p>
-                        <h2>Availability by room</h2>
+                        <p class="panel-kicker">Lowest Health Fixtures</p>
+                        <h2>Priority replacement candidates</h2>
                     </div>
                 </div>
-                <div class="chart-wrap"><canvas id="roomAvailabilityChart"></canvas></div>
+                <div class="chart-wrap"><canvas id="lowest-health-chart"></canvas></div>
             </article>
+        </section>
 
-            <article class="panel">
-                <div class="panel-head">
-                    <div>
-                        <p class="panel-kicker">Fault Distribution</p>
-                        <h2>Fault count by room</h2>
-                    </div>
-                </div>
-                <div class="chart-wrap"><canvas id="roomFaultChart"></canvas></div>
-            </article>
-
-            <article class="panel">
-                <div class="panel-head">
-                    <div>
-                        <p class="panel-kicker">Fixture Distribution</p>
-                        <h2>Healthy vs faulty fixtures</h2>
-                    </div>
-                </div>
-                <div class="chart-wrap compact"><canvas id="fixtureStatusChart"></canvas></div>
-            </article>
+        <section class="area-list-section">
+            <div class="area-sections" id="area-sections"></div>
         </section>
     </main>
 
