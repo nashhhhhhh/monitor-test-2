@@ -16,7 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
-<body>
+<body data-sync-page="wwtp">
 
   <div id="navbar"></div>
 
@@ -34,6 +34,27 @@
       <h1>Waste Water Treatment Plant</h1>
       <p class="subtitle">Real-time performance analytics for pumps, energy, and effluent</p>
     </header>
+
+    <section class="volume-section">
+      <div class="card volume-card">
+        <div class="card-title">Wastewater Treated Volume</div>
+        <div class="volume-grid">
+          <div class="volume-item volume-item-primary">
+            <span class="volume-label">Wastewater Treated</span>
+            <strong class="volume-value" id="treated-wastewater-total">--</strong>
+            <span class="volume-note">Latest treated effluent total recorded by the plant</span>
+          </div>
+          <div class="volume-item">
+            <span class="volume-label">Raw Inflow Total</span>
+            <strong class="volume-value" id="treated-wastewater-raw">--</strong>
+          </div>
+          <div class="volume-item">
+            <span class="volume-label">Treatment Ratio</span>
+            <strong class="volume-value" id="treated-wastewater-ratio">--</strong>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <section class="kpi-grid">
       <div class="kpi-card">

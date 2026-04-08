@@ -13,7 +13,7 @@
 
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-sync-page="overview">
 
     <div id="navbar"></div>
 
@@ -49,11 +49,6 @@
                 <div class="dt-value" id="dt-events">--</div>
                 <div class="dt-sub">Incidents recorded today</div>
             </div>
-            <div class="dt-card dt-purple">
-                <div class="dt-label">Worst System</div>
-                <div class="dt-value dt-value-sm" id="dt-worst">--</div>
-                <div class="dt-sub" id="dt-worst-sub">Most downtime today</div>
-            </div>
             <div class="dt-card dt-green">
                 <div class="dt-label">Overall Uptime</div>
                 <div class="dt-value" id="dt-uptime">--%</div>
@@ -87,7 +82,6 @@
             .catch(err => console.error(err));
     </script>
 
-    <script src="/Lighting/mockData.js"></script>
     <script src="/Lighting/utils.js"></script>
     <script src="script.js" defer></script>
 

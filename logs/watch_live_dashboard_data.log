@@ -1,0 +1,24 @@
+[WATCHER] 2026-04-06 08:24:33 | Monitoring workbook: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-06 08:24:33 | Poll interval: 60s | Settle window: 20s
+[WATCHER] 2026-04-06 08:24:58 | Monitoring workbook: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-06 08:24:58 | Poll interval: 60s | Settle window: 20s
+[WATCHER] 2026-04-06 08:24:58 | Source workbook not found yet: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-06 08:26:54 | Monitoring workbook: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-06 08:26:54 | Poll interval: 60s | Settle window: 20s
+[WATCHER] 2026-04-06 08:26:54 | Initial export started.
+[WATCHER] 2026-04-06 08:27:00 | Initial export completed.
+[WATCHER] 2026-04-06 09:04:00 | Source workbook unavailable: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-06 09:07:00 | Workbook change detected. Waiting for save to settle...
+[WATCHER] 2026-04-06 09:07:39 | Export completed after workbook update.
+[WATCHER] 2026-04-07 08:07:09 | Monitoring workbook: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-07 08:07:09 | Poll interval: 60s | Settle window: 20s
+[WATCHER] 2026-04-07 08:07:09 | Initial export started.
+[WATCHER] 2026-04-07 08:07:22 | Initial export completed.
+[WATCHER] 2026-04-08 08:35:11 | Monitoring workbook: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-08 08:35:11 | Poll interval: 60s | Settle window: 20s
+[WATCHER] 2026-04-08 08:35:11 | Initial export started.
+[WATCHER] 2026-04-08 08:35:18 | Initial export completed.
+[WATCHER] 2026-04-08 13:25:48 | Monitoring workbook: C:\Users\merri\Downloads\data\BMS\main.xlsx
+[WATCHER] 2026-04-08 13:25:48 | Poll interval: 60s | Settle window: 20s
+[WATCHER] 2026-04-08 13:25:48 | Initial export started.
+[WATCHER] 2026-04-08 13:25:53 | Initial export completed.

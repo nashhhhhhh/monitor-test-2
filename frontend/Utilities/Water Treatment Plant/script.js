@@ -303,9 +303,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function updateKPIs(data) {
-        document.getElementById("kpi-ro-total").textContent    = (data.flow_totals.ro_water?.slice(-1)[0]?.m3    || 0).toLocaleString();
-        document.getElementById("kpi-soft1-total").textContent = (data.flow_totals.soft_water_1?.slice(-1)[0]?.m3 || 0).toLocaleString();
-        document.getElementById("kpi-soft2-total").textContent = (data.flow_totals.soft_water_2?.slice(-1)[0]?.m3 || 0).toLocaleString();
+        const roTotal = data.flow_totals.ro_water?.slice(-1)[0]?.m3 || 0;
+        const soft1Total = data.flow_totals.soft_water_1?.slice(-1)[0]?.m3 || 0;
+        const soft2Total = data.flow_totals.soft_water_2?.slice(-1)[0]?.m3 || 0;
+        const treatedTotal = roTotal + soft1Total + soft2Total;
+
+        document.getElementById("kpi-ro-total").textContent = roTotal.toLocaleString();
+        document.getElementById("kpi-soft1-total").textContent = soft1Total.toLocaleString();
+        document.getElementById("kpi-soft2-total").textContent = soft2Total.toLocaleString();
+
+        document.getElementById("treated-water-total").textContent = `${treatedTotal.toLocaleString()} m³`;
+        document.getElementById("treated-water-ro").textContent = `${roTotal.toLocaleString()} m³`;
+        document.getElementById("treated-water-soft1").textContent = `${soft1Total.toLocaleString()} m³`;
+        document.getElementById("treated-water-soft2").textContent = `${soft2Total.toLocaleString()} m³`;
     }
 
     // ── LISTENERS ─────────────────────────────────────────────────────────────

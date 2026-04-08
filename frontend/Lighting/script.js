@@ -1,6 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const utils = window.lightingMonitoringUtils;
-    const fallbackDataset = window.lightingMonitoringMockData;
     const charts = {};
     const state = {
         search: "",
@@ -9,7 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         alertOnly: false
     };
 
-    if (!utils || !fallbackDataset) {
+    if (!utils) {
         console.error("Lighting monitoring helpers are unavailable.");
         return;
     }
@@ -21,16 +20,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const areaFilterClear = document.getElementById("area-filter-clear");
     const alertOnlyToggle = document.getElementById("alert-only-toggle");
     const areaSections = document.getElementById("area-sections");
-    const alertsList = document.getElementById("critical-alerts-list");
-
     const dataset = await loadLightingDataset();
     const summary = utils.summarizePortfolio(dataset);
 
     populateSummary(summary);
     populateAreaFilter(summary);
-    renderCriticalAlerts(summary);
-    renderCharts(summary);
-    renderAreaSections(summary);
+    renderNotionalEnergyModule(summary);
+
+    requestAnimationFrame(() => {
+        renderCharts(summary);
+        setTimeout(() => renderAreaSections(summary), 0);
+    });
 
     searchInput?.addEventListener("input", (event) => {
         state.search = event.target.value.trim().toLowerCase();
@@ -82,15 +82,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         setText("summary-total-energy", `${formatNumber(currentSummary.totals.totalEnergyConsumption, 1)} kWh`);
         setText("summary-average-health", `${formatNumber(currentSummary.averageHealthScore, 1)}%`);
 
-        const generatedAt = currentSummary.generatedAt
-            ? new Date(currentSummary.generatedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-            : "Using local lighting fallback";
-        setText("lighting-generated-at", generatedAt);
-
-        const periodText = currentSummary.meta?.reportingPeriodDuration
-            ? `${currentSummary.meta.reportingPeriodDuration} | ${currentSummary.meta.site || "Lighting dataset"}`
-            : "Lighting workbook snapshot";
-        setText("lighting-period", periodText);
     }
 
     function populateAreaFilter(currentSummary) {
@@ -124,21 +115,59 @@ document.addEventListener("DOMContentLoaded", async () => {
         syncAreaFilterButtons();
     }
 
-    function renderCriticalAlerts(currentSummary) {
-        if (!currentSummary.criticalAlerts.length) {
-            alertsList.innerHTML = '<div class="empty-state">No critical lighting alerts in the current dataset.</div>';
-            return;
+    function renderNotionalEnergyModule(currentSummary) {
+        const totalLightingKwh = currentSummary.totals.totalEnergyConsumption;
+        const topArea = currentSummary.highestConsumingRoom;
+
+        setText("lighting-energy-total", `${formatNumber(totalLightingKwh, 1)} kWh`);
+        setText("lighting-energy-health-meta", `${formatNumber(currentSummary.averageHealthScore, 1)}% portfolio average fixture health`);
+        setText(
+            "lighting-energy-top-area",
+            topArea
+                ? `Highest lighting area: ${topArea.roomName} (${formatNumber(topArea.totalEnergyConsumption, 1)} kWh)`
+                : "No area breakdown available"
+        );
+
+        const energyBreakdown = document.getElementById("lighting-energy-breakdown");
+        const circuitBreakdown = document.getElementById("lighting-circuit-breakdown");
+
+        if (energyBreakdown) {
+            energyBreakdown.innerHTML = currentSummary.areas
+                .slice(0, 10)
+                .map((area) => `
+                    <div class="lighting-breakdown-item">
+                        <span class="lighting-breakdown-room">${escapeHTML(area.areaName)}</span>
+                        <span class="lighting-breakdown-kwh">${formatNumber(area.totalNotionalEnergy, 1)} kWh</span>
+                    </div>
+                `)
+                .join("");
         }
 
-        alertsList.innerHTML = currentSummary.criticalAlerts.slice(0, 10).map((alert) => `
-            <article class="alert-item">
-                    <div>
-                        <div class="alert-title">${escapeHTML(alert.label)}</div>
-                        <div class="alert-meta">${escapeHTML(alert.fixtureName)} | ${escapeHTML(alert.areaName)} | ${escapeHTML(alert.circuitName)}</div>
+        if (circuitBreakdown) {
+            circuitBreakdown.innerHTML = currentSummary.circuits
+                .slice(0, 10)
+                .map((circuit) => `
+                    <div class="lighting-breakdown-item">
+                        <span class="lighting-breakdown-room">${escapeHTML(circuit.circuitName)}</span>
+                        <span class="lighting-breakdown-kwh">${formatNumber(circuit.totalNotionalEnergy, 1)} kWh</span>
                     </div>
-                <span class="severity-pill critical">${alert.severity.toUpperCase()}</span>
-            </article>
-        `).join("");
+                `)
+                .join("");
+        }
+
+        createChart("lighting-area-energy-chart", {
+            type: "bar",
+            data: {
+                labels: currentSummary.areas.slice(0, 8).map((area) => area.areaName),
+                datasets: [{
+                    label: "Lighting Energy (kWh)",
+                    data: currentSummary.areas.slice(0, 8).map((area) => area.totalNotionalEnergy),
+                    backgroundColor: "#2563eb",
+                    borderRadius: 10
+                }]
+            },
+            options: chartOptions({ horizontal: true })
+        });
     }
 
     function renderAreaSections(currentSummary) {
@@ -346,14 +375,20 @@ document.addEventListener("DOMContentLoaded", async () => {
             const response = await fetch("/api/lighting");
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-            if (Array.isArray(data?.fixtures) && data.fixtures.length) {
-                return data;
-            }
+            return {
+                generatedAt: data?.generatedAt ?? null,
+                meta: data?.meta ?? {},
+                fixtures: Array.isArray(data?.fixtures) ? data.fixtures : []
+            };
         } catch (error) {
-            console.warn("Lighting API unavailable, using fallback dataset.", error);
+            console.warn("Lighting API unavailable.", error);
         }
 
-        return fallbackDataset;
+        return {
+            generatedAt: null,
+            meta: {},
+            fixtures: []
+        };
     }
 
     function setText(id, value) {

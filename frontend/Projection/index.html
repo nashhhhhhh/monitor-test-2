@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Projection & Forecasting</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
@@ -10,68 +11,66 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body data-sync-page="projection" data-projection-page="overview">
     <div id="navbar"></div>
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
-        .then(r => r.ok ? r.text() : Promise.reject())
-        .then(h => document.getElementById('navbar').innerHTML = h)
-        .catch(() => {});
+            .then(r => r.ok ? r.text() : Promise.reject())
+            .then(h => document.getElementById('navbar').innerHTML = h)
+            .catch(() => {});
     </script>
 
     <main class="dashboard-content">
-
         <header class="dash-header">
-            <div>
-                <h2>Projection &amp; Forecasting</h2>
-                <p class="text-muted">24-hour predictive analytics across all monitored systems</p>
+            <div class="header-intro">
+                <h1 id="projection-page-title">Projection &amp; Forecasting</h1>
+                <p class="subtitle" id="projection-page-subtitle">Forward-looking maintenance workload, completion, and downtime outlook using the current dashboard data.</p>
+                <article class="projection-summary-card">
+                    <span class="section-heading">Projection Window</span>
+                    <strong class="projection-window-value" id="projection-window-label">Loading...</strong>
+                    <span class="projection-window-subtext" id="projection-window-subtext">Projection updates dynamically from the current imported dashboard records.</span>
+                </article>
             </div>
-            <div class="header-right">
-                <span class="refresh-badge" id="last-updated">Calculating…</span>
-                <div id="clock" class="clock-display">--:--:--</div>
+            <div class="header-tools">
+                <label class="projection-filter">
+                    <span class="section-heading">Forecast Period</span>
+                    <select id="projection-period" class="projection-select">
+                        <option value="next_week">Next Week</option>
+                        <option value="next_month" selected>Next Month</option>
+                        <option value="quarter">Quarter</option>
+                    </select>
+                </label>
+                <div class="sync-card" data-sync-card="true">
+                    <span class="sync-label">Last Synced</span>
+                    <strong class="sync-value" data-sync-date>--</strong>
+                    <span class="sync-subvalue" data-sync-time>--</span>
+                </div>
             </div>
         </header>
 
-        <!-- ── Top KPI Strip ───────────────────────────────────────────── -->
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-amber">
-                <div class="kpi-label">Total Predicted Energy (24 h)</div>
-                <div class="kpi-value" id="kpi-energy-total">--</div>
-                <div class="kpi-trend">MDB + Freezer + Boiler + Compressor</div>
-            </div>
-            <div class="kpi-card highlight-blue">
-                <div class="kpi-label">Total Predicted Water Flow (24 h)</div>
-                <div class="kpi-value" id="kpi-water-total">--</div>
-                <div class="kpi-trend">Wastewater + WTP combined m³</div>
-            </div>
-            <div class="kpi-card highlight-green">
-                <div class="kpi-label">Systems with Projection</div>
-                <div class="kpi-value" id="kpi-sys-enabled">--</div>
-                <div class="kpi-trend" id="kpi-sys-sub">of 8 total subsystems</div>
-            </div>
-            <div class="kpi-card highlight-red" id="kpi-alert-card">
-                <div class="kpi-label">Active Prediction Alerts</div>
-                <div class="kpi-value" id="kpi-alert-count">0</div>
-                <div class="kpi-trend" id="kpi-alert-sub">All forecasts within range</div>
+        <section class="forecast-section">
+            <div class="section-heading">KPI Cards</div>
+            <div class="kpi-grid" id="projection-kpis">
+                <div class="empty-state projection-empty-block">Loading projection KPI data...</div>
             </div>
         </section>
 
-        <!-- ── Prediction Alerts ───────────────────────────────────────── -->
-        <div id="alert-banner" class="alert-banner hidden">
-            <div class="alert-banner-title">⚠ Prediction Alerts</div>
-            <div id="alert-list" class="alert-inner"></div>
-        </div>
-
-        <!-- ── System Summary Cards ────────────────────────────────────── -->
-        <h3 class="section-title">System Forecasts</h3>
-        <section class="system-grid" id="system-cards">
-            <!-- populated by script.js -->
+        <section class="forecast-section">
+            <div class="section-heading">Trend Charts</div>
+            <div class="chart-grid" id="projection-charts">
+                <div class="empty-state projection-empty-block">Loading projection charts...</div>
+            </div>
         </section>
 
+        <section class="forecast-section">
+            <div class="section-heading">Breakdown</div>
+            <div class="breakdown-grid" id="projection-breakdowns">
+                <div class="empty-state projection-empty-block">Loading projection breakdowns...</div>
+            </div>
+        </section>
     </main>
 
-    <script src="/Projection/prediction-core.js"></script>
-    <script src="script.js"></script>
+    <script src="projection-page.js?v=20260408d"></script>
 </body>
 </html>

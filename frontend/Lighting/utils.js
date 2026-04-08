@@ -4,6 +4,11 @@
     const WARNING_MIN = 40;
     const HIGH_USAGE_MULTIPLIER = 1.35;
     const HIGH_ENERGY_MULTIPLIER = 1.35;
+    const STATUS_PRIORITY = {
+        Critical: 0,
+        Warning: 1,
+        Healthy: 2
+    };
 
     function round(value, digits = 1) {
         const factor = Math.pow(10, digits);
@@ -73,6 +78,45 @@
 
     function getGroupAverage(valuesMap, key) {
         return valuesMap.has(key) ? valuesMap.get(key) : null;
+    }
+
+    function naturalCompare(left, right) {
+        return String(left).localeCompare(String(right), undefined, {
+            numeric: true,
+            sensitivity: "base"
+        });
+    }
+
+    function compareStatusPriority(a, b) {
+        return (STATUS_PRIORITY[a] ?? 99) - (STATUS_PRIORITY[b] ?? 99);
+    }
+
+    function compareFixturePriority(a, b) {
+        const statusCompare = compareStatusPriority(a.status, b.status);
+        if (statusCompare !== 0) return statusCompare;
+
+        const healthA = a.fixtureHealthPct ?? -1;
+        const healthB = b.fixtureHealthPct ?? -1;
+        if (healthA !== healthB) return healthA - healthB;
+
+        const areaCompare = naturalCompare(a["Area Name"], b["Area Name"]);
+        if (areaCompare !== 0) return areaCompare;
+
+        const circuitCompare = naturalCompare(a["Circuit Name"], b["Circuit Name"]);
+        if (circuitCompare !== 0) return circuitCompare;
+
+        return naturalCompare(a["Fixture Name"], b["Fixture Name"]);
+    }
+
+    function compareAreaPriority(a, b) {
+        if (a.criticalFixtures !== b.criticalFixtures) return b.criticalFixtures - a.criticalFixtures;
+        if (a.warningFixtures !== b.warningFixtures) return b.warningFixtures - a.warningFixtures;
+
+        const statusCompare = compareStatusPriority(a.status, b.status);
+        if (statusCompare !== 0) return statusCompare;
+
+        if (a.totalNotionalEnergy !== b.totalNotionalEnergy) return b.totalNotionalEnergy - a.totalNotionalEnergy;
+        return naturalCompare(a.areaName, b.areaName);
     }
 
     function normalizeDataset(dataset) {
@@ -184,7 +228,7 @@
 
                 return {
                     areaName,
-                    fixtures: areaFixtures.sort((a, b) => a["Fixture Name"].localeCompare(b["Fixture Name"])),
+                    fixtures: areaFixtures.sort(compareFixturePriority),
                     totalFixtures: areaFixtures.length,
                     healthyFixtures,
                     warningFixtures,
@@ -199,7 +243,7 @@
                     totalEnergyConsumption: totalNotionalEnergy
                 };
             })
-            .sort((a, b) => b.totalNotionalEnergy - a.totalNotionalEnergy);
+            .sort(compareAreaPriority);
 
         const circuits = Array.from(
             fixtures.reduce((map, fixture) => {

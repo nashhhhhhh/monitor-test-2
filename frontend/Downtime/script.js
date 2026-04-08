@@ -1,282 +1,294 @@
-/**
- * Downtime & Reliability Monitoring Page
- * Tracks equipment failures, recovery times, MTBF, and reliability scores.
- */
+let downtimePayload = null;
+let downtimeCachePayload = null;
+const chartRefs = {};
+const EXCLUDED_SOURCE_LABEL = 'Energy-derived';
 
-// ─── CONFIG ────────────────────────────────────────────────────────────────
+function normalizeEventSource(event) {
+    const detectionType = String(event?.detection_type || '').trim().toLowerCase();
+    if (detectionType === 'fault / down status') {
+        return 'Status-derived';
+    }
+    return event?.source || '--';
+}
 
-const ALERT_THRESHOLDS = {
-    maxEventsPerDay  : 4,    // trigger alert if a system fails this many times today
-    minReliability   : 90,   // % — below this = warning on reliability bar
-    critReliability  : 80,   // % — below this = critical
-    maxDowntimeMins  : 60,   // total mins before warning
-    critDowntimeMins : 180,  // total mins before critical
-};
+function normalizeEvent(event) {
+    if (!event) return event;
+    return {
+        ...event,
+        source: normalizeEventSource(event),
+    };
+}
 
-// ─── MOCK DOWNTIME DATA ────────────────────────────────────────────────────
-// Shape: { equipment, events: [{ start, end }], recoveryMins[] }
-// In production replace with real API data (e.g. /api/cctv/log, etc.)
+function ensureCanvas(id) {
+    const existing = document.getElementById(id);
+    if (existing) return existing;
 
-function generateMockDowntimeData() {
-    const todayBase = new Date();
-    todayBase.setHours(0, 0, 0, 0);
+    const container = document.querySelector(`[data-chart-slot="${id}"]`);
+    if (!container) return null;
+    container.innerHTML = `<canvas id="${id}"></canvas>`;
+    return document.getElementById(id);
+}
 
-    function event(startH, startM, durationMins) {
-        const start = new Date(todayBase);
-        start.setHours(startH, startM);
-        const end = new Date(start.getTime() + durationMins * 60000);
-        return { start, end, durationMins };
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function fmtHours(hours) {
+    if (hours === null || hours === undefined || Number.isNaN(Number(hours))) return '--';
+    const numeric = Number(hours);
+    if (numeric <= 0) return '0 min';
+    if (numeric < 1) return `${Math.round(numeric * 60)} min`;
+    return `${numeric.toFixed(2)} h`;
+}
+
+function fmtPercent(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return '--';
+    return `${Number(value).toFixed(1)}%`;
+}
+
+function fmtDateTime(value) {
+    if (!value) return '--';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '--';
+    return dt.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+function destroyChart(id) {
+    if (chartRefs[id]) {
+        chartRefs[id].destroy();
+        delete chartRefs[id];
+    }
+}
+
+function renderAlertBanner(alerts) {
+    void alerts;
+}
+
+async function loadDowntimeCacheFile() {
+    if (downtimeCachePayload !== null) return downtimeCachePayload;
+    try {
+        const response = await fetch(`./downtime-cache.json?v=20260408a&_=${Date.now()}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            downtimeCachePayload = false;
+            return null;
+        }
+        downtimeCachePayload = await response.json();
+        return downtimeCachePayload;
+    } catch (error) {
+        console.warn('Downtime cache load failed:', error);
+        downtimeCachePayload = false;
+        return null;
+    }
+}
+
+function getCachedDowntimePayload(period, month) {
+    const payloads = downtimeCachePayload?.payloads || {};
+    const key = period === 'mtd' && month ? `mtd:${month}` : period;
+    return payloads[key] || null;
+}
+
+function getChartEvents() {
+    return (downtimePayload?.events || [])
+        .map(normalizeEvent)
+        .filter(event => event.source !== EXCLUDED_SOURCE_LABEL);
+}
+
+function sumEventHours(events) {
+    return events.reduce((sum, event) => sum + Number(event.duration_hours || 0), 0);
+}
+
+function getReferenceEnd() {
+    const metaEnd = downtimePayload?.meta?.reference_end ? new Date(downtimePayload.meta.reference_end) : null;
+    if (metaEnd && !Number.isNaN(metaEnd.getTime())) return metaEnd;
+
+    const latestEvent = getChartEvents()
+        .map(event => new Date(event.end_time || event.start_time))
+        .filter(dt => !Number.isNaN(dt.getTime()))
+        .sort((a, b) => b - a)[0];
+
+    return latestEvent || new Date();
+}
+
+function buildSummaryFromEvents(events) {
+    const referenceEnd = getReferenceEnd();
+    const weekStart = new Date(referenceEnd);
+    weekStart.setDate(referenceEnd.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date(referenceEnd.getFullYear(), referenceEnd.getMonth(), 1);
+    const normalizedEvents = events
+        .map(event => ({ ...event, _start: new Date(event.start_time || event.end_time) }))
+        .filter(event => !Number.isNaN(event._start.getTime()));
+
+    const totalHours = sumEventHours(normalizedEvents);
+    const weekHours = sumEventHours(normalizedEvents.filter(event => event._start >= weekStart && event._start <= referenceEnd));
+    const monthHours = sumEventHours(normalizedEvents.filter(event => event._start >= monthStart && event._start <= referenceEnd));
+    const longestEventHours = normalizedEvents.reduce((max, event) => Math.max(max, Number(event.duration_hours || 0)), 0);
+
+    return {
+        total_hours: totalHours,
+        this_week_hours: weekHours,
+        this_month_hours: monthHours,
+        event_count: normalizedEvents.length,
+        avg_event_hours: normalizedEvents.length ? totalHours / normalizedEvents.length : null,
+        longest_event_hours: normalizedEvents.length ? longestEventHours : null,
+    };
+}
+
+function buildTrendFromEvents(events) {
+    const referenceEnd = getReferenceEnd();
+    const period = downtimePayload?.meta?.period || 'ytd';
+    const startDate = new Date(referenceEnd);
+    startDate.setHours(0, 0, 0, 0);
+
+    if (period === '7d') {
+        startDate.setDate(referenceEnd.getDate() - 6);
+    } else if (period === '30d') {
+        startDate.setDate(referenceEnd.getDate() - 29);
+    } else if (period === '90d') {
+        startDate.setDate(referenceEnd.getDate() - 89);
+    } else if (period === 'mtd') {
+        startDate.setDate(1);
+    } else if (period === 'ytd') {
+        startDate.setMonth(0, 1);
+    } else {
+        startDate.setDate(referenceEnd.getDate() - 29);
     }
 
-    return [
-        {
-            equipment: 'CCTV C.16',
-            category: 'CCTV',
-            events: [event(1,15,12), event(4,30,8), event(7,45,20), event(11,0,15), event(14,20,9), event(18,5,11)],
-            recoveryMins: [5, 4, 7, 6, 4, 6],
-        },
-        {
-            equipment: 'CCTV C.08',
-            category: 'CCTV',
-            events: [event(3,10,10), event(9,45,25), event(16,30,8)],
-            recoveryMins: [6, 12, 5],
-        },
-        {
-            equipment: 'Spiral Blast Freezer',
-            category: 'Freezer',
-            events: [event(2,0,45), event(13,30,30)],
-            recoveryMins: [20, 18],
-        },
-        {
-            equipment: 'Boiler 01',
-            category: 'Boiler',
-            events: [event(6,15,25)],
-            recoveryMins: [15],
-        },
-        {
-            equipment: 'Boiler 02',
-            category: 'Boiler',
-            events: [],
-            recoveryMins: [],
-        },
-        {
-            equipment: 'Air Compressor',
-            category: 'Utilities',
-            events: [event(8,0,15), event(17,45,20)],
-            recoveryMins: [10, 12],
-        },
-        {
-            equipment: 'MDB Generator',
-            category: 'MDB',
-            events: [event(5,30,10)],
-            recoveryMins: [8],
-        },
-        {
-            equipment: 'Wastewater Pump',
-            category: 'Wastewater',
-            events: [event(10,0,35), event(19,15,20)],
-            recoveryMins: [18, 12],
-        },
-        {
-            equipment: 'Hobart Dishwasher',
-            category: 'Kitchen',
-            events: [event(7,0,10), event(12,30,8)],
-            recoveryMins: [5, 4],
-        },
-        {
-            equipment: 'X-Ray Inspector',
-            category: 'Kitchen',
-            events: [event(9,15,5)],
-            recoveryMins: [3],
-        },
-    ];
+    const totalDays = Math.max(1, Math.floor((referenceEnd - startDate) / 86400000) + 1);
+
+    const labels = [];
+    const downtime_hours = [];
+    const event_counts = [];
+
+    for (let index = 0; index < totalDays; index += 1) {
+        const dayStart = new Date(startDate);
+        dayStart.setDate(startDate.getDate() + index);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayStart.getDate() + 1);
+
+        const dayEvents = events.filter(event => {
+            const dt = new Date(event.start_time || event.end_time);
+            return !Number.isNaN(dt.getTime()) && dt >= dayStart && dt < dayEnd;
+        });
+
+        labels.push(dayStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
+        downtime_hours.push(Number(sumEventHours(dayEvents).toFixed(3)));
+        event_counts.push(dayEvents.length);
+    }
+
+    return { labels, downtime_hours, event_counts };
 }
 
-// ─── METRICS CALCULATION ───────────────────────────────────────────────────
-
-const MINUTES_IN_DAY = 24 * 60;
-
-function calcMetrics(equipment) {
-    const totalDownMins = equipment.events.reduce((sum, e) => sum + e.durationMins, 0);
-    const eventCount    = equipment.events.length;
-    const uptimePercent = Math.max(0, ((MINUTES_IN_DAY - totalDownMins) / MINUTES_IN_DAY) * 100);
-    const avgDuration   = eventCount > 0 ? totalDownMins / eventCount : 0;
-    const avgRecovery   = equipment.recoveryMins.length > 0
-        ? equipment.recoveryMins.reduce((a, b) => a + b, 0) / equipment.recoveryMins.length
-        : 0;
-
-    // MTBF: (uptime minutes) / number of failures (avoid div by zero)
-    const mtbf = eventCount > 0 ? (MINUTES_IN_DAY - totalDownMins) / eventCount : MINUTES_IN_DAY;
-
-    const status = eventCount >= ALERT_THRESHOLDS.maxEventsPerDay || totalDownMins >= ALERT_THRESHOLDS.critDowntimeMins
-        ? 'critical'
-        : totalDownMins >= ALERT_THRESHOLDS.maxDowntimeMins
-        ? 'warning'
-        : 'ok';
-
-    return { totalDownMins, eventCount, uptimePercent, avgDuration, avgRecovery, mtbf, status };
+function buildGroupedRows(events, keyName) {
+    const grouped = new Map();
+    events.forEach((event) => {
+        const label = event[keyName] || 'Unassigned';
+        const existing = grouped.get(label) || { label, downtime_hours: 0, event_count: 0 };
+        existing.downtime_hours += Number(event.duration_hours || 0);
+        existing.event_count += 1;
+        grouped.set(label, existing);
+    });
+    return [...grouped.values()]
+        .map(row => ({ ...row, downtime_hours: Number(row.downtime_hours.toFixed(3)) }))
+        .sort((a, b) => (b.downtime_hours - a.downtime_hours) || (b.event_count - a.event_count) || a.label.localeCompare(b.label));
 }
 
-function fmtDuration(mins) {
-    if (mins <= 0) return '0 min';
-    const h = Math.floor(mins / 60);
-    const m = Math.round(mins % 60);
-    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+function buildAssetRows(events) {
+    const grouped = new Map();
+    events.forEach((event) => {
+        const key = event.machine_code || event.machine_name || 'Unknown';
+        const existing = grouped.get(key) || {
+            machine_code: event.machine_code || '--',
+            machine_name: event.machine_name || '--',
+            system: event.system || '--',
+            area: event.area || '--',
+            downtime_hours: 0,
+            event_count: 0,
+        };
+        existing.downtime_hours += Number(event.duration_hours || 0);
+        existing.event_count += 1;
+        grouped.set(key, existing);
+    });
+    return [...grouped.values()]
+        .map(row => ({ ...row, downtime_hours: Number(row.downtime_hours.toFixed(3)) }))
+        .sort((a, b) => (b.downtime_hours - a.downtime_hours) || (b.event_count - a.event_count) || a.machine_name.localeCompare(b.machine_name))
+        .slice(0, 8);
 }
 
-// ─── KPI POPULATION ────────────────────────────────────────────────────────
-
-function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-}
-
-function populateKPIs(all) {
-    const totalDownMins  = all.reduce((s, eq) => s + calcMetrics(eq).totalDownMins, 0);
-    const totalEvents    = all.reduce((s, eq) => s + calcMetrics(eq).eventCount, 0);
-    const avgMtbf        = all.filter(eq => calcMetrics(eq).eventCount > 0)
-                              .map(eq => calcMetrics(eq).mtbf);
-    const mtbfAvg        = avgMtbf.length > 0
-        ? avgMtbf.reduce((a, b) => a + b, 0) / avgMtbf.length
-        : MINUTES_IN_DAY;
-
-    const worst = all.reduce((prev, curr) => {
-        return calcMetrics(curr).totalDownMins > calcMetrics(prev).totalDownMins ? curr : prev;
-    }, all[0]);
-
-    const combinedUptime = ((MINUTES_IN_DAY * all.length - totalDownMins) /
-                            (MINUTES_IN_DAY * all.length) * 100);
-
-    setText('kpi-total-downtime', fmtDuration(totalDownMins));
-    setText('kpi-event-count',    totalEvents);
-    setText('kpi-worst-system',   worst.equipment);
-    setText('kpi-worst-sub',      `${fmtDuration(calcMetrics(worst).totalDownMins)} total downtime`);
-    setText('kpi-mtbf',           fmtDuration(mtbfAvg));
-    setText('kpi-uptime',         combinedUptime.toFixed(1) + '%');
-}
-
-// ─── ALERT SYSTEM ──────────────────────────────────────────────────────────
-
-const alertMessages = [];
-
-function checkAlerts(all) {
-    all.forEach(eq => {
-        const m = calcMetrics(eq);
-        if (m.eventCount >= ALERT_THRESHOLDS.maxEventsPerDay) {
-            alertMessages.push({
-                msg: `${eq.equipment} offline ${m.eventCount} times today — ${fmtDuration(m.totalDownMins)} total downtime`,
-                critical: m.eventCount >= ALERT_THRESHOLDS.maxEventsPerDay + 2,
-            });
-        }
-        if (m.uptimePercent < ALERT_THRESHOLDS.critReliability) {
-            alertMessages.push({
-                msg: `${eq.equipment} reliability critical — ${m.uptimePercent.toFixed(1)}% uptime`,
-                critical: true,
-            });
-        }
+function buildSourceRows(events) {
+    const grouped = new Map();
+    events.forEach((event) => {
+        const label = event.source || 'Unknown';
+        const existing = grouped.get(label) || { label, downtime_hours: 0, available: true, message: '' };
+        existing.downtime_hours += Number(event.duration_hours || 0);
+        grouped.set(label, existing);
     });
 
-    const banner = document.getElementById('alert-banner');
-    const list   = document.getElementById('alert-list');
-    if (alertMessages.length === 0) { banner.classList.add('hidden'); return; }
-
-    banner.classList.remove('hidden');
-    list.innerHTML = alertMessages.map(a =>
-        `<div class="alert-item ${a.critical ? 'critical' : ''}">⚠️ ${a.msg}</div>`
-    ).join('');
-}
-
-// ─── DOWNTIME TABLE ────────────────────────────────────────────────────────
-
-function renderTable(all) {
-    const tbody = document.getElementById('downtime-tbody');
-    tbody.innerHTML = all.map(eq => {
-        const m = calcMetrics(eq);
-        const pillClass = m.status === 'critical' ? 'critical' : m.status === 'warning' ? 'warning' : 'ok';
-        const pillLabel = m.status === 'critical' ? 'Critical' : m.status === 'warning' ? 'Warning' : 'Normal';
-
-        return `
-        <tr>
-            <td><strong>${eq.equipment}</strong><br><small style="color:var(--text-muted)">${eq.category}</small></td>
-            <td>${m.eventCount}</td>
-            <td>${fmtDuration(m.totalDownMins)}</td>
-            <td>${m.eventCount > 0 ? fmtDuration(m.avgDuration) : '—'}</td>
-            <td>${m.eventCount > 0 ? fmtDuration(m.avgRecovery) : '—'}</td>
-            <td>${m.uptimePercent.toFixed(1)}%</td>
-            <td><span class="status-pill ${pillClass}">${pillLabel}</span></td>
-        </tr>`;
-    }).join('');
-}
-
-// ─── RELIABILITY BARS ──────────────────────────────────────────────────────
-
-function renderReliabilityBars(all) {
-    const container = document.getElementById('reliability-list');
-    container.innerHTML = all.map(eq => {
-        const m = calcMetrics(eq);
-        const pct = m.uptimePercent.toFixed(1);
-        const color = m.uptimePercent >= ALERT_THRESHOLDS.minReliability
-            ? '#10b981'
-            : m.uptimePercent >= ALERT_THRESHOLDS.critReliability
-            ? '#f59e0b'
-            : '#ef4444';
-        return `
-        <div class="reliability-item">
-            <span class="rel-name" title="${eq.equipment}">${eq.equipment}</span>
-            <div class="rel-bar-wrap">
-                <div class="rel-bar-fill" style="width:${pct}%; background:${color};"></div>
-            </div>
-            <span class="rel-score" style="color:${color};">${pct}%</span>
-        </div>`;
-    }).join('');
-}
-
-// ─── TIMELINE CHART ────────────────────────────────────────────────────────
-
-function renderTimelineChart(all) {
-    const ctx = document.getElementById('timelineChart').getContext('2d');
-
-    // Build hourly running/downtime counts across all equipment
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const hourLabels = hours.map(h => h.toString().padStart(2, '0') + ':00');
-
-    const runningCounts  = new Array(24).fill(0);
-    const downtimeCounts = new Array(24).fill(0);
-
-    all.forEach(eq => {
-        eq.events.forEach(ev => {
-            const startH = ev.start.getHours();
-            const endH   = Math.min(23, ev.end.getHours());
-            for (let h = startH; h <= endH; h++) {
-                downtimeCounts[h]++;
-            }
+    const rows = [...grouped.values()].map(row => ({ ...row, downtime_hours: Number(row.downtime_hours.toFixed(3)) }));
+    if (downtimePayload?.work_order_source && !rows.some(row => row.label === 'Work Order')) {
+        rows.push({
+            label: 'Work Order',
+            downtime_hours: downtimePayload.work_order_source.available ? 0 : null,
+            available: downtimePayload.work_order_source.available,
+            message: downtimePayload.work_order_source.message || '',
         });
-        // Running = total equipment minus those in downtime each hour
-        hours.forEach(h => {
-            runningCounts[h] = all.length - downtimeCounts[h];
-        });
-    });
+    }
+    return rows;
+}
 
-    new Chart(ctx, {
-        type: 'bar',
+function renderKPIs(summary) {
+    setText('kpi-total-downtime', fmtHours(summary.total_hours));
+    setText('kpi-week-downtime', fmtHours(summary.this_week_hours));
+    setText('kpi-month-downtime', fmtHours(summary.this_month_hours));
+    setText('kpi-event-count', summary.event_count ?? '--');
+    setText('kpi-avg-event', fmtHours(summary.avg_event_hours));
+    setText('kpi-longest-event', fmtHours(summary.longest_event_hours));
+}
+
+function renderTrendChart(trend) {
+    const canvas = ensureCanvas('trendChart');
+    if (!canvas) return;
+    destroyChart('trendChart');
+
+    if (!trend?.labels?.length) {
+        canvas.closest('.chart-container').innerHTML = '<div class="empty-state">No data available</div>';
+        return;
+    }
+
+    chartRefs.trendChart = new Chart(canvas.getContext('2d'), {
         data: {
-            labels: hourLabels,
+            labels: trend.labels,
             datasets: [
                 {
-                    label: 'Systems Running',
-                    data: runningCounts,
-                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
-                    borderColor: '#10b981',
-                    borderWidth: 1,
-                    borderRadius: 3,
-                },
-                {
-                    label: 'Systems in Downtime',
-                    data: downtimeCounts,
+                    type: 'bar',
+                    label: 'Downtime Duration',
+                    data: trend.downtime_hours,
                     backgroundColor: 'rgba(239, 68, 68, 0.65)',
                     borderColor: '#ef4444',
                     borderWidth: 1,
-                    borderRadius: 3,
+                    borderRadius: 4,
+                    yAxisID: 'y',
+                },
+                {
+                    type: 'line',
+                    label: 'Event Count',
+                    data: trend.event_counts,
+                    borderColor: '#3b82f6',
+                    backgroundColor: '#3b82f6',
+                    tension: 0.35,
+                    fill: false,
+                    pointRadius: 3,
+                    yAxisID: 'y1',
                 },
             ],
         },
@@ -286,52 +298,50 @@ function renderTimelineChart(all) {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { position: 'top', labels: { usePointStyle: true } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}`,
-                    },
-                },
             },
             scales: {
                 x: {
-                    stacked: true,
                     grid: { display: false },
-                    ticks: { maxRotation: 45, font: { size: 10 } },
+                    ticks: { font: { size: 10 } },
                 },
                 y: {
-                    stacked: true,
+                    beginAtZero: true,
                     grid: { color: '#f1f5f9' },
-                    ticks: { stepSize: 1, font: { size: 11 } },
-                    title: { display: true, text: 'Equipment Count' },
+                    title: { display: true, text: 'Hours' },
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: { display: false },
+                    title: { display: true, text: 'Events' },
                 },
             },
         },
     });
 }
 
-// ─── RECOVERY CHART ────────────────────────────────────────────────────────
+function renderSimpleBarChart(id, rows, labelKey, valueKey, color) {
+    const canvas = ensureCanvas(id);
+    if (!canvas) return;
+    destroyChart(id);
 
-function renderRecoveryChart(all) {
-    const ctx = document.getElementById('recoveryChart').getContext('2d');
+    if (!rows || !rows.length) {
+        canvas.closest('.chart-container').innerHTML = '<div class="empty-state">No data available</div>';
+        return;
+    }
 
-    const filtered = all.filter(eq => eq.recoveryMins.length > 0);
-    const labels   = filtered.map(eq => eq.equipment.replace('CCTV ', 'C.'));
-    const avgRec   = filtered.map(eq => {
-        const r = eq.recoveryMins;
-        return Math.round(r.reduce((a, b) => a + b, 0) / r.length);
-    });
-    const colors   = avgRec.map(v => v <= 10 ? '#10b981' : v <= 20 ? '#f59e0b' : '#ef4444');
-
-    new Chart(ctx, {
+    chartRefs[id] = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
-            labels,
-            datasets: [{
-                label: 'Avg Recovery Time (min)',
-                data: avgRec,
-                backgroundColor: colors,
-                borderRadius: 4,
-            }],
+            labels: rows.map(row => row[labelKey]),
+            datasets: [
+                {
+                    label: 'Downtime Duration',
+                    data: rows.map(row => row[valueKey]),
+                    backgroundColor: color,
+                    borderRadius: 4,
+                },
+            ],
         },
         options: {
             responsive: true,
@@ -339,70 +349,291 @@ function renderRecoveryChart(all) {
             indexAxis: 'y',
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: { label: ctx => `${ctx.parsed.x} min avg recovery` },
-                },
             },
             scales: {
                 x: {
+                    beginAtZero: true,
                     grid: { color: '#f1f5f9' },
-                    ticks: { font: { size: 10 } },
-                    title: { display: true, text: 'Minutes' },
+                    title: { display: true, text: 'Hours' },
                 },
-                y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } },
+                },
             },
         },
     });
 }
 
-// ─── CLOCK ─────────────────────────────────────────────────────────────────
+function renderSourceChart(rows) {
+    const canvas = ensureCanvas('sourceChart');
+    const note = document.getElementById('source-note');
+    if (!canvas || !note) return;
+    destroyChart('sourceChart');
 
-function startClock() {
-    function tick() {
-        const el = document.getElementById('clock');
-        if (el) el.textContent = new Date().toTimeString().slice(0, 8);
+    const availableRows = (rows || []).filter(row => row.available && row.downtime_hours !== null && row.downtime_hours !== undefined);
+    note.textContent = rows?.find(row => row.label === 'Work Order')?.message || '';
+
+    const totalAvailableHours = availableRows.reduce((sum, row) => sum + Number(row.downtime_hours || 0), 0);
+    if (!availableRows.length || totalAvailableHours <= 0) {
+        canvas.closest('.chart-container').innerHTML = '<div class="empty-state">No source downtime data available</div>';
+        return;
     }
-    tick();
-    setInterval(tick, 1000);
+
+    chartRefs.sourceChart = new Chart(canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: availableRows.map(row => row.label),
+            datasets: [
+                {
+                    data: availableRows.map(row => row.downtime_hours),
+                    backgroundColor: ['#ef4444', '#3b82f6'],
+                    borderWidth: 0,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true } },
+            },
+        },
+    });
 }
 
-// ─── MAIN INIT ─────────────────────────────────────────────────────────────
+function renderAreaBreakdown(rows, workOrderSource) {
+    const container = document.getElementById('area-breakdown');
+    const note = document.getElementById('work-order-note');
+    if (!container || !note) return;
 
-async function init() {
-    startClock();
-
-    // Try to fetch real CCTV log and enrich mock data
-    let all = generateMockDowntimeData();
-
-    try {
-        const res  = await fetch('/api/cctv/log');
-        const text = await res.text();
-        const data = JSON.parse(text.replace(/: NaN/g, ': null'));
-
-        // If real CCTV log has event data, could map it here.
-        // For now mock data is used — real integration left as extension point.
-        void data;
-    } catch {
-        // silently fall back to mock
+    if (!rows || !rows.length) {
+        container.innerHTML = '<div class="empty-state compact">No area breakdown available</div>';
+    } else {
+        container.innerHTML = rows.map(row => `
+            <div class="reliability-item">
+                <span class="rel-name" title="${row.label}">${row.label}</span>
+                <div class="rel-bar-wrap">
+                    <div class="rel-bar-fill" style="width:${Math.min(row.downtime_hours * 12, 100)}%; background:#3b82f6;"></div>
+                </div>
+                <span class="rel-score">${fmtHours(row.downtime_hours)}</span>
+            </div>
+        `).join('');
     }
 
-    populateKPIs(all);
-    checkAlerts(all);
-    renderTable(all);
-    renderReliabilityBars(all);
-    renderTimelineChart(all);
-    renderRecoveryChart(all);
+    note.textContent = workOrderSource?.message || 'Status-derived timing uses imported fault/down tags when available.';
+}
 
-    const ts = document.getElementById('last-updated');
-    if (ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString();
+function populateFilterOptions(filters) {
+    const normalizedSources = [...new Set(getChartEvents().map(event => event.source).filter(Boolean))];
+    const map = [
+        { id: 'system-filter', values: filters.systems, defaultLabel: 'All Systems' },
+        { id: 'area-filter', values: filters.areas, defaultLabel: 'All Areas' },
+        { id: 'source-filter', values: normalizedSources.length ? normalizedSources : (filters.sources || []).filter(value => value !== EXCLUDED_SOURCE_LABEL), defaultLabel: 'All Sources' },
+    ];
+
+    map.forEach(({ id, values, defaultLabel }) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const currentValue = select.value;
+        select.innerHTML = `<option value="">${defaultLabel}</option>${(values || []).map(value => `<option value="${value}">${value}</option>`).join('')}`;
+        if ([...select.options].some(option => option.value === currentValue)) {
+            select.value = currentValue;
+        }
+    });
+}
+
+function populateMonthOptions(months, selectedValue) {
+    const select = document.getElementById('month-select');
+    if (!select) return;
+    const availableMonths = months || [];
+    const currentValue = selectedValue || select.value || availableMonths[0]?.value || '';
+    select.innerHTML = availableMonths.map(month => `<option value="${month.value}">${month.label}</option>`).join('');
+    if ([...select.options].some(option => option.value === currentValue)) {
+        select.value = currentValue;
+    } else if (select.options.length) {
+        select.value = select.options[0].value;
+    }
+}
+
+function toggleMonthFilter(periodValue) {
+    const wrap = document.getElementById('month-filter-wrap');
+    if (!wrap) return;
+    wrap.style.display = periodValue === 'mtd' ? 'flex' : 'none';
+}
+
+function buildMonthOptionsFromDataYear(referenceEndValue) {
+    const referenceEnd = referenceEndValue ? new Date(referenceEndValue) : new Date();
+    if (Number.isNaN(referenceEnd.getTime())) return [];
+    const year = referenceEnd.getFullYear();
+    const currentMonth = referenceEnd.getMonth() + 1;
+    const values = [];
+    for (let month = currentMonth; month >= 1; month -= 1) {
+        values.push(`${year}-${String(month).padStart(2, '0')}`);
+    }
+
+    return values.map((value) => {
+        const dt = new Date(`${value}-01T00:00:00`);
+        return {
+            value,
+            label: dt.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+        };
+    });
+}
+
+function getFilteredEvents() {
+    const events = getChartEvents();
+    const systemValue = document.getElementById('system-filter')?.value || '';
+    const areaValue = document.getElementById('area-filter')?.value || '';
+    const sourceValue = document.getElementById('source-filter')?.value || '';
+    const searchValue = (document.getElementById('search-filter')?.value || '').trim().toLowerCase();
+
+    return events.filter(event => {
+        if (systemValue && event.system !== systemValue) return false;
+        if (areaValue && event.area !== areaValue) return false;
+        if (sourceValue && event.source !== sourceValue) return false;
+        if (searchValue) {
+            const haystack = `${event.machine_code} ${event.machine_name}`.toLowerCase();
+            if (!haystack.includes(searchValue)) return false;
+        }
+        return true;
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('downtime-tbody');
+    if (!tbody) return;
+
+    const rows = getFilteredEvents();
+    if (!rows.length) {
+        const message = 'No status-derived or work-order downtime events match the current filters.';
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${message}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(event => {
+        const rowClass = event.is_critical ? 'critical-row' : '';
+        return `
+            <tr class="${rowClass}">
+                <td>${event.system || '--'}</td>
+                <td>${event.machine_name || '--'}</td>
+                <td>${event.area || '--'}</td>
+                <td>${fmtDateTime(event.start_time)}</td>
+                <td>${fmtDateTime(event.end_time)}</td>
+                <td>${fmtHours(event.duration_hours)}</td>
+                <td>${event.source || '--'}</td>
+                <td><span class="status-pill ${event.source === 'Work Order' ? 'warning' : 'offline'}">${event.detection_type || '--'}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function wireFilters() {
+    ['system-filter', 'area-filter', 'source-filter', 'search-filter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.bound === 'true') return;
+        el.addEventListener(id === 'search-filter' ? 'input' : 'change', renderTable);
+        el.dataset.bound = 'true';
+    });
+
+    const periodSelect = document.getElementById('period-select');
+    if (periodSelect && periodSelect.dataset.bound !== 'true') {
+        periodSelect.addEventListener('change', () => {
+            toggleMonthFilter(periodSelect.value);
+            const monthValue = periodSelect.value === 'mtd' ? (document.getElementById('month-select')?.value || '') : '';
+            loadDowntimeData(periodSelect.value, monthValue);
+        });
+        periodSelect.dataset.bound = 'true';
+    }
+
+    const monthSelect = document.getElementById('month-select');
+    if (monthSelect && monthSelect.dataset.bound !== 'true') {
+        monthSelect.addEventListener('change', () => loadDowntimeData(document.getElementById('period-select')?.value || 'ytd', monthSelect.value));
+        monthSelect.dataset.bound = 'true';
+    }
+}
+
+async function loadDowntimeData(period = 'ytd', month = '') {
+    renderAlertBanner([]);
+    setText('last-synced', 'Loading downtime data...');
+    const requestedMonth = month || '';
+    toggleMonthFilter(period);
+
+    await loadDowntimeCacheFile();
+
+    const cachedPayload = getCachedDowntimePayload(period, requestedMonth);
+    if (cachedPayload) {
+        downtimePayload = cachedPayload;
+    } else {
+        const query = new URLSearchParams({
+            period,
+            _: String(Date.now()),
+        });
+        if (period === 'mtd' && month) query.set('month', month);
+
+        const response = await fetch(`/api/downtime?${query.toString()}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) throw new Error(`Downtime API failed: ${response.status}`);
+        downtimePayload = await response.json();
+    }
+
+    const meta = downtimePayload.meta || {};
+    const monthOptions = (downtimePayload.months && downtimePayload.months.length)
+        ? downtimePayload.months
+        : buildMonthOptionsFromDataYear(meta.reference_end || meta.last_synced);
+    const fallbackMonth = monthOptions[0]?.value || '';
+    const effectiveMonth = meta.month || requestedMonth || fallbackMonth;
+
+    if (period === 'mtd' && !requestedMonth && fallbackMonth) {
+        populateMonthOptions(monthOptions, fallbackMonth);
+        await loadDowntimeData(period, fallbackMonth);
+        return;
+    }
+
+    const selectedMonthOption = monthOptions.find(option => option.value === effectiveMonth);
+    const periodLabel = selectedMonthOption?.label || (meta.period_label || 'Selected period');
+    setText('last-synced', meta.last_synced ? `Last synced ${fmtDateTime(meta.last_synced)}` : 'Last synced unavailable');
+
+    const chartEvents = getChartEvents();
+    const summary = buildSummaryFromEvents(chartEvents);
+    const trend = buildTrendFromEvents(chartEvents);
+    const systemBreakdown = buildGroupedRows(chartEvents, 'system');
+    const sourceBreakdown = buildSourceRows(chartEvents).filter(row => row.label !== EXCLUDED_SOURCE_LABEL);
+    const assetBreakdown = buildAssetRows(chartEvents);
+    const areaBreakdown = buildGroupedRows(chartEvents, 'area');
+    const filters = {
+        systems: [...new Set(chartEvents.map(event => event.system).filter(Boolean))].sort(),
+        areas: [...new Set(chartEvents.map(event => event.area).filter(Boolean))].sort(),
+        sources: [...new Set(chartEvents.map(event => event.source).filter(Boolean))].sort(),
+    };
+
+    renderAlertBanner(downtimePayload.alerts || []);
+    renderKPIs(summary || {});
+    setText('kpi-downtime-sub', periodLabel);
+    renderTrendChart(trend || {});
+    renderSimpleBarChart('systemChart', systemBreakdown || [], 'label', 'downtime_hours', 'rgba(59, 130, 246, 0.75)');
+    renderSourceChart(sourceBreakdown || []);
+    renderSimpleBarChart('assetChart', assetBreakdown || [], 'machine_name', 'downtime_hours', 'rgba(245, 158, 11, 0.75)');
+    renderAreaBreakdown(areaBreakdown || [], downtimePayload.work_order_source || {});
+    populateFilterOptions(filters);
+    populateMonthOptions(monthOptions, effectiveMonth);
+    renderTable();
+}
+
+async function init() {
+    wireFilters();
+    const period = document.getElementById('period-select')?.value || 'ytd';
+    toggleMonthFilter(period);
+    const month = period === 'mtd' ? (document.getElementById('month-select')?.value || '') : '';
+    try {
+        await loadDowntimeData(period, month);
+    } catch (error) {
+        console.error('Downtime page load error:', error);
+        setText('last-synced', 'Unable to load downtime data');
+        renderAlertBanner([{ level: 'critical', message: 'Downtime data could not be loaded from the current imported sources.' }]);
+        renderKPIs({});
+    }
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
-// Refresh every 2 minutes
-setInterval(() => {
-    alertMessages.length = 0;
-    document.getElementById('downtime-tbody').innerHTML = '';
-    document.getElementById('reliability-list').innerHTML = '';
-    init();
-}, 2 * 60 * 1000);

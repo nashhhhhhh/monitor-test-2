@@ -318,12 +318,15 @@ function render() {
                 </div>
             </div>`;
         }).join('');
+
+    updateOfflineDurationLabels();
 }
 
 function renderCamCard(dev) {
     const online  = dev.status.toLowerCase() === 'online';
     const area    = dev.area    && dev.area    !== 'nan' ? escapeHTML(dev.area)    : null;
     const address = dev.address && dev.address !== 'nan' ? escapeHTML(dev.address) : null;
+    const offlineDuration = formatOfflineDuration(dev.offlineDuration);
     return `
         <div class="cam-card ${online ? '' : 'offline-card'}">
             <div class="cam-header">
@@ -342,6 +345,40 @@ function renderCamCard(dev) {
 // ── Helpers ───────────────────────────────────────────────────────
 function toggleSection(key) {
     document.getElementById(`section-${key}`)?.classList.toggle('collapsed');
+}
+
+function updateOfflineDurationLabels() {
+    document.querySelectorAll('.cam-card .cam-meta').forEach((node) => {
+        const text = node.textContent.trim();
+        if (!text.startsWith('Duration:')) return;
+
+        const rawDuration = text.slice('Duration:'.length).trim();
+        node.textContent = `Offline duration: ${formatOfflineDuration(rawDuration)}`;
+    });
+}
+
+function formatOfflineDuration(rawValue) {
+    if (!rawValue || rawValue === 'nan' || rawValue === '—' || rawValue === 'â€”') return '—';
+
+    const text = String(rawValue).trim();
+    const match = text.match(/^(\d+):(\d{2}):(\d{2})$/);
+    if (!match) return text;
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const seconds = Number(match[3]);
+
+    if (hours < 24) return text;
+
+    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+    const days = Math.floor(totalSeconds / 86400);
+    const remainingHours = Math.floor((totalSeconds % 86400) / 3600);
+
+    if (remainingHours > 0) {
+        return `${days} day${days === 1 ? '' : 's'} ${remainingHours} hr`;
+    }
+
+    return `${days} day${days === 1 ? '' : 's'}`;
 }
 
 function escapeHTML(str) {

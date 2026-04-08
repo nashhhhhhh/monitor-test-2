@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MDB Power Projection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDB / Power Projection</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,85 +11,72 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body data-sync-page="projection_mdb" data-projection-page="mdb">
     <div id="navbar"></div>
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
-        .then(r => r.ok ? r.text() : Promise.reject())
-        .then(h => document.getElementById('navbar').innerHTML = h)
-        .catch(() => {});
+            .then(r => r.ok ? r.text() : Promise.reject())
+            .then(h => document.getElementById('navbar').innerHTML = h)
+            .catch(() => {});
     </script>
 
     <main class="dashboard-content">
-
         <nav class="breadcrumb">
             <a href="/Projection/index.html">Projection Overview</a>
-            <span class="breadcrumb-sep">›</span>
-            <span>MDB / Power Distribution</span>
+            <span class="breadcrumb-sep">&gt;</span>
+            <span>MDB / Power</span>
         </nav>
 
         <header class="dash-header">
-            <div>
-                <h2>⚡ MDB Power Projection</h2>
-                <p class="text-muted">Predicted load curve, peak timing and overload risk assessment</p>
+            <div class="header-intro">
+                <h2 id="projection-page-title">MDB / Power Projection</h2>
+                <p class="text-muted" id="projection-page-subtitle">Projected maintenance workload, electrical backlog, and risk-weighted outlook for MDB and power assets.</p>
+                <article class="projection-summary-card">
+                    <span class="section-heading">Projection Window</span>
+                    <strong class="projection-window-value" id="projection-window-label">Loading...</strong>
+                    <span class="projection-window-subtext" id="projection-window-subtext">Projection updates dynamically from the current imported dashboard records.</span>
+                </article>
             </div>
-            <div class="header-right">
-                <span class="refresh-badge" id="last-updated">Calculating…</span>
-                <div id="clock" class="clock-display">--:--:--</div>
+            <div class="header-tools">
+                <label class="projection-filter">
+                    <span class="section-heading">Forecast Period</span>
+                    <select id="projection-period" class="projection-select">
+                        <option value="next_week">Next Week</option>
+                        <option value="next_month" selected>Next Month</option>
+                        <option value="quarter">Quarter</option>
+                    </select>
+                </label>
+                <div class="sync-card" data-sync-card="true">
+                    <span class="sync-label">Last Synced</span>
+                    <strong class="sync-value" data-sync-date>--</strong>
+                    <span class="sync-subvalue" data-sync-time>--</span>
+                </div>
             </div>
         </header>
 
-        <div id="alert-banner" class="alert-banner hidden">
-            <div class="alert-banner-title">⚠ Power Alerts</div>
-            <div id="alert-list" class="alert-inner"></div>
-        </div>
-
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-purple">
-                <div class="kpi-label">Predicted Load (1 hr)</div>
-                <div class="kpi-value" id="kpi-load-1h">--</div>
-                <div class="kpi-trend">kWh — next hour</div>
-            </div>
-            <div class="kpi-card highlight-purple">
-                <div class="kpi-label">Predicted Load (24 hr)</div>
-                <div class="kpi-value" id="kpi-load-24h">--</div>
-                <div class="kpi-trend">kWh — daily forecast</div>
-            </div>
-            <div class="kpi-card highlight-amber">
-                <div class="kpi-label">Predicted Peak Time</div>
-                <div class="kpi-value mini" id="kpi-peak-time">--:--</div>
-                <div class="kpi-trend">Highest load period</div>
-            </div>
-            <div class="kpi-card highlight-red" id="kpi-risk-card">
-                <div class="kpi-label">Overload Risk</div>
-                <div class="kpi-value mini" id="kpi-overload-risk">--</div>
-                <div class="kpi-trend" id="kpi-risk-sub">vs 300,000 kWh threshold</div>
-            </div>
-            <div class="kpi-card highlight-green">
-                <div class="kpi-label">Forecast Confidence</div>
-                <div class="kpi-value" id="kpi-confidence">--%</div>
-                <div class="kpi-trend">R² score</div>
+        <section class="forecast-section">
+            <div class="section-heading">KPI Cards</div>
+            <div class="kpi-grid" id="projection-kpis">
+                <div class="empty-state projection-empty-block">Loading projection KPI data...</div>
             </div>
         </section>
 
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card card-wide">
-                <div class="card-title">Load vs Time — Historical &amp; Predicted (kWh)</div>
-                <div class="chart-container" style="height: 360px;">
-                    <canvas id="loadChart"></canvas>
-                </div>
+        <section class="forecast-section">
+            <div class="section-heading">Trend Charts</div>
+            <div class="chart-grid" id="projection-charts">
+                <div class="empty-state projection-empty-block">Loading projection charts...</div>
             </div>
         </section>
 
-        <div class="recommendation-box">
-            <div class="rec-title">💡 Load Management Recommendations</div>
-            <div id="rec-items"></div>
-        </div>
-
+        <section class="forecast-section">
+            <div class="section-heading">Breakdown</div>
+            <div class="breakdown-grid" id="projection-breakdowns">
+                <div class="empty-state projection-empty-block">Loading projection breakdowns...</div>
+            </div>
+        </section>
     </main>
 
-    <script src="/Projection/prediction-core.js"></script>
-    <script src="mdb-script.js"></script>
+    <script src="projection-page.js?v=20260408d"></script>
 </body>
 </html>

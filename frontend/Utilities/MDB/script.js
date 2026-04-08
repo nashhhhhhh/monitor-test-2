@@ -1,14 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
     const charts = {};
-    const lightingUtils = window.lightingMonitoringUtils;
-    const fallbackLightingDataset = window.lightingMonitoringMockData;
-    let lightingSummary = lightingUtils && fallbackLightingDataset
-        ? lightingUtils.summarizePortfolio(fallbackLightingDataset)
-        : null;
 
+    const distributionPicker = document.getElementById("distribution-date-picker");
+    const distributionTimePicker = document.getElementById("distribution-time-picker");
     const emdbPicker = document.getElementById("emdb-date-picker");
     const genPicker = document.getElementById("gen-date-picker");
 
+    if (distributionPicker) distributionPicker.valueAsDate = new Date();
+    if (distributionTimePicker) distributionTimePicker.value = "23:45";
     if (emdbPicker) emdbPicker.valueAsDate = new Date();
     if (genPicker) genPicker.valueAsDate = new Date();
 
@@ -41,52 +40,74 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    async function loadLightingData() {
-        if (!lightingUtils || !fallbackLightingDataset) return;
+    function renderDistributionChart(distributionMap, selectedDate, selectedTime) {
+        const mdbKeys = ["mdb_6", "mdb_7", "mdb_8", "mdb_9", "mdb_10"];
+        const distributionData = mdbKeys.map((key) => distributionMap[key] || 0);
+        const chartMoment = [selectedDate, selectedTime].filter(Boolean).join(" ");
+        const chartLabel = chartMoment
+            ? `Energy (kWh) at ${chartMoment}`
+            : "Energy (kWh)";
 
-        try {
-            const response = await fetch("/api/lighting");
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            if (Array.isArray(data?.fixtures) && data.fixtures.length) {
-                lightingSummary = lightingUtils.summarizePortfolio(data);
-            }
-        } catch (error) {
-            console.warn("Lighting API unavailable, keeping fallback lighting dataset on MDB.", error);
-        }
+        renderChart("distributionChart", "bar", {
+            labels: ["MDB-6", "MDB-7", "MDB-8", "MDB-9", "MDB-10"],
+            datasets: [{
+                label: chartLabel,
+                data: distributionData,
+                backgroundColor: "#3b82f6",
+                borderRadius: 6
+            }]
+        });
+    }
 
-        renderLightingEnergyModule();
+    function renderSummaryDistribution(energy) {
+        renderDistributionChart({
+            mdb_6: energy.mdb_6?.latest || 0,
+            mdb_7: energy.mdb_7?.latest || 0,
+            mdb_8: energy.mdb_8?.latest || 0,
+            mdb_9: energy.mdb_9?.latest || 0,
+            mdb_10: energy.mdb_10?.latest || 0
+        });
     }
 
     async function loadMDBData() {
         try {
-            const response = await fetch("/api/mdb");
+            const response = await fetch("/api/mdb/summary");
             const data = await response.json();
 
             updateKPIs(data);
             updateGenTable(data.generators);
+            updateSyncStamp(data.meta?.last_synced);
+            renderSummaryDistribution(data.energy);
 
-            const mdbKeys = ["mdb_6", "mdb_7", "mdb_8", "mdb_9", "mdb_10"];
-            const distributionData = mdbKeys.map((key) => {
-                const list = data.energy[key];
-                return list.length > 0 ? list[list.length - 1].kwh : 0;
+            requestAnimationFrame(() => {
+                setTimeout(() => fetchDistributionHistory(distributionPicker?.value, distributionTimePicker?.value), 0);
+                setTimeout(() => fetchEMDBHistory(emdbPicker.value), 40);
+                setTimeout(() => fetchGenHistory(genPicker.value), 80);
             });
-
-            renderChart("distributionChart", "bar", {
-                labels: ["MDB-6", "MDB-7", "MDB-8", "MDB-9", "MDB-10"],
-                datasets: [{
-                    label: "Energy (kWh)",
-                    data: distributionData,
-                    backgroundColor: "#3b82f6",
-                    borderRadius: 6
-                }]
-            });
-
-            fetchEMDBHistory(emdbPicker.value);
-            fetchGenHistory(genPicker.value);
         } catch (err) {
             console.error("MDB real-time load error:", err);
         }
+    }
+
+    function updateSyncStamp(lastSynced) {
+        const syncedAt = lastSynced ? new Date(lastSynced) : null;
+        if (!syncedAt || Number.isNaN(syncedAt.getTime())) return;
+
+        const dateLabel = syncedAt.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+        });
+        const timeLabel = syncedAt.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+
+        const dateNode = document.getElementById("mdb-last-synced-date");
+        const timeNode = document.getElementById("mdb-last-synced-time");
+        if (dateNode) dateNode.textContent = dateLabel;
+        if (timeNode) timeNode.textContent = timeLabel;
     }
 
     async function fetchEMDBHistory(date) {
@@ -112,6 +133,32 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    async function fetchDistributionHistory(date, time) {
+        try {
+            const params = new URLSearchParams({ category: "distribution" });
+            if (date) params.set("date", date);
+            if (time) params.set("time", time);
+
+            const res = await fetch(`/api/mdb/history?${params.toString()}`);
+            const data = await res.json();
+
+            if (distributionPicker && data.selected_date) {
+                distributionPicker.value = data.selected_date;
+            }
+            if (distributionTimePicker && data.selected_time) {
+                distributionTimePicker.value = data.selected_time;
+            }
+
+            renderDistributionChart(
+                data.distribution || {},
+                data.selected_date,
+                data.selected_time
+            );
+        } catch (err) {
+            console.error("MDB Distribution History Error:", err);
+        }
+    }
+
     async function fetchGenHistory(date) {
         try {
             const res = await fetch(`/api/mdb/history?category=gens&date=${date}`);
@@ -133,85 +180,25 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function renderLightingEnergyModule() {
-        if (!lightingSummary) return;
-
-        const totalLightingKwh = lightingSummary.totals.totalEnergyConsumption;
-        const topArea = lightingSummary.highestConsumingRoom;
-
-        document.getElementById("kpi-lighting-energy").textContent = `${totalLightingKwh.toLocaleString()} kWh`;
-        document.getElementById("lighting-energy-room").textContent = topArea
-            ? `Highest lighting area: ${topArea.roomName} (${topArea.totalEnergyConsumption} kWh)`
-            : "No area breakdown available";
-
-        document.getElementById("lighting-energy-breakdown").innerHTML = lightingSummary.areas
-            .slice(0, 10)
-            .map((area) => `
-                <div class="lighting-breakdown-item">
-                    <span class="lighting-breakdown-room">${area.areaName}</span>
-                    <span class="lighting-breakdown-kwh">${area.totalNotionalEnergy} kWh</span>
-                </div>
-            `)
-            .join("");
-
-        document.getElementById("lighting-circuit-breakdown").innerHTML = lightingSummary.circuits
-            .slice(0, 10)
-            .map((circuit) => `
-                <div class="lighting-breakdown-item">
-                    <span class="lighting-breakdown-room">${circuit.circuitName}</span>
-                    <span class="lighting-breakdown-kwh">${circuit.totalNotionalEnergy} kWh</span>
-                </div>
-            `)
-            .join("");
-
-        renderChart("lightingAreaEnergyChart", "bar", {
-            labels: lightingSummary.areas.slice(0, 8).map((area) => area.areaName),
-            datasets: [{
-                label: "Lighting Energy (kWh)",
-                data: lightingSummary.areas.slice(0, 8).map((area) => area.totalNotionalEnergy),
-                backgroundColor: "#2563eb",
-                borderRadius: 8
-            }]
-        }, {
-            indexAxis: "y",
-            scales: {
-                x: { beginAtZero: true, grid: { color: "rgba(148, 163, 184, 0.12)" } },
-                y: { grid: { display: false } }
-            }
-        });
-
-        const totalMdb = Number(String(document.getElementById("kpi-total-mdb")?.textContent || "0").replace(/,/g, ""));
-        const share = totalMdb > 0
-            ? ((lightingSummary.totals.totalEnergyConsumption / totalMdb) * 100).toFixed(1)
-            : "0.0";
-        document.getElementById("lighting-energy-share").textContent = `${share}% of current monitored MDB load attributed to lighting`;
-    }
-
     function updateKPIs(data) {
-        const emdbVal = data.energy.emdb_1.slice(-1)[0]?.kwh || 0;
+        const emdbVal = data.energy.emdb_1?.latest || 0;
         document.getElementById("kpi-emdb").textContent = emdbVal.toLocaleString();
 
         let totalMdb = 0;
         ["mdb_6", "mdb_7", "mdb_8", "mdb_9", "mdb_10"].forEach((key) => {
-            totalMdb += data.energy[key].slice(-1)[0]?.kwh || 0;
+            totalMdb += data.energy[key]?.latest || 0;
         });
         document.getElementById("kpi-total-mdb").textContent = totalMdb.toLocaleString();
 
         let activeGens = 0;
         [1, 2, 3, 4].forEach((n) => {
-            const list = data.generators[`gen_${n}`];
-            if (list.length >= 2 && list[list.length - 1].runtime > list[list.length - 2].runtime) {
+            const generator = data.generators[`gen_${n}`];
+            if ((generator?.latest || 0) > (generator?.previous || 0) && (generator?.previous || 0) !== 0) {
                 activeGens++;
             }
         });
         document.getElementById("kpi-gen-status").textContent = `${activeGens} / 4`;
 
-        if (lightingSummary) {
-            const share = totalMdb > 0
-                ? ((lightingSummary.totals.totalEnergyConsumption / totalMdb) * 100).toFixed(1)
-                : "0.0";
-            document.getElementById("lighting-energy-share").textContent = `${share}% of current monitored MDB load attributed to lighting`;
-        }
     }
 
     function updateGenTable(gens) {
@@ -221,8 +208,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         [1, 2, 3, 4].forEach((n) => {
             const key = `gen_${n}`;
-            const latest = gens[key].slice(-1)[0]?.runtime || 0;
-            const prev = gens[key].slice(-2)[0]?.runtime || 0;
+            const latest = gens[key]?.latest || 0;
+            const prev = gens[key]?.previous || 0;
             const isRunning = latest > prev && prev !== 0;
 
             const tr = document.createElement("tr");
@@ -238,11 +225,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (emdbPicker) {
         emdbPicker.addEventListener("change", (event) => fetchEMDBHistory(event.target.value));
     }
+    if (distributionPicker) {
+        distributionPicker.addEventListener("change", (event) => fetchDistributionHistory(event.target.value, distributionTimePicker?.value));
+    }
+    if (distributionTimePicker) {
+        distributionTimePicker.addEventListener("change", (event) => fetchDistributionHistory(distributionPicker?.value, event.target.value));
+    }
     if (genPicker) {
         genPicker.addEventListener("change", (event) => fetchGenHistory(event.target.value));
     }
 
-    loadLightingData();
     loadMDBData();
     setInterval(loadMDBData, 60000);
 });

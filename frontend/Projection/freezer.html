@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Freezer Projection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spiral Blast Freezer Projection</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,180 +11,72 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body data-sync-page="projection_freezer" data-projection-page="freezer">
     <div id="navbar"></div>
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
-        .then(r => r.ok ? r.text() : Promise.reject())
-        .then(h => document.getElementById('navbar').innerHTML = h)
-        .catch(() => {});
+            .then(r => r.ok ? r.text() : Promise.reject())
+            .then(h => document.getElementById('navbar').innerHTML = h)
+            .catch(() => {});
     </script>
 
     <main class="dashboard-content">
-
         <nav class="breadcrumb">
             <a href="/Projection/index.html">Projection Overview</a>
-            <span class="breadcrumb-sep">›</span>
-            <span>Spiral Blast Freezer</span>
+            <span class="breadcrumb-sep">&gt;</span>
+            <span>Freezer</span>
         </nav>
 
         <header class="dash-header">
-            <div>
-                <h2>❄️ Spiral Blast Freezer Projection</h2>
-                <p class="text-muted">Per-unit temperature monitoring, forecasting and batch analysis</p>
+            <div class="header-intro">
+                <h2 id="projection-page-title">Spiral Blast Freezer Projection</h2>
+                <p class="text-muted" id="projection-page-subtitle">Projected maintenance demand and downtime exposure for freezer and refrigeration-related systems.</p>
+                <article class="projection-summary-card">
+                    <span class="section-heading">Projection Window</span>
+                    <strong class="projection-window-value" id="projection-window-label">Loading...</strong>
+                    <span class="projection-window-subtext" id="projection-window-subtext">Projection updates dynamically from the current imported dashboard records.</span>
+                </article>
             </div>
-            <div class="header-right">
-                <span class="refresh-badge" id="last-updated">Loading…</span>
-                <div id="clock" class="clock-display">--:--:--</div>
+            <div class="header-tools">
+                <label class="projection-filter">
+                    <span class="section-heading">Forecast Period</span>
+                    <select id="projection-period" class="projection-select">
+                        <option value="next_week">Next Week</option>
+                        <option value="next_month" selected>Next Month</option>
+                        <option value="quarter">Quarter</option>
+                    </select>
+                </label>
+                <div class="sync-card" data-sync-card="true">
+                    <span class="sync-label">Last Synced</span>
+                    <strong class="sync-value" data-sync-date>--</strong>
+                    <span class="sync-subvalue" data-sync-time>--</span>
+                </div>
             </div>
         </header>
 
-        <!-- Alert Banner -->
-        <div id="alert-banner" class="alert-banner hidden">
-            <div class="alert-banner-title">⚠ Freezer Temperature Alerts</div>
-            <div id="alert-list" class="alert-inner"></div>
-        </div>
-
-        <!-- Top KPI Strip -->
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-cyan">
-                <div class="kpi-label">Active Freezers</div>
-                <div class="kpi-value" id="kpi-active">--</div>
-                <div class="kpi-trend">of 3 units running</div>
-            </div>
-            <div class="kpi-card" id="kpi-temp-card">
-                <div class="kpi-label">Coldest Reading</div>
-                <div class="kpi-value" id="kpi-coldest">--</div>
-                <div class="kpi-trend" id="kpi-coldest-sub">Lowest TEF across all units</div>
-            </div>
-            <div class="kpi-card" id="kpi-warm-card">
-                <div class="kpi-label">Warmest Reading</div>
-                <div class="kpi-value" id="kpi-warmest">--</div>
-                <div class="kpi-trend" id="kpi-warmest-sub">Highest TEF (threshold: −18°C)</div>
-            </div>
-            <div class="kpi-card highlight-blue">
-                <div class="kpi-label">Predicted Energy (24 hr)</div>
-                <div class="kpi-value" id="kpi-energy-24h">--</div>
-                <div class="kpi-trend">kWh — all 3 units combined</div>
-            </div>
-            <div class="kpi-card highlight-amber">
-                <div class="kpi-label">Forecast Confidence</div>
-                <div class="kpi-value" id="kpi-confidence">--%</div>
-                <div class="kpi-trend">R² score</div>
+        <section class="forecast-section">
+            <div class="section-heading">KPI Cards</div>
+            <div class="kpi-grid" id="projection-kpis">
+                <div class="empty-state projection-empty-block">Loading projection KPI data...</div>
             </div>
         </section>
 
-        <!-- Per-Unit Cards -->
-        <h3 class="section-title">Unit Status &amp; Forecast</h3>
-        <section class="freezer-unit-grid">
-            <!-- Spiral 01 -->
-            <div class="freezer-unit-card" id="unit-card-01">
-                <div class="unit-card-header">
-                    <div class="unit-title">
-                        <span class="unit-icon">❄</span>
-                        <span class="unit-name">Spiral 01</span>
-                    </div>
-                    <span class="sys-status-pill" id="unit-status-01">--</span>
-                </div>
-                <div class="unit-temps">
-                    <div class="unit-temp-block">
-                        <div class="unit-temp-label">Top (TEF01)</div>
-                        <div class="unit-temp-value" id="unit-tef01-01">--°C</div>
-                    </div>
-                    <div class="unit-temp-block">
-                        <div class="unit-temp-label">Bottom (TEF02)</div>
-                        <div class="unit-temp-value" id="unit-tef02-01">--°C</div>
-                    </div>
-                </div>
-                <div class="unit-metrics">
-                    <div class="unit-metric-row"><span>Pressure (PT01)</span><span id="unit-pt01-01">-- kg/cm²</span></div>
-                    <div class="unit-metric-row"><span>Runtime</span><span id="unit-runtime-01">-- hrs</span></div>
-                    <div class="unit-metric-row"><span>Predicted Energy (1 hr)</span><span id="unit-pred-energy-01">-- kWh</span></div>
-                    <div class="unit-metric-row"><span>Temp Trend</span><span id="unit-temp-trend-01">--</span></div>
-                </div>
-                <div class="mini-chart-container"><canvas id="chart-unit-01"></canvas></div>
-            </div>
-
-            <!-- Spiral 02 -->
-            <div class="freezer-unit-card" id="unit-card-02">
-                <div class="unit-card-header">
-                    <div class="unit-title">
-                        <span class="unit-icon">❄</span>
-                        <span class="unit-name">Spiral 02</span>
-                    </div>
-                    <span class="sys-status-pill" id="unit-status-02">--</span>
-                </div>
-                <div class="unit-temps">
-                    <div class="unit-temp-block">
-                        <div class="unit-temp-label">Top (TEF01)</div>
-                        <div class="unit-temp-value" id="unit-tef01-02">--°C</div>
-                    </div>
-                    <div class="unit-temp-block">
-                        <div class="unit-temp-label">Bottom (TEF02)</div>
-                        <div class="unit-temp-value" id="unit-tef02-02">--°C</div>
-                    </div>
-                </div>
-                <div class="unit-metrics">
-                    <div class="unit-metric-row"><span>Pressure (PT01)</span><span id="unit-pt01-02">-- kg/cm²</span></div>
-                    <div class="unit-metric-row"><span>Runtime</span><span id="unit-runtime-02">-- hrs</span></div>
-                    <div class="unit-metric-row"><span>Predicted Energy (1 hr)</span><span id="unit-pred-energy-02">-- kWh</span></div>
-                    <div class="unit-metric-row"><span>Temp Trend</span><span id="unit-temp-trend-02">--</span></div>
-                </div>
-                <div class="mini-chart-container"><canvas id="chart-unit-02"></canvas></div>
-            </div>
-
-            <!-- Spiral 03 -->
-            <div class="freezer-unit-card" id="unit-card-03">
-                <div class="unit-card-header">
-                    <div class="unit-title">
-                        <span class="unit-icon">❄</span>
-                        <span class="unit-name">Spiral 03</span>
-                    </div>
-                    <span class="sys-status-pill" id="unit-status-03">--</span>
-                </div>
-                <div class="unit-temps">
-                    <div class="unit-temp-block">
-                        <div class="unit-temp-label">Top (TEF01)</div>
-                        <div class="unit-temp-value" id="unit-tef01-03">--°C</div>
-                    </div>
-                    <div class="unit-temp-block">
-                        <div class="unit-temp-label">Bottom (TEF02)</div>
-                        <div class="unit-temp-value" id="unit-tef02-03">--°C</div>
-                    </div>
-                </div>
-                <div class="unit-metrics">
-                    <div class="unit-metric-row"><span>Pressure (PT01)</span><span id="unit-pt01-03">-- kg/cm²</span></div>
-                    <div class="unit-metric-row"><span>Runtime</span><span id="unit-runtime-03">-- hrs</span></div>
-                    <div class="unit-metric-row"><span>Predicted Energy (1 hr)</span><span id="unit-pred-energy-03">-- kWh</span></div>
-                    <div class="unit-metric-row"><span>Temp Trend</span><span id="unit-temp-trend-03">--</span></div>
-                </div>
-                <div class="mini-chart-container"><canvas id="chart-unit-03"></canvas></div>
+        <section class="forecast-section">
+            <div class="section-heading">Trend Charts</div>
+            <div class="chart-grid" id="projection-charts">
+                <div class="empty-state projection-empty-block">Loading projection charts...</div>
             </div>
         </section>
 
-        <!-- Combined Temperature Forecast Chart -->
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card card-wide">
-                <div class="card-title">Temperature Forecast — All 3 Units (°C)</div>
-                <div class="threshold-legend">
-                    <span class="threshold-badge">— — Threshold: −18°C</span>
-                </div>
-                <div class="chart-container" style="height: 360px;">
-                    <canvas id="combinedTempChart"></canvas>
-                </div>
+        <section class="forecast-section">
+            <div class="section-heading">Breakdown</div>
+            <div class="breakdown-grid" id="projection-breakdowns">
+                <div class="empty-state projection-empty-block">Loading projection breakdowns...</div>
             </div>
         </section>
-
-        <!-- Recommendation Box -->
-        <div class="recommendation-box" id="rec-box">
-            <div class="rec-title">💡 Operational Recommendations</div>
-            <div id="rec-items"></div>
-        </div>
-
     </main>
 
-    <script src="/Projection/prediction-core.js"></script>
-    <script src="freezer-script.js"></script>
+    <script src="projection-page.js?v=20260408d"></script>
 </body>
 </html>

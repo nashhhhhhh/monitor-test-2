@@ -32,6 +32,17 @@
     </button>
 
     <div class="nav-item">
+        <button class="nav-btn" data-nav="maintenance" onclick="location.href='/Maintenance/index.html'">Maintenance ▾</button>
+        <div class="dropdown-menu">
+            <a href="/Maintenance/index.html">Overview</a>
+            <a href="/Maintenance/index.html?view=utility">Utility</a>
+            <a href="/Maintenance/index.html?view=equipment">Equipment</a>
+            <a href="/Maintenance/index.html?view=non_scheduled">Non-Scheduled</a>
+            <a href="/Downtime/index.html">Downtime</a>
+        </div>
+    </div>
+
+    <div class="nav-item">
         <button class="nav-btn">Utilities ▾</button>
         <div class="dropdown-menu">
             <a href="/Utilities/Air Compressor/index.html">Air Compressor</a>
@@ -50,16 +61,6 @@
     </div>
 
     <div class="nav-item">
-        <button class="nav-btn">Kitchen Equipment ▾</button>
-        <div class="dropdown-menu">
-            <a href="/Kitchen Equipment/Hobart/index.html">Hobart</a>
-            <a href="/Kitchen Equipment/Steambox/index.html">Steambox</a>
-            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray</a>
-            <a href="/Kitchen Equipment/Checkweigh/index.html">Checkweigh</a>
-        </div>
-    </div>
-
-    <div class="nav-item">
         <button class="nav-btn" data-nav="projection" onclick="location.href='/Projection/index.html'">Projection ▾</button>
         <div class="dropdown-menu">
             <a href="/Projection/index.html">Overview</a>
@@ -70,9 +71,15 @@
         </div>
     </div>
 
-    <button class="nav-btn" data-nav="downtime" onclick="location.href='/Downtime/index.html'">
-        Downtime
-    </button>
+    <div class="nav-item">
+        <button class="nav-btn nav-btn-wip">Kitchen Equipment <span class="nav-wip-badge">WIP</span> ▾</button>
+        <div class="dropdown-menu">
+            <a href="/Kitchen Equipment/Hobart/index.html">Hobart</a>
+            <a href="/Kitchen Equipment/Steambox/index.html">Steambox</a>
+            <a href="/Kitchen Equipment/X-Ray/index.html">X-Ray</a>
+            <a href="/Kitchen Equipment/Checkweigh/index.html">Checkweigh</a>
+        </div>
+    </div>
 
     <div class="nav-export">
         <button id="export-report-btn" class="nav-btn btn-export">

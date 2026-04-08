@@ -31,6 +31,10 @@ body {
 }
 
 .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
     margin-bottom: 28px;
 }
 
@@ -44,6 +48,72 @@ body {
     color: var(--text-muted);
     margin-top: 4px;
     font-size: 0.95rem;
+}
+
+.flex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.date-input {
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    background: var(--card);
+}
+
+.sync-card {
+    min-width: 220px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.sync-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.sync-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.sync-subvalue {
+    font-size: 0.9rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.sync-note {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--text-muted);
+    text-align: right;
+    max-width: 220px;
 }
 
 /* =========================================
@@ -93,10 +163,6 @@ body {
     gap: 24px;
 }
 
-.lighting-energy-section {
-    margin-bottom: 24px;
-}
-
 .card {
     background: var(--card);
     border-radius: 12px;
@@ -125,138 +191,16 @@ body {
     position: relative;
 }
 
-.lighting-energy-card {
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(255, 255, 255, 0.98));
-}
+@media (max-width: 780px) {
+    .dash-header {
+        flex-direction: column;
+    }
 
-.lighting-section-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 18px;
-}
-
-.lighting-kicker {
-    font-size: 0.74rem;
-    font-weight: 700;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 6px;
-}
-
-.lighting-section-note {
-    color: var(--text-muted);
-    font-size: 0.92rem;
-    max-width: 720px;
-}
-
-.lighting-scope-badge {
-    padding: 8px 14px;
-    border-radius: 999px;
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: var(--accent);
-    background: rgba(59, 130, 246, 0.12);
-    white-space: nowrap;
-}
-
-.lighting-energy-grid {
-    display: grid;
-    grid-template-columns: minmax(460px, 1.05fr) minmax(640px, 1.2fr);
-    gap: 24px;
-    align-items: start;
-}
-
-.lighting-overview-stack {
-    display: grid;
-    gap: 20px;
-    align-content: start;
-}
-
-.lighting-energy-value {
-    font-size: clamp(2.4rem, 4vw, 3.6rem);
-    font-weight: 700;
-    color: var(--text-dark);
-    line-height: 1;
-    margin-bottom: 12px;
-}
-
-.lighting-energy-meta {
-    margin-top: 0;
-    color: var(--text-muted);
-    font-size: 1rem;
-    max-width: 420px;
-    line-height: 1.35;
-}
-
-.lighting-energy-note {
-    margin-top: 12px;
-    color: var(--accent);
-    font-size: 1rem;
-    font-weight: 600;
-    max-width: 460px;
-    line-height: 1.35;
-}
-
-.lighting-mini-chart {
-    height: 300px;
-    position: relative;
-    padding: 12px 16px 4px;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.82);
-}
-
-.lighting-breakdown-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.78);
-}
-
-.lighting-breakdown-panels {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    align-items: start;
-}
-
-.lighting-breakdown-title {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin-bottom: 12px;
-}
-
-.lighting-breakdown-list {
-    display: grid;
-    gap: 10px;
-}
-
-.lighting-breakdown-item {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.9rem;
-}
-
-.lighting-breakdown-item:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-}
-
-.lighting-breakdown-room {
-    color: var(--text-dark);
-    font-weight: 600;
-}
-
-.lighting-breakdown-kwh {
-    color: var(--accent);
-    font-weight: 700;
+    .sync-card {
+        width: 100%;
+        min-width: 0;
+        align-items: flex-start;
+    }
 }
 
 /* =========================================
@@ -311,18 +255,4 @@ th {
 /* Utilities for text colors */
 .pos { color: var(--success); }
 .neg { color: var(--danger); }
-
-@media (max-width: 920px) {
-    .lighting-section-head,
-    .lighting-energy-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .lighting-breakdown-panels {
-        grid-template-columns: 1fr;
-    }
-}
-
-
-
 

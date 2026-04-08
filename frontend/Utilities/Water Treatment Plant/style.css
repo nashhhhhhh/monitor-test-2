@@ -46,6 +46,53 @@ body {
     font-size: 0.95rem;
 }
 
+.volume-section {
+    margin-bottom: 24px;
+}
+
+.volume-card {
+    padding-bottom: 20px;
+}
+
+.volume-grid {
+    display: grid;
+    grid-template-columns: 1.4fr repeat(3, 1fr);
+    gap: 16px;
+}
+
+.volume-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.volume-item-primary {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(16, 185, 129, 0.08));
+}
+
+.volume-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.volume-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.volume-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
 /* =========================================
    KPI SECTION
    ========================================= */
@@ -289,4 +336,17 @@ th {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--accent);
+}
+
+@media (max-width: 1100px) {
+    .volume-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 780px) {
+    .volume-grid,
+    .kpi-with-distribution {
+        grid-template-columns: 1fr;
+    }
 }

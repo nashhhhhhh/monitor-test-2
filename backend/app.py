@@ -4,8 +4,9 @@ import csv
 import os
 import io
 import random
+import copy
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from fpdf import FPDF
 import matplotlib
 matplotlib.use('Agg')  # Required for headless server environments
@@ -14,6 +15,27 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from io import BytesIO
 import tempfile
+from maintenance_service import (
+    build_maintenance_overview_payload,
+    build_filter_payload,
+    build_list_payload,
+    build_monthly_payload,
+    build_summary_payload,
+    build_timeline_payload,
+    build_equipment_filter_payload,
+    build_equipment_list_payload,
+    build_equipment_monthly_payload,
+    build_equipment_summary_payload,
+    build_equipment_timeline_payload,
+    build_non_scheduled_filter_payload,
+    build_non_scheduled_list_payload,
+    build_non_scheduled_monthly_payload,
+    build_non_scheduled_summary_payload,
+    get_maintenance_last_synced,
+    get_equipment_maintenance_last_synced,
+)
+from projection_service import build_projection_payload as build_maintenance_projection_payload
+from downtime_service import build_downtime_payload
 
 
 export_pdf_bp = Blueprint("export_pdf", __name__)
@@ -36,6 +58,337 @@ app = Flask(
     static_folder=FRONTEND_DIR,
     static_url_path=""
 )
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 300
+
+_CSV_READ_CACHE = {}
+_CSV_TIMESTAMP_CACHE = {}
+_LIGHTING_DATA_CACHE = {}
+
+
+def get_file_signature(path):
+    try:
+        stat = os.stat(path)
+    except FileNotFoundError:
+        return None
+
+    return (stat.st_mtime_ns, stat.st_size)
+
+
+def get_path_mtime_iso(path):
+    try:
+        return datetime.fromtimestamp(os.path.getmtime(path)).isoformat()
+    except (FileNotFoundError, OSError, ValueError):
+        return None
+
+
+@app.after_request
+def apply_dashboard_cache_headers(response):
+    if request.method != "GET":
+        return response
+
+    path = (request.path or "").lower()
+
+    if path.startswith("/api/export/"):
+        response.cache_control.no_store = True
+        response.cache_control.max_age = 0
+        return response
+
+    if (
+        path.endswith((".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff", ".woff2"))
+        or path == "/shared/navbar.html"
+    ):
+        response.cache_control.public = True
+        response.cache_control.max_age = 300
+        return response
+
+    if path.startswith("/api/page-sync/"):
+        response.cache_control.public = True
+        response.cache_control.max_age = 60
+        return response
+
+    if path.endswith(".html") or path == "/":
+        response.cache_control.public = True
+        response.cache_control.max_age = 60
+        return response
+
+    return response
+
+
+def get_source_timestamp(file_name):
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return None
+
+    if file_name.lower().endswith(".csv"):
+        return get_latest_csv_timestamp(file_name) or get_path_mtime_iso(path)
+
+    return get_path_mtime_iso(path)
+
+
+def get_latest_timestamp_from_files(file_names):
+    values = [get_source_timestamp(file_name) for file_name in file_names]
+    return max([value for value in values if value], default=None)
+
+
+def get_temperature_last_synced():
+    db_path = os.path.join(BASE_DIR, "temps.db")
+    if not os.path.exists(db_path):
+        return None
+
+    try:
+        conn = sqlite3.connect(db_path)
+        columns = conn.execute("PRAGMA table_info(room_temperature)").fetchall()
+        name_map = {
+            str(col[1]).strip().lower(): str(col[1]).strip()
+            for col in columns
+            if len(col) > 1
+        }
+
+        for candidate in ["timestamp", "recorded_at", "updated_at", "created_at", "datetime", "time"]:
+            if candidate not in name_map:
+                continue
+
+            actual = name_map[candidate]
+            value = conn.execute(
+                f'SELECT MAX("{actual}") FROM room_temperature WHERE "{actual}" IS NOT NULL'
+            ).fetchone()[0]
+            parsed = pd.to_datetime(value, errors="coerce")
+            if pd.notna(parsed):
+                conn.close()
+                return parsed.isoformat()
+
+        conn.close()
+    except Exception:
+        pass
+
+    return get_path_mtime_iso(db_path)
+
+
+PROJECTION_TARGET_HOURS = 24
+PROJECTION_TREND_HOURS = 1
+PROJECTION_WARNING_HEALTH_PCT = 20
+PROJECTION_CRITICAL_HEALTH_PCT = 10
+PROJECTION_FREEZER_TEMP_LIMIT = -18
+PROJECTION_FREEZER_PRESSURE_LIMIT = 6.5
+PROJECTION_COMPRESSOR_SPECIFIC_POWER_WARN = 1.15
+
+
+def normalize_projection_key(value):
+    return "".join(ch for ch in str(value).strip().lower() if ch.isalnum())
+
+
+def parse_dashboard_timestamp(value):
+    if value is None or pd.isna(value):
+        return pd.NaT
+
+    cleaned = str(value).replace(" ICT", "").strip()
+    parsed = pd.to_datetime(cleaned, format="%d-%b-%y %I:%M:%S %p", errors="coerce")
+    if pd.isna(parsed):
+        parsed = pd.to_datetime(cleaned, dayfirst=True, errors="coerce")
+    return parsed
+
+
+def load_numeric_timeseries(file_name, preferred_value_names=None):
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return pd.DataFrame(columns=["dt", "value"])
+
+    preferred = [normalize_projection_key(name) for name in (preferred_value_names or [])]
+
+    for skiprows in (0, 1, 2):
+        try:
+            df = pd.read_csv(path, skiprows=skiprows, encoding="utf-8-sig")
+            df.columns = [str(col).strip().replace("\ufeff", "") for col in df.columns]
+        except Exception:
+            continue
+
+        normalized = {normalize_projection_key(col): col for col in df.columns if str(col).strip()}
+        time_col = next(
+            (
+                original
+                for key, original in normalized.items()
+                if key in {"timestamp", "time", "datetime", "date", "datetimestamp"}
+                or "timestamp" in key
+            ),
+            None
+        )
+        if not time_col:
+            continue
+
+        meta_keys = {"timestamp", "time", "datetime", "date", "trendflags", "trendflagstag", "status", "statustag"}
+        value_col = next((normalized[name] for name in preferred if name in normalized), None)
+        if value_col is None:
+            value_col = next(
+                (
+                    original
+                    for key, original in normalized.items()
+                    if key not in meta_keys and "timestamp" not in key
+                ),
+                None
+            )
+        if value_col is None:
+            continue
+
+        working = df[[time_col, value_col]].copy()
+        working["dt"] = working[time_col].apply(parse_dashboard_timestamp)
+        working["value"] = pd.to_numeric(working[value_col], errors="coerce")
+        working = working.dropna(subset=["dt", "value"]).sort_values("dt")
+        if not working.empty:
+            return working[["dt", "value"]].reset_index(drop=True)
+
+    return pd.DataFrame(columns=["dt", "value"])
+
+
+def get_latest_value(series_df):
+    if series_df.empty:
+        return None
+    return float(series_df.iloc[-1]["value"])
+
+
+def get_latest_timestamp_from_series(series_df):
+    if series_df.empty:
+        return None
+    return pd.Timestamp(series_df.iloc[-1]["dt"])
+
+
+def safe_divide(numerator, denominator, digits=3):
+    if numerator is None or denominator in (None, 0):
+        return None
+    try:
+        if float(denominator) == 0:
+            return None
+        return round(float(numerator) / float(denominator), digits)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def calculate_cumulative_projection(series_df, total_period_hours=PROJECTION_TARGET_HOURS):
+    if series_df.empty:
+        return {
+            "actual": None,
+            "projected": None,
+            "elapsed_hours": None,
+            "latest_dt": None,
+            "current_value": None,
+            "previous_day_total": None,
+            "baseline_7d": None,
+        }
+
+    ordered = series_df.sort_values("dt").copy()
+    latest_dt = pd.Timestamp(ordered.iloc[-1]["dt"])
+    same_day = ordered[ordered["dt"].dt.date == latest_dt.date()].copy()
+    if same_day.empty:
+        return {
+            "actual": None,
+            "projected": None,
+            "elapsed_hours": None,
+            "latest_dt": latest_dt,
+            "current_value": float(ordered.iloc[-1]["value"]),
+            "previous_day_total": None,
+            "baseline_7d": None,
+        }
+
+    start_row = same_day.iloc[0]
+    end_row = same_day.iloc[-1]
+    elapsed_hours = max((pd.Timestamp(end_row["dt"]) - pd.Timestamp(start_row["dt"])).total_seconds() / 3600, 0.25)
+    actual_total = max(float(end_row["value"]) - float(start_row["value"]), 0.0)
+    projected_total = round((actual_total / elapsed_hours) * total_period_hours, 3)
+
+    daily = ordered.assign(date=ordered["dt"].dt.date).groupby("date")["value"].agg(["min", "max"])
+    daily["total"] = daily["max"] - daily["min"]
+    daily_totals = daily["total"].tolist()
+    previous_day_total = float(daily_totals[-2]) if len(daily_totals) >= 2 else None
+    recent_baseline = None
+    if daily_totals:
+        baseline_window = daily_totals[-8:-1] if len(daily_totals) > 1 else daily_totals[-1:]
+        if baseline_window:
+            recent_baseline = round(float(sum(baseline_window) / len(baseline_window)), 3)
+
+    return {
+        "actual": round(actual_total, 3),
+        "projected": projected_total,
+        "elapsed_hours": round(elapsed_hours, 2),
+        "latest_dt": latest_dt,
+        "current_value": float(end_row["value"]),
+        "previous_day_total": round(previous_day_total, 3) if previous_day_total is not None else None,
+        "baseline_7d": recent_baseline,
+    }
+
+
+def calculate_trend_projection(series_df, forecast_hours=PROJECTION_TREND_HOURS, points=3):
+    if series_df.empty:
+        return {
+            "latest": None,
+            "projected": None,
+            "slope_per_hour": None,
+            "latest_dt": None,
+            "point_count": 0,
+        }
+
+    recent = series_df.sort_values("dt").dropna(subset=["value"]).tail(points)
+    if len(recent) < 2:
+        latest = float(recent.iloc[-1]["value"]) if not recent.empty else None
+        latest_dt = pd.Timestamp(recent.iloc[-1]["dt"]) if not recent.empty else None
+        return {
+            "latest": latest,
+            "projected": None,
+            "slope_per_hour": None,
+            "latest_dt": latest_dt,
+            "point_count": int(len(recent)),
+        }
+
+    first = recent.iloc[0]
+    last = recent.iloc[-1]
+    delta_hours = max((pd.Timestamp(last["dt"]) - pd.Timestamp(first["dt"])).total_seconds() / 3600, 1 / 60)
+    slope_per_hour = (float(last["value"]) - float(first["value"])) / delta_hours
+    projected = float(last["value"]) + (slope_per_hour * forecast_hours)
+
+    return {
+        "latest": round(float(last["value"]), 3),
+        "projected": round(projected, 3),
+        "slope_per_hour": round(slope_per_hour, 3),
+        "latest_dt": pd.Timestamp(last["dt"]),
+        "point_count": int(len(recent)),
+    }
+
+
+def calculate_threshold_forecast(current_value, slope_per_hour, upper_limit=None, lower_limit=None):
+    if current_value is None or slope_per_hour is None:
+        return None
+
+    if upper_limit is not None and slope_per_hour > 0 and current_value < upper_limit:
+        hours = (upper_limit - current_value) / slope_per_hour
+        if hours > 0:
+            return round(hours, 2)
+
+    if lower_limit is not None and slope_per_hour < 0 and current_value > lower_limit:
+        hours = (lower_limit - current_value) / slope_per_hour
+        if hours > 0:
+            return round(hours, 2)
+
+    return None
+
+
+def calculate_projection_variance(projected_total, baseline_total):
+    if projected_total is None or baseline_total in (None, 0):
+        return None
+    return round(((projected_total - baseline_total) / baseline_total) * 100, 1)
+
+
+def build_metric_card(metric_id, title, value, unit="", subtitle="", status="normal", empty_state="Unavailable"):
+    return {
+        "id": metric_id,
+        "title": title,
+        "value": value,
+        "unit": unit,
+        "subtitle": subtitle,
+        "status": status,
+        "empty_state": empty_state,
+    }
+
+
+def build_empty_metric_card(metric_id, title, subtitle="", empty_state="Unavailable"):
+    return build_metric_card(metric_id, title, None, "", subtitle, "unavailable", empty_state)
 
 # =====================================================
 # GENERIC CSV READER (LEGACY SUPPORT)
@@ -52,6 +405,12 @@ def read_csv(file_name, value_key="value"):
     if not os.path.exists(path):
         print(f"❌ FILE MISSING: {path}")
         return data
+
+    signature = get_file_signature(path)
+    cache_key = (file_name, value_key)
+    cached = _CSV_READ_CACHE.get(cache_key)
+    if cached and cached["signature"] == signature:
+        return copy.deepcopy(cached["data"])
 
     try:
         with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
@@ -125,6 +484,10 @@ def read_csv(file_name, value_key="value"):
     except Exception as e:
         print(f"🔥 CSV ERROR ({file_name}): {e}")
 
+    _CSV_READ_CACHE[cache_key] = {
+        "signature": signature,
+        "data": copy.deepcopy(data)
+    }
     return data
 
 def read_sbf_csv(file_path):
@@ -352,11 +715,8 @@ LIGHTING_COLUMN_ALIASES = {
     "Lamp Life Remaining": "Lamp Life Remaining"
 }
 
-LIGHTING_WORKBOOK_CANDIDATES = [
-    os.environ.get("LIGHTING_WORKBOOK_PATH"),
-    os.path.join(DATA_DIR, "Channel Runtime_Light.xlsx"),
-    os.path.abspath(r"C:\Users\merri\Downloads\Channel Runtime_Light.xlsx")
-]
+LIGHTING_CSV_FILENAME = "Channel Runtime_Light.csv"
+LIGHTING_CSV_PATH = os.path.join(DATA_DIR, LIGHTING_CSV_FILENAME)
 
 
 def normalize_text(value):
@@ -440,9 +800,60 @@ def extract_lighting_metadata(raw_df):
     return metadata
 
 
+def merge_lighting_fixture_records(records):
+    merged = None
+    for record in records:
+        if merged is None:
+            merged = dict(record)
+            continue
+
+        for key, value in record.items():
+            if key in {"Fixture Name", "Area Name", "Circuit Name"}:
+                if not merged.get(key) and value:
+                    merged[key] = value
+                continue
+
+            if merged.get(key) is None and value is not None:
+                merged[key] = value
+            elif isinstance(value, (int, float)) and value is not None:
+                current = merged.get(key)
+                if current is None or value > current:
+                    merged[key] = value
+
+    return merged or {}
+
+
+def deduplicate_lighting_fixtures(fixtures):
+    grouped = {}
+    ordered_keys = []
+
+    for fixture in fixtures:
+        key = (
+            fixture.get("Fixture Name"),
+            fixture.get("Area Name"),
+            fixture.get("Circuit Name")
+        )
+        if key not in grouped:
+            grouped[key] = []
+            ordered_keys.append(key)
+        grouped[key].append(fixture)
+
+    deduped = [merge_lighting_fixture_records(grouped[key]) for key in ordered_keys]
+    duplicate_count = max(0, len(fixtures) - len(deduped))
+    return deduped, duplicate_count
+
+
+def calculate_lighting_fixture_health_pct(lamp_life_remaining, max_lamp_life=20000):
+    lamp_life = pd.to_numeric(lamp_life_remaining, errors="coerce")
+    if pd.isna(lamp_life) or max_lamp_life <= 0:
+        return None
+
+    return round(max(0.0, min(100.0, (float(lamp_life) / float(max_lamp_life)) * 100.0)), 1)
+
+
 def load_lighting_data():
-    workbook_path = find_existing_path(LIGHTING_WORKBOOK_CANDIDATES)
-    if not workbook_path:
+    csv_path = LIGHTING_CSV_PATH if os.path.exists(LIGHTING_CSV_PATH) else None
+    if not csv_path:
         return {
             "generatedAt": None,
             "sourcePath": None,
@@ -456,12 +867,17 @@ def load_lighting_data():
             }
         }
 
+    signature = get_file_signature(csv_path)
+    cached = _LIGHTING_DATA_CACHE.get(csv_path)
+    if cached and cached["signature"] == signature:
+        return copy.deepcopy(cached["data"])
+
     try:
-        raw_df = pd.read_excel(workbook_path, sheet_name=0, header=None)
+        raw_df = pd.read_csv(csv_path, header=None, encoding="utf-8-sig")
         header_row = detect_lighting_header_row(raw_df)
         metadata = extract_lighting_metadata(raw_df)
 
-        df = pd.read_excel(workbook_path, sheet_name=0, header=header_row)
+        df = pd.read_csv(csv_path, header=header_row, encoding="utf-8-sig")
         df.columns = [normalize_text(col) or "" for col in df.columns]
         df = df.rename(columns={src: dest for src, dest in LIGHTING_COLUMN_ALIASES.items() if src in df.columns})
 
@@ -480,7 +896,7 @@ def load_lighting_data():
 
         df = df[df["Fixture Name"].notna() & df["Area Name"].notna()].copy()
 
-        fixtures = [
+        raw_fixtures = [
             {
                 "Fixture Name": row["Fixture Name"],
                 "Area Name": row["Area Name"],
@@ -492,24 +908,33 @@ def load_lighting_data():
             }
             for _, row in df.iterrows()
         ]
+        fixtures, duplicate_count = deduplicate_lighting_fixtures(raw_fixtures)
 
-        return {
+        result = {
             "generatedAt": metadata.get("generatedAt"),
-            "sourcePath": workbook_path,
+            "sourcePath": csv_path,
             "fixtures": fixtures,
             "meta": {
                 "reportGenerationTime": metadata.get("reportGenerationTime"),
                 "site": metadata.get("site"),
                 "reportingPeriodStart": metadata.get("reportingPeriodStart"),
                 "reportingPeriodEnd": metadata.get("reportingPeriodEnd"),
-                "reportingPeriodDuration": metadata.get("reportingPeriodDuration")
+                "reportingPeriodDuration": metadata.get("reportingPeriodDuration"),
+                "sourceRowCount": len(raw_fixtures),
+                "uniqueFixtureCount": len(fixtures),
+                "duplicateRowsCollapsed": duplicate_count
             }
         }
+        _LIGHTING_DATA_CACHE[csv_path] = {
+            "signature": signature,
+            "data": copy.deepcopy(result)
+        }
+        return result
     except Exception as exc:
-        print(f"Lighting workbook read error: {exc}")
+        print(f"Lighting CSV read error: {exc}")
         return {
             "generatedAt": None,
-            "sourcePath": workbook_path,
+            "sourcePath": csv_path,
             "fixtures": [],
             "meta": {
                 "reportGenerationTime": None,
@@ -670,41 +1095,116 @@ def read_mdb_daily_consumption(file_name):
         print(f"🔥 Daily Calc Error ({file_name}): {e}")
         return []
 
+def get_latest_csv_timestamp(file_name):
+    path = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return None
+
+    signature = get_file_signature(path)
+    cached = _CSV_TIMESTAMP_CACHE.get(file_name)
+    if cached and cached["signature"] == signature:
+        return cached["value"]
+
+    try:
+        with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
+            lines = f.readlines()
+
+        header_idx = next((i for i, line in enumerate(lines) if "timestamp" in line.lower()), -1)
+        if header_idx == -1:
+            return None
+
+        content = "".join(lines[header_idx:])
+        reader = csv.DictReader(io.StringIO(content))
+        latest_dt = None
+
+        for row in reader:
+            clean_row = {k.strip(): v for k, v in row.items() if k}
+            ts_val = next((v for k, v in clean_row.items() if "timestamp" in k.lower()), None)
+            if not ts_val:
+                continue
+
+            ts_clean = str(ts_val).replace(" ICT", "").strip()
+            dt = pd.to_datetime(ts_clean, format="%d-%b-%y %I:%M:%S %p", errors="coerce")
+            if pd.isna(dt):
+                dt = pd.to_datetime(ts_clean, dayfirst=True, errors="coerce")
+            if pd.notna(dt):
+                latest_dt = dt
+
+        value = latest_dt.isoformat() if latest_dt is not None else None
+        _CSV_TIMESTAMP_CACHE[file_name] = {
+            "signature": signature,
+            "value": value
+        }
+        return value
+    except Exception as e:
+        print(f"MDB latest timestamp error ({file_name}): {e}")
+        return None
+
 @app.route("/api/mdb")
 def mdb_data():
-    raw_data = {
-        "energy": {
-            "emdb_1_daily": read_mdb_daily_consumption("mdb_emdb.csv"),
-            "emdb_1": read_csv("mdb_emdb.csv", "kwh"),
-            "mdb_6":  read_csv("mdb6_energy.csv", "kwh"),
-            "mdb_7":  read_csv("mdb7_energy.csv", "kwh"),
-            "mdb_8":  read_csv("mdb8_energy.csv", "kwh"),
-            "mdb_9":  read_csv("mdb9_energy.csv", "kwh"),
-            "mdb_10": read_csv("mdb10_energy.csv", "kwh")
-        },
-        "generators": {
-            "gen_1": read_csv("mdb_gen1_RT.csv", "runtime"),
-            "gen_2": read_csv("mdb_gen2_RT.csv", "runtime"),
-            "gen_3": read_csv("mdb_gen3_RT.csv", "runtime"),
-            "gen_4": read_csv("mdb_gen4_RT.csv", "runtime")
+    return jsonify(collect_mdb_data())
+
+
+@app.route("/api/mdb/summary")
+def mdb_summary():
+    def latest_and_previous(file_name, value_key):
+        records = read_csv(file_name, value_key)
+        latest = records[-1].get(value_key) if records else 0
+        previous = records[-2].get(value_key) if len(records) >= 2 else latest
+        return {
+            "latest": latest,
+            "previous": previous,
+            "time": records[-1].get("time") if records else None,
         }
+
+    energy_files = {
+        "emdb_1": "mdb_emdb.csv",
+        "mdb_6": "mdb6_energy.csv",
+        "mdb_7": "mdb7_energy.csv",
+        "mdb_8": "mdb8_energy.csv",
+        "mdb_9": "mdb9_energy.csv",
+        "mdb_10": "mdb10_energy.csv",
+    }
+    generator_files = {
+        "gen_1": "mdb_gen1_RT.csv",
+        "gen_2": "mdb_gen2_RT.csv",
+        "gen_3": "mdb_gen3_RT.csv",
+        "gen_4": "mdb_gen4_RT.csv",
     }
 
-    # CRITICAL FIX: Standard JSON cannot handle NaN. 
-    # This recursive function finds all NaNs and turns them into None (null).
-    def clean_nan(obj):
-        if isinstance(obj, list):
-            return [clean_nan(i) for i in obj]
-        if isinstance(obj, dict):
-            return {k: clean_nan(v) for k, v in obj.items()}
-        if isinstance(obj, float) and pd.isna(obj):
-            return None
-        return obj
+    energy = {
+        key: latest_and_previous(file_name, "kwh")
+        for key, file_name in energy_files.items()
+    }
+    generators = {
+        key: latest_and_previous(file_name, "runtime")
+        for key, file_name in generator_files.items()
+    }
 
-    return jsonify(collect_mdb_data())
+    return jsonify({
+        "energy": energy,
+        "generators": generators,
+        "meta": {
+            "last_synced": max([
+                ts for ts in [
+                    get_latest_csv_timestamp("mdb_emdb.csv"),
+                    get_latest_csv_timestamp("mdb6_energy.csv"),
+                    get_latest_csv_timestamp("mdb7_energy.csv"),
+                    get_latest_csv_timestamp("mdb8_energy.csv"),
+                    get_latest_csv_timestamp("mdb9_energy.csv"),
+                    get_latest_csv_timestamp("mdb10_energy.csv"),
+                    get_latest_csv_timestamp("mdb_gen1_RT.csv"),
+                    get_latest_csv_timestamp("mdb_gen2_RT.csv"),
+                    get_latest_csv_timestamp("mdb_gen3_RT.csv"),
+                    get_latest_csv_timestamp("mdb_gen4_RT.csv")
+                ] if ts
+            ], default=None)
+        }
+    })
 @app.route("/api/mdb/history")
 def mdb_history():
     date_str = request.args.get('date')
+    time_str = request.args.get('time')
     category = request.args.get('category')
     
     def get_filtered_mdb(file_name, value_key, normalize_gen=False):
@@ -774,11 +1274,62 @@ def mdb_history():
             print(f"🔥 Error processing {file_name}: {e}")
             return {"date_used": None, "points": []}
 
+    def filter_points_to_selected_time(result):
+        points = result.get("points", [])
+        if not points:
+            return {"date_used": result.get("date_used"), "time_used": None, "points": []}
+
+        if not time_str:
+            return {
+                "date_used": result.get("date_used"),
+                "time_used": points[-1]["time"],
+                "points": points,
+            }
+
+        eligible_points = [point for point in points if point["time"] <= time_str]
+        if not eligible_points:
+            eligible_points = [points[0]]
+
+        return {
+            "date_used": result.get("date_used"),
+            "time_used": eligible_points[-1]["time"],
+            "points": eligible_points,
+        }
+
     response_data = {}
     if category == 'energy':
         res = get_filtered_mdb("mdb_emdb.csv", "kwh")
         response_data['emdb_1'] = res['points']
         response_data['selected_date'] = res['date_used']
+    elif category == 'distribution':
+        panel_files = {
+            'mdb_6': "mdb6_energy.csv",
+            'mdb_7': "mdb7_energy.csv",
+            'mdb_8': "mdb8_energy.csv",
+            'mdb_9': "mdb9_energy.csv",
+            'mdb_10': "mdb10_energy.csv",
+        }
+
+        panel_results = {
+            key: filter_points_to_selected_time(get_filtered_mdb(file_name, "kwh"))
+            for key, file_name in panel_files.items()
+        }
+
+        selected_date = next(
+            (result['date_used'] for result in panel_results.values() if result['date_used']),
+            None
+        )
+        selected_time = next(
+            (result['time_used'] for result in panel_results.values() if result['time_used']),
+            None
+        )
+
+        response_data['distribution'] = {
+            key: (result['points'][-1]['value'] if result['points'] else 0)
+            for key, result in panel_results.items()
+        }
+        response_data['selected_date'] = selected_date
+        response_data['selected_time'] = selected_time
     elif category == 'gens':
         res1 = get_filtered_mdb("mdb_gen1_RT.csv", "runtime", True)
         response_data['gen_1'] = res1['points']
@@ -952,6 +1503,785 @@ def wtp_api():
     return jsonify(get_wtp_raw_data())
 
 
+def build_projection_payload():
+    risk_items = []
+
+    def add_risk(severity, system, title, message):
+        risk_items.append({
+            "severity": severity,
+            "system": system,
+            "title": title,
+            "message": message,
+        })
+
+    # MDB / Generator
+    emdb_projection = calculate_cumulative_projection(
+        load_numeric_timeseries("mdb_emdb.csv", ["Value (kW-hr)", "Value", "kWh"])
+    )
+    mdb_panel_projections = {
+        key: calculate_cumulative_projection(load_numeric_timeseries(file_name, ["Value (kW-hr)", "Value", "kWh"]))
+        for key, file_name in {
+            "MDB-6": "mdb6_energy.csv",
+            "MDB-7": "mdb7_energy.csv",
+            "MDB-8": "mdb8_energy.csv",
+            "MDB-9": "mdb9_energy.csv",
+            "MDB-10": "mdb10_energy.csv",
+        }.items()
+    }
+    mdb_total_projected = round(sum(item["projected"] or 0 for item in mdb_panel_projections.values()), 3)
+    mdb_total_actual = round(sum(item["actual"] or 0 for item in mdb_panel_projections.values()), 3)
+    mdb_previous_day = sum(item["previous_day_total"] or 0 for item in mdb_panel_projections.values()) or None
+    mdb_baseline_7d = sum(item["baseline_7d"] or 0 for item in mdb_panel_projections.values()) or None
+    generator_summary = mdb_summary().get_json(silent=True) or {"generators": {}}
+    active_generators = 0
+    for key in ["gen_1", "gen_2", "gen_3", "gen_4"]:
+        generator = generator_summary.get("generators", {}).get(key, {})
+        latest = generator.get("latest") or 0
+        previous = generator.get("previous") or 0
+        if latest > previous and previous != 0:
+            active_generators += 1
+
+    generator_note = (
+        "No projection available from current generator state"
+        if active_generators == 0
+        else f"Backup status stable under current conditions ({active_generators}/4 active)"
+    )
+
+    # Lighting
+    lighting_payload = load_lighting_data()
+    lighting_fixtures = lighting_payload.get("fixtures", [])
+    lighting_total_energy = round(sum((fixture.get("Notional Energy") or 0) for fixture in lighting_fixtures), 3)
+    lighting_generated_at = pd.to_datetime(lighting_payload.get("generatedAt"), errors="coerce")
+    if pd.isna(lighting_generated_at):
+        lighting_generated_at = pd.to_datetime(
+            get_source_timestamp(LIGHTING_CSV_FILENAME),
+            errors="coerce"
+        )
+    lighting_elapsed_hours = None
+    lighting_projected_energy = None
+    if pd.notna(lighting_generated_at):
+        day_start = lighting_generated_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        lighting_elapsed_hours = max((lighting_generated_at - day_start).total_seconds() / 3600, 0.25)
+        lighting_projected_energy = round((lighting_total_energy / lighting_elapsed_hours) * PROJECTION_TARGET_HOURS, 3)
+
+    lighting_warning = 0
+    lighting_critical = 0
+    replacement_days = []
+    for fixture in lighting_fixtures:
+        lamp_remaining = pd.to_numeric(fixture.get("Lamp Life Remaining"), errors="coerce")
+        hours_on_in_period = pd.to_numeric(fixture.get("Hours On In Period"), errors="coerce")
+        if pd.notna(lamp_remaining):
+            health_pct = max(0.0, min(100.0, (float(lamp_remaining) / 20000.0) * 100))
+            if health_pct < PROJECTION_CRITICAL_HEALTH_PCT:
+                lighting_critical += 1
+            elif health_pct < PROJECTION_WARNING_HEALTH_PCT:
+                lighting_warning += 1
+
+            if pd.notna(hours_on_in_period) and float(hours_on_in_period) > 0:
+                replacement_days.append(round(float(lamp_remaining) / float(hours_on_in_period), 1))
+
+    if lighting_critical or lighting_warning:
+        add_risk(
+            "critical" if lighting_critical else "warning",
+            "Lighting",
+            "Fixture replacement due soon",
+            f"{lighting_critical} critical and {lighting_warning} warning fixtures are approaching replacement thresholds.",
+        )
+    lighting_health_values = [
+        max(0.0, min(100.0, (float(pd.to_numeric(fixture.get("Lamp Life Remaining"), errors="coerce")) / 20000.0) * 100))
+        for fixture in lighting_fixtures
+        if pd.notna(pd.to_numeric(fixture.get("Lamp Life Remaining"), errors="coerce"))
+    ]
+    average_lighting_health = round(sum(lighting_health_values) / len(lighting_health_values), 1) if lighting_health_values else None
+
+    # WWTP
+    wwtp_effluent = calculate_cumulative_projection(load_numeric_timeseries("EffluentPump_Total.csv", ["Value", "m3"]))
+    wwtp_raw = calculate_cumulative_projection(load_numeric_timeseries("_RawWaterWastePump-01_Total.csv", ["Value", "m3"]))
+    wwtp_pmg_energy = calculate_cumulative_projection(load_numeric_timeseries("PMG-WWTP_Energy.csv", ["Value", "Energy"]))
+    wwtp_ctrl_energy = calculate_cumulative_projection(load_numeric_timeseries("_PM-WWTP-CONTROL-PANEL_Energy.csv", ["Value", "Energy"]))
+    wwtp_temp_trend = calculate_trend_projection(load_numeric_timeseries("_RawWasteWater_Temp.csv", ["Value (°C)", "Value", "Temp"]), 1)
+    wwtp_total_energy_projected = round((wwtp_pmg_energy["projected"] or 0) + (wwtp_ctrl_energy["projected"] or 0), 3)
+    wwtp_treatment_ratio = safe_divide(wwtp_effluent["projected"], wwtp_raw["projected"])
+    wwtp_energy_intensity = safe_divide(wwtp_total_energy_projected, wwtp_effluent["projected"])
+    if (wwtp_raw["projected"] or 0) > (wwtp_effluent["projected"] or 0) * 1.2 and (wwtp_effluent["projected"] or 0) > 0:
+        add_risk(
+            "warning",
+            "WWTP",
+            "Influent exceeds treated output",
+            "Projected raw inflow is materially above treated wastewater volume. Review pump loading and process balance.",
+        )
+
+    # WTP
+    wtp_sources = {
+        "RO Water": calculate_cumulative_projection(load_numeric_timeseries("FIT-103-ROWaterSupply_Total.csv", ["m3", "Value"])),
+        "Softwater 1": calculate_cumulative_projection(load_numeric_timeseries("FIT-102-SoftWaterSupply-01_Total.csv", ["m3", "Value"])),
+        "Softwater 2": calculate_cumulative_projection(load_numeric_timeseries("FIT-104-SoftWaterSupply-02_Total.csv", ["m3", "Value"])),
+    }
+    wtp_total_projected = round(sum(item["projected"] or 0 for item in wtp_sources.values()), 3)
+    wtp_contribution = {
+        source: safe_divide(item["projected"], wtp_total_projected, 4)
+        for source, item in wtp_sources.items()
+    }
+    low_sources = [source for source, share in wtp_contribution.items() if share is not None and share < 0.15]
+    high_sources = [source for source, share in wtp_contribution.items() if share is not None and share > 0.7]
+    if low_sources or high_sources:
+        detail_parts = []
+        if high_sources:
+            detail_parts.append("high share: " + ", ".join(high_sources))
+        if low_sources:
+            detail_parts.append("low share: " + ", ".join(low_sources))
+        add_risk(
+            "warning",
+            "WTP",
+            "Source contribution imbalance",
+            "Projected treated-water split is uneven (" + "; ".join(detail_parts) + ").",
+        )
+
+    # Boiler
+    boiler_gas = calculate_cumulative_projection(load_numeric_timeseries("boiler_gas_total.csv", ["Value (kg)", "Value", "kg"]))
+    boiler_direct_steam = calculate_cumulative_projection(load_numeric_timeseries("boiler_directsteam_meterflow_total.csv", ["Value (kg)", "Value", "kg"]))
+    boiler_indirect_steam = calculate_cumulative_projection(load_numeric_timeseries("boiler_indirectsteam_meterflow.csv", ["Value (kg)", "Value", "kg"]))
+    boiler_direct_energy = calculate_cumulative_projection(load_numeric_timeseries("boiler_direct_energy.csv", ["Value (kW-hr)", "Value", "kWh"]))
+    boiler_indirect_energy = calculate_cumulative_projection(load_numeric_timeseries("boiler_indirect_energy.csv", ["Value (kW-hr)", "Value", "kWh"]))
+    boiler_total_steam_projected = round((boiler_direct_steam["projected"] or 0) + (boiler_indirect_steam["projected"] or 0), 3)
+    boiler_total_energy_projected = round((boiler_direct_energy["projected"] or 0) + (boiler_indirect_energy["projected"] or 0), 3)
+    boiler_steam_to_gas = safe_divide(boiler_total_steam_projected, boiler_gas["projected"])
+    boiler_kwh_per_steam = safe_divide(boiler_total_energy_projected, boiler_total_steam_projected)
+    boiler_direct_share = safe_divide(boiler_direct_energy["projected"], boiler_total_energy_projected, 4)
+    boiler_indirect_share = safe_divide(boiler_indirect_energy["projected"], boiler_total_energy_projected, 4)
+
+    # Air compressor
+    compressor_energy = calculate_cumulative_projection(load_numeric_timeseries("aircompressor_energy.csv", ["Value", "Energy", "kWh"]))
+    compressor_flow = calculate_cumulative_projection(load_numeric_timeseries("airmeter_flow.csv", ["Value (m³)", "Value", "m3"]))
+    compressor_dewpoint = calculate_trend_projection(load_numeric_timeseries("air_dewpoint.csv", ["Value (psi)", "Value", "Dewpoint"]), 1)
+    compressor_specific_power = safe_divide(compressor_energy["projected"], compressor_flow["projected"])
+    compressor_specific_power_baseline = safe_divide(
+        compressor_energy["previous_day_total"],
+        compressor_flow["previous_day_total"]
+    )
+    if (
+        compressor_specific_power is not None
+        and compressor_specific_power_baseline is not None
+        and compressor_specific_power > compressor_specific_power_baseline * PROJECTION_COMPRESSOR_SPECIFIC_POWER_WARN
+    ):
+        add_risk(
+            "warning",
+            "Air Compressor",
+            "Specific power increasing",
+            f"Projected specific power is {compressor_specific_power:.2f} kWh/m3 versus a recent baseline of {compressor_specific_power_baseline:.2f}.",
+        )
+
+    # Spiral freezer
+    freezer_units = []
+    for freezer_label, freezer_file in {
+        "Spiral 1": "sbf_spiral1_Data.csv",
+        "Spiral 2": "sbf_spiral2_Data.csv",
+        "Spiral 3": "sbf_spiral3_Data.csv",
+    }.items():
+        rows = read_sbf_csv(os.path.join(DATA_DIR, freezer_file))
+        if not rows:
+            freezer_units.append({
+                "name": freezer_label,
+                "top_temp": None,
+                "top_temp_projected": None,
+                "bottom_temp": None,
+                "bottom_temp_projected": None,
+                "pressure": None,
+                "pressure_projected": None,
+                "runtime_projected": None,
+                "threshold_hours": None,
+                "status": "unavailable",
+                "subtitle": "Insufficient trend data",
+            })
+            continue
+
+        frame = pd.DataFrame(rows)
+        frame["dt"] = pd.to_datetime(frame["time"], format="%H:%M:%S", errors="coerce")
+        frame = frame.dropna(subset=["dt"]).sort_values("dt")
+
+        def freezer_trend(column_name):
+            if column_name not in frame.columns:
+                return {"latest": None, "projected": None, "slope_per_hour": None}
+            temp_df = frame[["dt", column_name]].rename(columns={column_name: "value"}).dropna()
+            return calculate_trend_projection(temp_df, 1)
+
+        top_trend = freezer_trend("tef01")
+        bottom_trend = freezer_trend("tef02")
+        pressure_trend = freezer_trend("pt02")
+        runtime_trend = None
+        if "runtime" in frame.columns:
+            runtime_df = frame[["dt", "runtime"]].rename(columns={"runtime": "value"}).dropna()
+            if not runtime_df.empty:
+                runtime_day = runtime_df.iloc[-1]
+                elapsed_hours = max((pd.Timestamp(runtime_day["dt"]) - runtime_df.iloc[0]["dt"]).total_seconds() / 3600, 0.25)
+                runtime_projected = round((float(runtime_day["value"]) / elapsed_hours) * PROJECTION_TARGET_HOURS, 2)
+                runtime_trend = runtime_projected
+
+        temp_limit_hours = calculate_threshold_forecast(
+            top_trend.get("latest"),
+            top_trend.get("slope_per_hour"),
+            upper_limit=PROJECTION_FREEZER_TEMP_LIMIT
+        )
+        if temp_limit_hours is not None and temp_limit_hours <= 8:
+            add_risk(
+                "critical" if temp_limit_hours <= 2 else "warning",
+                "Spiral Freezer",
+                f"{freezer_label} temperature breach risk",
+                f"{freezer_label} is trending toward the {-18} deg C threshold in about {temp_limit_hours:.1f} hours.",
+            )
+
+        freezer_units.append({
+            "name": freezer_label,
+            "top_temp": top_trend.get("latest"),
+            "top_temp_projected": top_trend.get("projected"),
+            "bottom_temp": bottom_trend.get("latest"),
+            "bottom_temp_projected": bottom_trend.get("projected"),
+            "pressure": pressure_trend.get("latest"),
+            "pressure_projected": pressure_trend.get("projected"),
+            "runtime_projected": runtime_trend,
+            "threshold_hours": temp_limit_hours,
+            "status": "warning" if temp_limit_hours is not None and temp_limit_hours <= 8 else "normal",
+            "subtitle": "Projected 1-hour operating drift" if top_trend.get("projected") is not None else "Insufficient trend data",
+        })
+
+    energy_cards = [
+        build_metric_card(
+            "projected-mdb-1",
+            "Projected MDB-1 kWh",
+            emdb_projection["projected"],
+            "kWh",
+            (
+                f"Vs previous day {calculate_projection_variance(emdb_projection['projected'], emdb_projection['previous_day_total'])}%"
+                if calculate_projection_variance(emdb_projection["projected"], emdb_projection["previous_day_total"]) is not None
+                else "Previous-day variance unavailable"
+            ),
+        ),
+        build_metric_card(
+            "projected-total-mdb",
+            "Projected Total MDB kWh",
+            mdb_total_projected,
+            "kWh",
+            (
+                f"Vs 7-day baseline {calculate_projection_variance(mdb_total_projected, mdb_baseline_7d)}%"
+                if calculate_projection_variance(mdb_total_projected, mdb_baseline_7d) is not None
+                else "7-day baseline unavailable"
+            ),
+        ),
+        build_metric_card(
+            "projected-lighting-kwh",
+            "Projected Lighting kWh",
+            lighting_projected_energy,
+            "kWh",
+            f"{len(lighting_fixtures)} fixtures included" if lighting_fixtures else "Insufficient lighting energy data",
+        ) if lighting_fixtures else build_empty_metric_card("projected-lighting-kwh", "Projected Lighting kWh", "Insufficient lighting energy data"),
+        build_metric_card(
+            "projected-boiler-kwh",
+            "Projected Boiler kWh",
+            boiler_total_energy_projected,
+            "kWh",
+            "Direct and indirect boiler panels combined",
+        ),
+        build_metric_card(
+            "projected-air-kwh",
+            "Projected Air Compressor kWh",
+            compressor_energy["projected"],
+            "kWh",
+            (
+                f"Vs previous day {calculate_projection_variance(compressor_energy['projected'], compressor_energy['previous_day_total'])}%"
+                if calculate_projection_variance(compressor_energy["projected"], compressor_energy["previous_day_total"]) is not None
+                else "Previous-day variance unavailable"
+            ),
+        ),
+    ]
+
+    water_cards = [
+        build_metric_card("projected-wwtp-treated", "Projected WWTP Treated Volume", wwtp_effluent["projected"], "m3", "Effluent pump total"),
+        build_metric_card("projected-wwtp-raw", "Projected WWTP Raw Inflow", wwtp_raw["projected"], "m3", "Raw wastewater pump total"),
+        build_metric_card("projected-wtp-treated", "Projected WTP Treated Volume", wtp_total_projected, "m3", "RO + Softwater 1 + Softwater 2"),
+        build_metric_card("projected-ro", "Projected RO Volume", wtp_sources["RO Water"]["projected"], "m3", "Projected end-of-day"),
+        build_metric_card("projected-soft1", "Projected Softwater 1", wtp_sources["Softwater 1"]["projected"], "m3", "Projected end-of-day"),
+        build_metric_card("projected-soft2", "Projected Softwater 2", wtp_sources["Softwater 2"]["projected"], "m3", "Projected end-of-day"),
+        build_metric_card("projected-air-flow", "Projected Compressed Air Flow", compressor_flow["projected"], "m3", "End-of-day air total"),
+    ]
+
+    thermal_cards = [
+        build_metric_card(
+            "projected-wwtp-temp",
+            "WWTP Raw Water Temperature",
+            wwtp_temp_trend["projected"],
+            "deg C",
+            "1-hour trend projection" if wwtp_temp_trend["projected"] is not None else "No trend data",
+        ) if wwtp_temp_trend["projected"] is not None else build_empty_metric_card("projected-wwtp-temp", "WWTP Raw Water Temperature", "No trend data"),
+        build_metric_card(
+            "projected-dewpoint",
+            "Air Compressor Dewpoint",
+            compressor_dewpoint["projected"],
+            "psi",
+            "1-hour trend projection" if compressor_dewpoint["projected"] is not None else "No trend data",
+        ) if compressor_dewpoint["projected"] is not None else build_empty_metric_card("projected-dewpoint", "Air Compressor Dewpoint", "No trend data"),
+        build_metric_card(
+            "boiler-efficiency-trend",
+            "Boiler Efficiency Trend",
+            boiler_steam_to_gas,
+            "kg/kg",
+            "Steam-to-gas ratio used as current efficiency indicator" if boiler_steam_to_gas is not None else "Insufficient data",
+        ) if boiler_steam_to_gas is not None else build_empty_metric_card("boiler-efficiency-trend", "Boiler Efficiency Trend", "Insufficient data"),
+    ]
+
+    ratio_cards = [
+        build_metric_card("wwtp-treatment-ratio", "WWTP Projected Treatment Ratio", wwtp_treatment_ratio, "", "Treated / raw inflow"),
+        build_metric_card("wwtp-kwh-per-m3", "WWTP Projected kWh per m3", wwtp_energy_intensity, "kWh/m3", "PMG + control panel energy"),
+        build_metric_card("boiler-steam-gas-ratio", "Boiler Projected Steam-to-Gas Ratio", boiler_steam_to_gas, "kg/kg", "Projected end-of-day ratio"),
+        build_metric_card("boiler-kwh-per-steam", "Boiler Projected kWh per kg Steam", boiler_kwh_per_steam, "kWh/kg", "Projected electrical intensity"),
+        build_metric_card("air-specific-power", "Air Compressor Projected Specific Power", compressor_specific_power, "kWh/m3", "Projected energy / flow"),
+        build_metric_card(
+            "lighting-health",
+            "Lighting Fixture Health",
+            average_lighting_health,
+            "%",
+            (
+                f"Avg {round(sum(replacement_days) / len(replacement_days), 1)} days remaining to replacement"
+                if replacement_days
+                else "Days remaining unavailable"
+            ),
+        ) if lighting_fixtures else build_empty_metric_card("lighting-health", "Lighting Fixture Health", "No fixture data"),
+    ]
+
+    systems_covered = sum([
+        1 if emdb_projection["projected"] is not None or any(item["projected"] is not None for item in mdb_panel_projections.values()) else 0,
+        1 if lighting_projected_energy is not None else 0,
+        1 if any(unit.get("top_temp_projected") is not None for unit in freezer_units) else 0,
+        1 if (wwtp_effluent["projected"] is not None or wwtp_raw["projected"] is not None) else 0,
+        1 if any(item["projected"] is not None for item in wtp_sources.values()) else 0,
+        1 if boiler_gas["projected"] is not None or boiler_total_energy_projected is not None else 0,
+        1 if compressor_energy["projected"] is not None else 0,
+    ])
+
+    total_projected_energy = round(
+        sum(
+            value or 0
+            for value in [
+                mdb_total_projected,
+                lighting_projected_energy,
+                boiler_total_energy_projected,
+                compressor_energy["projected"],
+                wwtp_total_energy_projected,
+            ]
+        ),
+        3,
+    )
+    total_projected_water = round(
+        sum(
+            value or 0
+            for value in [
+                wwtp_effluent["projected"],
+                wwtp_raw["projected"],
+                wtp_total_projected,
+                compressor_flow["projected"],
+            ]
+        ),
+        3,
+    )
+
+    latest_timestamps = [
+        value
+        for value in [
+            emdb_projection["latest_dt"],
+            *(item["latest_dt"] for item in mdb_panel_projections.values()),
+            lighting_generated_at if pd.notna(lighting_generated_at) else None,
+            wwtp_effluent["latest_dt"],
+            wwtp_raw["latest_dt"],
+            boiler_gas["latest_dt"],
+            compressor_energy["latest_dt"],
+            compressor_flow["latest_dt"],
+        ]
+        if value is not None and not pd.isna(value)
+    ]
+    page_last_synced = max(latest_timestamps).isoformat() if latest_timestamps else None
+
+    return {
+        "meta": {
+            "last_synced": page_last_synced,
+            "generator_note": generator_note,
+        },
+        "top_kpis": {
+            "projected_energy_total": total_projected_energy,
+            "projected_water_total": total_projected_water,
+            "systems_covered": systems_covered,
+            "systems_total": 7,
+            "risk_count": len(risk_items),
+        },
+        "energy_forecast": {
+            "cards": energy_cards,
+            "comparison_chart": {
+                "labels": ["MDB-1", "Total MDB", "Lighting", "Boiler", "Air"],
+                "actual": [
+                    emdb_projection["actual"],
+                    mdb_total_actual,
+                    lighting_total_energy,
+                    round((boiler_direct_energy["actual"] or 0) + (boiler_indirect_energy["actual"] or 0), 3),
+                    compressor_energy["actual"],
+                ],
+                "projected": [
+                    emdb_projection["projected"],
+                    mdb_total_projected,
+                    lighting_projected_energy,
+                    boiler_total_energy_projected,
+                    compressor_energy["projected"],
+                ],
+            },
+        },
+        "water_flow_forecast": {
+            "cards": water_cards,
+            "contribution_chart": {
+                "labels": list(wtp_sources.keys()),
+                "values": [wtp_sources[source]["projected"] for source in wtp_sources],
+            },
+            "wastewater_chart": {
+                "labels": ["Treated", "Raw Inflow"],
+                "actual": [
+                    wwtp_effluent["actual"],
+                    wwtp_raw["actual"],
+                ],
+                "projected": [
+                    wwtp_effluent["projected"],
+                    wwtp_raw["projected"],
+                ],
+            },
+        },
+        "thermal_process_forecast": {
+            "cards": thermal_cards,
+            "freezer_units": freezer_units,
+        },
+        "ratio_efficiency_forecast": {
+            "cards": ratio_cards,
+            "supporting_metrics": {
+                "boiler_direct_share": boiler_direct_share,
+                "boiler_indirect_share": boiler_indirect_share,
+                "lighting_warning_count": lighting_warning,
+                "lighting_critical_count": lighting_critical,
+            },
+        },
+        "risk_alert_forecast": {
+            "items": risk_items,
+            "generator_note": generator_note,
+        },
+    }
+
+
+@app.route("/api/projection")
+def projection_data():
+    period = request.args.get("period")
+    return jsonify(build_maintenance_projection_payload("overview", period))
+
+
+@app.route("/api/projection/freezer")
+def projection_freezer_data():
+    period = request.args.get("period")
+    return jsonify(build_maintenance_projection_payload("freezer", period))
+
+
+@app.route("/api/projection/water")
+def projection_water_data():
+    period = request.args.get("period")
+    return jsonify(build_maintenance_projection_payload("water", period))
+
+
+@app.route("/api/projection/mdb")
+def projection_mdb_data():
+    period = request.args.get("period")
+    return jsonify(build_maintenance_projection_payload("mdb", period))
+
+
+@app.route("/api/projection/boiler")
+def projection_boiler_data():
+    period = request.args.get("period")
+    return jsonify(build_maintenance_projection_payload("boiler", period))
+
+
+@app.route("/api/downtime")
+def downtime_data():
+    period = request.args.get("period")
+    month = request.args.get("month")
+    return jsonify(build_downtime_payload(period, month))
+
+
+@app.route("/api/maintenance/utility/summary")
+def maintenance_utility_summary():
+    year = request.args.get("year", type=int)
+    return jsonify(build_summary_payload(year))
+
+
+@app.route("/api/maintenance/overview")
+def maintenance_overview():
+    return jsonify(
+        build_maintenance_overview_payload(
+            month_value=request.args.get("month"),
+            status=request.args.get("status", "all"),
+            category=request.args.get("category", "all"),
+            search=request.args.get("search", ""),
+            sort=request.args.get("sort", "date_asc"),
+            year=request.args.get("year", type=int),
+        )
+    )
+
+
+@app.route("/api/maintenance/utility/monthly")
+def maintenance_utility_monthly():
+    month = request.args.get("month")
+    year = request.args.get("year", type=int)
+    return jsonify(build_monthly_payload(month, year))
+
+
+@app.route("/api/maintenance/utility/list")
+def maintenance_utility_list():
+    return jsonify(
+        build_list_payload(
+            month_value=request.args.get("month"),
+            status=request.args.get("status", "all"),
+            category=request.args.get("category", "all"),
+            location=request.args.get("location", "all"),
+            inspection=request.args.get("inspection", "all"),
+            search=request.args.get("search", ""),
+            sort=request.args.get("sort", "due_date_asc"),
+            year=request.args.get("year", type=int),
+            aggregate=request.args.get("aggregate", "occurrence"),
+        )
+    )
+
+
+@app.route("/api/maintenance/utility/timeline")
+def maintenance_utility_timeline():
+    year = request.args.get("year", type=int)
+    month = request.args.get("month")
+    return jsonify(build_timeline_payload(year, month))
+
+
+@app.route("/api/maintenance/utility/filters")
+def maintenance_utility_filters():
+    year = request.args.get("year", type=int)
+    return jsonify(build_filter_payload(year))
+
+
+@app.route("/api/maintenance/equipment/summary")
+def maintenance_equipment_summary():
+    year = request.args.get("year", type=int)
+    return jsonify(build_equipment_summary_payload(year))
+
+
+@app.route("/api/maintenance/equipment/monthly")
+def maintenance_equipment_monthly():
+    month = request.args.get("month")
+    year = request.args.get("year", type=int)
+    return jsonify(build_equipment_monthly_payload(month, year))
+
+
+@app.route("/api/maintenance/equipment/list")
+def maintenance_equipment_list():
+    return jsonify(
+        build_equipment_list_payload(
+            month_value=request.args.get("month"),
+            status=request.args.get("status", "all"),
+            category=request.args.get("category", "all"),
+            location=request.args.get("location", "all"),
+            inspection=request.args.get("inspection", "all"),
+            search=request.args.get("search", ""),
+            sort=request.args.get("sort", "due_date_asc"),
+            year=request.args.get("year", type=int),
+            aggregate=request.args.get("aggregate", "occurrence"),
+            priority=request.args.get("priority", "all"),
+            critical=request.args.get("critical", "all"),
+            week=request.args.get("week", "all"),
+        )
+    )
+
+
+@app.route("/api/maintenance/equipment/timeline")
+def maintenance_equipment_timeline():
+    year = request.args.get("year", type=int)
+    month = request.args.get("month")
+    return jsonify(build_equipment_timeline_payload(year, month))
+
+
+@app.route("/api/maintenance/equipment/filters")
+def maintenance_equipment_filters():
+    year = request.args.get("year", type=int)
+    return jsonify(build_equipment_filter_payload(year))
+
+
+@app.route("/api/maintenance/non_scheduled/summary")
+def maintenance_non_scheduled_summary():
+    year = request.args.get("year", type=int)
+    return jsonify(build_non_scheduled_summary_payload(year))
+
+
+@app.route("/api/maintenance/non_scheduled/monthly")
+def maintenance_non_scheduled_monthly():
+    month = request.args.get("month")
+    year = request.args.get("year", type=int)
+    return jsonify(build_non_scheduled_monthly_payload(month, year))
+
+
+@app.route("/api/maintenance/non_scheduled/list")
+def maintenance_non_scheduled_list():
+    return jsonify(
+        build_non_scheduled_list_payload(
+            month_value=request.args.get("month"),
+            status=request.args.get("status", "all"),
+            priority=request.args.get("priority", "all"),
+            area=request.args.get("area", "all"),
+            search=request.args.get("search", ""),
+            year=request.args.get("year", type=int),
+            sort=request.args.get("sort", "due_date_asc"),
+        )
+    )
+
+
+@app.route("/api/maintenance/non_scheduled/filters")
+def maintenance_non_scheduled_filters():
+    year = request.args.get("year", type=int)
+    return jsonify(build_non_scheduled_filter_payload(year))
+
+
+def get_page_last_synced(page_key):
+    mdb_files = [
+        "mdb_emdb.csv",
+        "mdb6_energy.csv",
+        "mdb7_energy.csv",
+        "mdb8_energy.csv",
+        "mdb9_energy.csv",
+        "mdb10_energy.csv",
+        "mdb_gen1_RT.csv",
+        "mdb_gen2_RT.csv",
+        "mdb_gen3_RT.csv",
+        "mdb_gen4_RT.csv",
+    ]
+    boiler_files = [
+        "boiler01_1_RT.csv",
+        "boiler01_2_RT.csv",
+        "boiler01_3_RT.csv",
+        "boiler02_1_RT.csv",
+        "boiler02_2_RT.csv",
+        "boiler_gas_total.csv",
+        "boiler_directsteam_meterflow_total.csv",
+        "boiler_indirectsteam_meterflow.csv",
+        "boiler_direct_energy.csv",
+        "boiler_indirect_energy.csv",
+    ]
+    aircompressor_files = [
+        "aircompressor_energy.csv",
+        "airmeter_flow.csv",
+        "air_dewpoint.csv",
+    ]
+    wtp_files = [
+        "FIT-101-DeepWellWater_Total.csv",
+        "FIT-102-SoftWaterSupply-01_Total.csv",
+        "FIT-104-SoftWaterSupply-02_Total.csv",
+        "FIT-103-ROWaterSupply_Total.csv",
+        "FIT-105-FireWaterTank_Total.csv",
+        "FIT101DeepWellWater_Flow.csv",
+        "FIT102SoftWaterSupplyNo1_Flow.csv",
+        "FIT104SoftWaterSupplyNo2_Flow.csv",
+        "FIT103ROWaterSupply_Flow.csv",
+        "FIT105FireWaterTank_Flow.csv",
+        "PT101SoftWaterSupplyNo1_Pres.csv",
+        "PT102ROWaterSupply_Pres.csv",
+        "PT103SoftWaterSupplyNo2_Pres.csv",
+        "RES101SoftWaterSupplyNo1_ResCl2.csv",
+        "RES102ROWaterSupply_ResCl2.csv",
+        "RES103SoftWaterSupplyNo2_ResCl2.csv",
+    ]
+    wwtp_files = [
+        "EffluentPump_Total.csv",
+        "_RawWaterWastePump-01_Total.csv",
+        "_RawWasteWater_Temp.csv",
+        "PMG-WWTP_Energy.csv",
+        "_PM-WWTP-CONTROL-PANEL_Energy.csv",
+    ]
+    spiral_files = [
+        "sbf_spiral1_Data.csv",
+        "sbf_spiral2_Data.csv",
+        "sbf_spiral3_Data.csv",
+        "sbf_conveyor1.csv",
+        "sbf_conveyor2.csv",
+        "sbf_conveyor3.csv",
+        "sbf_power_monthly_ENERGY.csv",
+    ]
+
+    page_sources = {
+        "overview": [
+            "mdb_emdb.csv",
+            "RES102ROWaterSupply_ResCl2.csv",
+            "_RawWasteWater_Temp.csv",
+            "boiler_direct_energy.csv",
+            "boiler_indirect_energy.csv",
+            "airmeter_flow.csv",
+        ],
+        "mdb": mdb_files,
+        "boiler": boiler_files,
+        "aircompressor": aircompressor_files,
+        "wtp": wtp_files,
+        "wwtp": wwtp_files,
+        "ro_water": [
+            "FIT-103-ROWaterSupply_Total.csv",
+            "FIT103ROWaterSupply_Flow.csv",
+            "PT102ROWaterSupply_Pres.csv",
+            "RES102ROWaterSupply_ResCl2.csv",
+        ],
+        "softwater1": [
+            "FIT-102-SoftWaterSupply-01_Total.csv",
+            "FIT102SoftWaterSupplyNo1_Flow.csv",
+            "PT101SoftWaterSupplyNo1_Pres.csv",
+            "RES101SoftWaterSupplyNo1_ResCl2.csv",
+        ],
+        "softwater2": [
+            "FIT-104-SoftWaterSupply-02_Total.csv",
+            "FIT104SoftWaterSupplyNo2_Flow.csv",
+            "PT103SoftWaterSupplyNo2_Pres.csv",
+            "RES103SoftWaterSupplyNo2_ResCl2.csv",
+        ],
+        "spiral_blast_freezer": spiral_files,
+        "projection": mdb_files + boiler_files + aircompressor_files + wtp_files + wwtp_files + spiral_files + [
+            "Resource Online Status Log_2026_02_05_10_21_49.xlsx"
+        ],
+        "projection_mdb": mdb_files,
+        "projection_boiler": boiler_files,
+        "projection_cctv": ["Resource Online Status Log_2026_02_05_10_21_49.xlsx"],
+        "projection_freezer": spiral_files,
+        "projection_water": wtp_files + wwtp_files,
+        "cctv": ["Resource Online Status Log_2026_02_05_10_21_49.xlsx"],
+    }
+
+    if page_key in {"temperature", "temperature_history"}:
+        return get_temperature_last_synced()
+
+    if page_key == "lighting":
+        lighting_payload = load_lighting_data()
+        return lighting_payload.get("generatedAt") or get_source_timestamp(LIGHTING_CSV_FILENAME)
+
+    if page_key == "maintenance":
+        return max(
+            [ts for ts in [get_maintenance_last_synced(), get_equipment_maintenance_last_synced()] if ts],
+            default=None,
+        )
+
+    if page_key in {"kitchen", "hobart", "steambox", "xray", "checkweigher", "downtime"}:
+        return datetime.now().isoformat()
+
+    if page_key not in page_sources:
+        return None
+
+    return get_latest_timestamp_from_files(page_sources[page_key])
+
+
+@app.route("/api/page-sync/<page_key>")
+def page_sync(page_key):
+    return jsonify({
+        "page": page_key,
+        "last_synced": get_page_last_synced(page_key)
+    })
+
+
 @app.route("/api/overview/health")
 def overview_health():
     # Helper to get the latest value from any CSV
@@ -996,6 +2326,151 @@ def overview_health():
         }
     ]
     return jsonify(health_data)
+
+
+@app.route("/api/overview/health-fast")
+def overview_health_fast():
+    def latest_point(file_name, value_key="value"):
+        records = read_csv(file_name, value_key)
+        return records[-1] if records else None
+
+    def latest_value(file_name, value_key="value"):
+        point = latest_point(file_name, value_key)
+        return point.get(value_key) if point else None
+
+    def build_system(id, name, path, status, message, value):
+        return {
+            "id": id,
+            "name": name,
+            "path": path,
+            "status": status,
+            "message": message,
+            "value": value,
+        }
+
+    systems = []
+
+    emdb_load = latest_value("mdb_emdb.csv", "kwh")
+    if emdb_load is None:
+        systems.append(build_system("mdb", "Power Systems (MDB)", "/Utilities/MDB/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+    else:
+        systems.append(build_system("mdb", "Power Systems (MDB)", "/Utilities/MDB/index.html", "NORMAL", "System Operational", f"{emdb_load:,.0f} kWh"))
+
+    ro_chlorine = latest_value("RES102ROWaterSupply_ResCl2.csv", "value")
+    if ro_chlorine is None:
+        systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+    elif ro_chlorine < 0.1:
+        systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", "ATTENTION", "Residual chlorine below threshold", f"{ro_chlorine:.2f} mg"))
+    else:
+        systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", "NORMAL", "System Operational", f"{ro_chlorine:.2f} mg"))
+
+    raw_temp = latest_value("_RawWasteWater_Temp.csv", "value")
+    if raw_temp is None:
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+    elif raw_temp >= 35:
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "WARNING", "Wastewater inflow temperature elevated", f"{raw_temp:.1f} C"))
+    else:
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "NORMAL", "System Operational", f"{raw_temp:.1f} C"))
+
+    try:
+        db_path = os.path.join(BASE_DIR, "temps.db")
+        conn = sqlite3.connect(db_path)
+        room_count = conn.execute("SELECT COUNT(*) FROM room_temperature").fetchone()[0]
+        conn.close()
+        systems.append(build_system("temp", "Room Temperatures", "/Temperature/index.html", "NORMAL", "System Operational", f"{room_count} Rooms Monitored"))
+    except Exception:
+        systems.append(build_system("temp", "Room Temperatures", "/Temperature/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+
+    spiral_files = [
+        os.path.join(DATA_DIR, "sbf_spiral1_Data.csv"),
+        os.path.join(DATA_DIR, "sbf_spiral2_Data.csv"),
+        os.path.join(DATA_DIR, "sbf_spiral3_Data.csv"),
+    ]
+    spiral_online = sum(1 for path in spiral_files if os.path.exists(path))
+    if spiral_online == 0:
+        systems.append(build_system("sbf", "Spiral Blast Freezer", "/Spiral%20Blast%20Freezer/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+    else:
+        systems.append(build_system("sbf", "Spiral Blast Freezer", "/Spiral%20Blast%20Freezer/index.html", "NORMAL", "System Operational", f"{spiral_online} Lines Online"))
+
+    cctv_path = os.path.join(DATA_DIR, "Resource Online Status Log_2026_02_05_10_21_49.xlsx")
+    try:
+        cctv_df = pd.read_excel(cctv_path)
+        cctv_df.columns = cctv_df.columns.str.strip()
+        total_cams = len(cctv_df)
+        offline_cams = len(cctv_df[cctv_df["Current Status"].astype(str).str.lower() != "online"])
+        offline_ratio = (offline_cams / total_cams) if total_cams else 0
+        if offline_ratio >= 0.10:
+            systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "ATTENTION", f"{offline_cams} camera(s) offline", f"{total_cams - offline_cams} / {total_cams} Online"))
+        elif offline_cams > 0:
+            systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "NORMAL", f"{offline_cams} camera(s) offline", f"{total_cams - offline_cams} / {total_cams} Online"))
+        else:
+            systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "NORMAL", "System Operational", f"{total_cams} / {total_cams} Online"))
+    except Exception:
+        systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+
+    try:
+        lighting_payload = load_lighting_data()
+        lighting_rows = lighting_payload.get("fixtures", [])
+        total_fixtures = len(lighting_rows)
+        critical_fixtures = 0
+        warning_fixtures = 0
+        health_scores = []
+        total_energy = 0.0
+
+        for row in lighting_rows:
+            notional_energy = pd.to_numeric(row.get("Notional Energy"), errors="coerce")
+            health = calculate_lighting_fixture_health_pct(row.get("Lamp Life Remaining"))
+
+            if pd.notna(notional_energy):
+                total_energy += float(notional_energy)
+
+            if health is not None:
+                health_scores.append(health)
+                if health < 40:
+                    critical_fixtures += 1
+                elif health < 70:
+                    warning_fixtures += 1
+
+        average_health = round(sum(health_scores) / len(health_scores), 1) if health_scores else 0
+        if total_fixtures == 0:
+            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+        elif critical_fixtures > 0:
+            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "ATTENTION", f"{critical_fixtures} critical fixture(s) across {total_fixtures} monitored lights", f"{total_energy:,.0f} kWh"))
+        elif warning_fixtures > 0:
+            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "WARNING", f"{warning_fixtures} fixture(s) approaching maintenance threshold", f"{average_health}% Avg Health"))
+        else:
+            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "NORMAL", f"{total_fixtures} fixtures monitored", f"{average_health}% Avg Health"))
+    except Exception:
+        systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+
+    direct_energy = latest_value("boiler_direct_energy.csv", "energy")
+    indirect_energy = latest_value("boiler_indirect_energy.csv", "energy")
+    if direct_energy is None and indirect_energy is None:
+        systems.append(build_system("boiler", "Boiler Systems", "/Utilities/Boiler/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+    else:
+        total_boiler_energy = (direct_energy or 0) + (indirect_energy or 0)
+        systems.append(build_system("boiler", "Boiler Systems", "/Utilities/Boiler/index.html", "NORMAL", "System Operational", f"{total_boiler_energy:,.0f} kWh"))
+
+    air_flow = latest_value("airmeter_flow.csv", "flow")
+    if air_flow is None:
+        systems.append(build_system("air", "Air Compressor", "/Utilities/Air%20Compressor/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
+    else:
+        systems.append(build_system("air", "Air Compressor", "/Utilities/Air%20Compressor/index.html", "NORMAL", "System Operational", f"{air_flow:,.2f} Flow"))
+
+    last_synced = max(
+        [ts for ts in [
+            get_latest_csv_timestamp("mdb_emdb.csv"),
+            get_latest_csv_timestamp("RES102ROWaterSupply_ResCl2.csv"),
+            get_latest_csv_timestamp("_RawWasteWater_Temp.csv"),
+            get_latest_csv_timestamp("boiler_direct_energy.csv"),
+            get_latest_csv_timestamp("boiler_indirect_energy.csv"),
+            get_latest_csv_timestamp("airmeter_flow.csv"),
+            get_latest_csv_timestamp("Channel Runtime_Light.csv"),
+        ] if ts],
+        default=None
+    )
+
+    return jsonify({"systems": systems, "last_synced": last_synced})
 
 
 # =====================================================
@@ -1375,6 +2850,22 @@ def collect_mdb_data():
             "gen_2": read_csv("mdb_gen2_RT.csv", "runtime"),
             "gen_3": read_csv("mdb_gen3_RT.csv", "runtime"),
             "gen_4": read_csv("mdb_gen4_RT.csv", "runtime")
+        },
+        "meta": {
+            "last_synced": max([
+                ts for ts in [
+                    get_latest_csv_timestamp("mdb_emdb.csv"),
+                    get_latest_csv_timestamp("mdb6_energy.csv"),
+                    get_latest_csv_timestamp("mdb7_energy.csv"),
+                    get_latest_csv_timestamp("mdb8_energy.csv"),
+                    get_latest_csv_timestamp("mdb9_energy.csv"),
+                    get_latest_csv_timestamp("mdb10_energy.csv"),
+                    get_latest_csv_timestamp("mdb_gen1_RT.csv"),
+                    get_latest_csv_timestamp("mdb_gen2_RT.csv"),
+                    get_latest_csv_timestamp("mdb_gen3_RT.csv"),
+                    get_latest_csv_timestamp("mdb_gen4_RT.csv")
+                ] if ts
+            ], default=None)
         }
     }
 
@@ -3936,4 +5427,5 @@ def export_report():
 if __name__ == "__main__":
     print("\n🚀 Server running at http://127.0.0.1:5001")
     print(f"📂 Data directory: {DATA_DIR}\n")
-    app.run(debug=True, port=5001)
+    debug_enabled = os.environ.get("FLASK_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
+    app.run(debug=debug_enabled, port=5001)

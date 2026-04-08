@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/shared/navbar.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-sync-page="lighting">
     <div id="navbar"></div>
 
     <main class="dashboard-content">
@@ -24,10 +24,10 @@
                 <h1>Lighting Fixture Health Overview</h1>
                 <p class="subtitle">Grouped by area with lifecycle health, energy visibility, and targeted fixture alerts.</p>
             </div>
-            <div class="header-meta-card">
-                <div class="meta-label">Data Snapshot</div>
-                <div class="meta-value" id="lighting-generated-at">--</div>
-                <div class="meta-subtext" id="lighting-period">--</div>
+            <div class="header-meta-card sync-card" data-sync-card="true">
+                <div class="meta-label sync-label">Last Synced</div>
+                <div class="meta-value sync-value" data-sync-date>--</div>
+                <div class="meta-subtext sync-subvalue" data-sync-time>--</div>
             </div>
         </header>
 
@@ -92,14 +92,37 @@
             </div>
         </section>
 
-        <section class="panel alert-panel">
-            <div class="panel-head">
+        <section class="panel lighting-energy-panel">
+            <div class="lighting-energy-head">
                 <div>
-                    <p class="panel-kicker">Critical Alerts</p>
-                    <h2>Fixtures needing immediate attention</h2>
+                    <p class="panel-kicker">Lighting Consumption Only</p>
+                    <h2>Lighting Notional Energy Overview</h2>
+                    <p class="lighting-energy-caption">This module reflects lighting fixtures only and excludes other electrical loads on the MDB network.</p>
+                </div>
+                <div class="lighting-scope-badge">Lighting Only</div>
+            </div>
+            <div class="lighting-energy-grid">
+                <div class="lighting-energy-overview">
+                    <div class="lighting-energy-copy">
+                        <div class="lighting-energy-value" id="lighting-energy-total">-- kWh</div>
+                        <div class="lighting-energy-meta" id="lighting-energy-health-meta">--</div>
+                        <div class="lighting-energy-note" id="lighting-energy-top-area">--</div>
+                    </div>
+                    <div class="chart-wrap compact">
+                        <canvas id="lighting-area-energy-chart"></canvas>
+                    </div>
+                </div>
+                <div class="lighting-energy-breakdowns">
+                    <article class="lighting-breakdown-card">
+                        <div class="lighting-breakdown-title">Area-wise Lighting Energy</div>
+                        <div class="lighting-breakdown-list" id="lighting-energy-breakdown"></div>
+                    </article>
+                    <article class="lighting-breakdown-card">
+                        <div class="lighting-breakdown-title">Circuit-wise Lighting Energy</div>
+                        <div class="lighting-breakdown-list" id="lighting-circuit-breakdown"></div>
+                    </article>
                 </div>
             </div>
-            <div class="alerts-list" id="critical-alerts-list"></div>
         </section>
 
         <section class="chart-grid">
@@ -134,7 +157,6 @@
             .then(res => res.text())
             .then(html => document.getElementById('navbar').innerHTML = html);
     </script>
-    <script src="mockData.js"></script>
     <script src="utils.js"></script>
     <script src="script.js" defer></script>
 </body>

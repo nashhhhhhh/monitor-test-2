@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Boiler & Compressor Projection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boiler &amp; Compressor Projection</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="/shared/navbar.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,110 +11,72 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body data-sync-page="projection_boiler" data-projection-page="boiler">
     <div id="navbar"></div>
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
-        .then(r => r.ok ? r.text() : Promise.reject())
-        .then(h => document.getElementById('navbar').innerHTML = h)
-        .catch(() => {});
+            .then(r => r.ok ? r.text() : Promise.reject())
+            .then(h => document.getElementById('navbar').innerHTML = h)
+            .catch(() => {});
     </script>
 
     <main class="dashboard-content">
-
         <nav class="breadcrumb">
             <a href="/Projection/index.html">Projection Overview</a>
-            <span class="breadcrumb-sep">›</span>
-            <span>Boiler &amp; Air Compressor</span>
+            <span class="breadcrumb-sep">&gt;</span>
+            <span>Boiler &amp; Compressor</span>
         </nav>
 
         <header class="dash-header">
-            <div>
-                <h2>🔥 Boiler &amp; Compressor Projection</h2>
-                <p class="text-muted">Efficiency trend, energy consumption and pressure stability forecast</p>
+            <div class="header-intro">
+                <h2 id="projection-page-title">Boiler &amp; Compressor Projection</h2>
+                <p class="text-muted" id="projection-page-subtitle">Projected maintenance workload and downtime exposure for boiler, compressor, and related utility assets.</p>
+                <article class="projection-summary-card">
+                    <span class="section-heading">Projection Window</span>
+                    <strong class="projection-window-value" id="projection-window-label">Loading...</strong>
+                    <span class="projection-window-subtext" id="projection-window-subtext">Projection updates dynamically from the current imported dashboard records.</span>
+                </article>
             </div>
-            <div class="header-right">
-                <span class="refresh-badge" id="last-updated">Calculating…</span>
-                <div id="clock" class="clock-display">--:--:--</div>
+            <div class="header-tools">
+                <label class="projection-filter">
+                    <span class="section-heading">Forecast Period</span>
+                    <select id="projection-period" class="projection-select">
+                        <option value="next_week">Next Week</option>
+                        <option value="next_month" selected>Next Month</option>
+                        <option value="quarter">Quarter</option>
+                    </select>
+                </label>
+                <div class="sync-card" data-sync-card="true">
+                    <span class="sync-label">Last Synced</span>
+                    <strong class="sync-value" data-sync-date>--</strong>
+                    <span class="sync-subvalue" data-sync-time>--</span>
+                </div>
             </div>
         </header>
 
-        <div id="alert-banner" class="alert-banner hidden">
-            <div class="alert-banner-title">⚠ Boiler / Compressor Alerts</div>
-            <div id="alert-list" class="alert-inner"></div>
-        </div>
-
-        <!-- Boiler KPIs -->
-        <h3 class="section-title">Boiler Forecast</h3>
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-green">
-                <div class="kpi-label">Predicted Efficiency (1 hr)</div>
-                <div class="kpi-value" id="kpi-boiler-eff">--</div>
-                <div class="kpi-trend">% — predicted thermal efficiency</div>
-            </div>
-            <div class="kpi-card highlight-amber">
-                <div class="kpi-label">Predicted Gas Use (24 hr)</div>
-                <div class="kpi-value" id="kpi-boiler-gas">--</div>
-                <div class="kpi-trend">kg — daily gas consumption</div>
-            </div>
-            <div class="kpi-card highlight-blue">
-                <div class="kpi-label">Efficiency Trend</div>
-                <div class="kpi-value mini" id="kpi-boiler-trend">--</div>
-                <div class="kpi-trend">Based on last 10 readings</div>
-            </div>
-            <div class="kpi-card highlight-red" id="kpi-boiler-risk-card">
-                <div class="kpi-label">Maintenance Risk</div>
-                <div class="kpi-value mini" id="kpi-boiler-risk">--</div>
-                <div class="kpi-trend">Below 70% = review needed</div>
+        <section class="forecast-section">
+            <div class="section-heading">KPI Cards</div>
+            <div class="kpi-grid" id="projection-kpis">
+                <div class="empty-state projection-empty-block">Loading projection KPI data...</div>
             </div>
         </section>
 
-        <!-- Compressor KPIs -->
-        <h3 class="section-title">Air Compressor Forecast</h3>
-        <section class="kpi-grid">
-            <div class="kpi-card highlight-green">
-                <div class="kpi-label">Predicted Energy (1 hr)</div>
-                <div class="kpi-value" id="kpi-comp-1h">--</div>
-                <div class="kpi-trend">kWh — next hour</div>
-            </div>
-            <div class="kpi-card highlight-green">
-                <div class="kpi-label">Predicted Energy (24 hr)</div>
-                <div class="kpi-value" id="kpi-comp-24h">--</div>
-                <div class="kpi-trend">kWh — daily forecast</div>
-            </div>
-            <div class="kpi-card highlight-cyan">
-                <div class="kpi-label">Pressure Stability</div>
-                <div class="kpi-value mini" id="kpi-comp-pressure">--</div>
-                <div class="kpi-trend">Trend direction</div>
-            </div>
-            <div class="kpi-card highlight-red" id="kpi-comp-risk-card">
-                <div class="kpi-label">Pressure Risk</div>
-                <div class="kpi-value mini" id="kpi-comp-risk">--</div>
-                <div class="kpi-trend">Based on energy trend</div>
+        <section class="forecast-section">
+            <div class="section-heading">Trend Charts</div>
+            <div class="chart-grid" id="projection-charts">
+                <div class="empty-state projection-empty-block">Loading projection charts...</div>
             </div>
         </section>
 
-        <!-- Charts -->
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card">
-                <div class="card-title">Boiler Efficiency Forecast (%)</div>
-                <div class="chart-container"><canvas id="boilerChart"></canvas></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Compressor Energy Forecast (kWh)</div>
-                <div class="chart-container"><canvas id="compChart"></canvas></div>
+        <section class="forecast-section">
+            <div class="section-heading">Breakdown</div>
+            <div class="breakdown-grid" id="projection-breakdowns">
+                <div class="empty-state projection-empty-block">Loading projection breakdowns...</div>
             </div>
         </section>
-
-        <div class="recommendation-box">
-            <div class="rec-title">💡 Recommendations</div>
-            <div id="rec-items"></div>
-        </div>
-
     </main>
 
-    <script src="/Projection/prediction-core.js"></script>
-    <script src="boiler-script.js"></script>
+    <script src="projection-page.js?v=20260408d"></script>
 </body>
 </html>

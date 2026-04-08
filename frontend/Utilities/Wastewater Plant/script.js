@@ -25,9 +25,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const lastTemp = data.rawTemp?.slice(-1)[0]?.value || 0;
             const lastRaw = data.rawPump?.slice(-1)[0]?.value || 0;
             const lastEffluent = data.effluent?.slice(-1)[0]?.value || 0;
+            const treatmentRatio = lastRaw > 0 ? (lastEffluent / lastRaw) * 100 : 0;
 
             // Update DOM Elements
             document.getElementById("kpi-energy").textContent = (lastPmg + lastCtrl).toLocaleString();
+            document.getElementById("treated-wastewater-total").textContent = `${lastEffluent.toLocaleString()} m³`;
+            document.getElementById("treated-wastewater-raw").textContent = `${lastRaw.toLocaleString()} m³`;
+            document.getElementById("treated-wastewater-ratio").textContent = `${treatmentRatio.toFixed(1)}%`;
             document.getElementById("kpi-temp").textContent = `${lastTemp.toFixed(1)}°C`;
 
             const active = (lastEffluent > 0 ? 1 : 0) + (lastRaw > 0 ? 1 : 0);

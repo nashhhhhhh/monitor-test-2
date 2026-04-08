@@ -15,7 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
-<body>
+<body data-sync-page="mdb">
 
   <div id="navbar"></div>
 
@@ -30,8 +30,15 @@
   <main class="dashboard-content">
     
     <header class="dash-header">
-      <h1>MDB & Generator Monitoring</h1>
-      <p class="subtitle">Real-time load distribution and backup power system status</p>
+      <div>
+        <h1>MDB & Generator Monitoring</h1>
+        <p class="subtitle">Real-time load distribution and backup power system status</p>
+      </div>
+      <div class="sync-card" data-sync-card="true">
+        <span class="sync-label">Last Synced</span>
+        <strong class="sync-value" id="mdb-last-synced-date" data-sync-date>--</strong>
+        <span class="sync-subvalue" id="mdb-last-synced-time" data-sync-time>--</span>
+      </div>
     </header>
 
     <section class="kpi-grid">
@@ -56,45 +63,16 @@
       </div>
     </section>
 
-    <section class="lighting-energy-section">
-      <div class="card lighting-energy-card">
-        <div class="lighting-section-head">
-          <div>
-            <div class="lighting-kicker">Lighting Consumption Only</div>
-            <div class="card-title card-title-no-border">Lighting Notional Energy Overview</div>
-            <div class="lighting-section-note">This module reflects lighting fixtures only and excludes other electrical loads on the MDB network.</div>
-          </div>
-          <div class="lighting-scope-badge">Lighting Only</div>
-        </div>
-        <div class="lighting-energy-grid">
-          <div class="lighting-overview-stack">
-            <div class="lighting-energy-copy">
-              <div class="lighting-energy-value" id="kpi-lighting-energy">-- kWh</div>
-              <div class="lighting-energy-meta" id="lighting-energy-share">--</div>
-              <div class="lighting-energy-note" id="lighting-energy-room">--</div>
-            </div>
-            <div class="lighting-mini-chart">
-              <canvas id="lightingAreaEnergyChart"></canvas>
-            </div>
-          </div>
-          <div class="lighting-breakdown-panels">
-            <div class="lighting-breakdown-card">
-              <div class="lighting-breakdown-title">Area-wise Lighting Energy</div>
-              <div class="lighting-breakdown-list" id="lighting-energy-breakdown"></div>
-            </div>
-            <div class="lighting-breakdown-card">
-              <div class="lighting-breakdown-title">Circuit-wise Lighting Energy</div>
-              <div class="lighting-breakdown-list" id="lighting-circuit-breakdown"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="main-grid">
       
       <div class="card">
-        <div class="card-title">MDB Energy Distribution (Latest kWh)</div>
+        <div class="card-title flex-header">
+          <span>MDB Energy Distribution</span>
+          <div class="filter-inline">
+            <input type="date" id="distribution-date-picker" class="date-input">
+            <input type="time" id="distribution-time-picker" class="date-input" step="900">
+          </div>
+        </div>
         <div class="chart-container">
           <canvas id="distributionChart"></canvas>
         </div>
@@ -140,8 +118,6 @@
     </section>
   </main>
 
-  <script src="/Lighting/mockData.js"></script>
-  <script src="/Lighting/utils.js"></script>
   <script src="script.js" defer></script>
 
 </body>

@@ -142,6 +142,29 @@ html, body {
   color: white;
 }
 
+.nav-btn-wip {
+  color: #fcd34d;
+}
+
+.nav-btn-wip:hover {
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.nav-wip-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde68a;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  vertical-align: middle;
+}
+
 /* ===============================
    DROPDOWN
 ================================ */
@@ -189,6 +212,70 @@ html, body {
   background: #f1f5f9;
   font-weight: 700;
   color: var(--accent);
+}
+
+/* ===============================
+   SHARED SYNC CARD
+================================ */
+.sync-card {
+  min-width: 220px;
+  padding: 18px 22px;
+  border-radius: 20px;
+  border: 1px solid #dbe4ee;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  text-align: right;
+}
+
+.sync-label {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sync-value {
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.sync-subvalue {
+  color: #2563eb;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sync-card-host {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.sync-card-host > * {
+  min-width: 0;
+}
+
+.sync-card-host > [data-sync-header-copy] {
+  flex: 1 1 320px;
+}
+
+@media (max-width: 900px) {
+  .sync-card {
+    min-width: 100%;
+    align-items: flex-start;
+    text-align: left;
+  }
 }
 
 /* ===============================

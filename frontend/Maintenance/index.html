@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance | Stage 2</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body data-sync-page="maintenance">
+    <div id="navbar"></div>
+
+    <main class="dashboard-content">
+        <header class="dash-header">
+            <div class="header-copy">
+                <h1 id="maintenance-page-title">Utility Maintenance</h1>
+                <p class="subtitle" id="maintenance-page-subtitle">Utility preventive maintenance planning and schedule visibility for management review</p>
+            </div>
+            <div class="header-right"></div>
+        </header>
+
+        <section class="card-shell view-toggle maintenance-tab-toggle">
+            <button type="button" class="toggle-btn active" data-view-tab="overview">Overview</button>
+            <button type="button" class="toggle-btn" data-view-tab="utility">Utility</button>
+            <button type="button" class="toggle-btn" data-view-tab="equipment">Equipment</button>
+            <button type="button" class="toggle-btn" data-view-tab="downtime">Downtime</button>
+            <button type="button" class="toggle-btn toggle-btn-wip" data-view-tab="non_scheduled">Non-Scheduled <span class="toggle-badge">WIP</span></button>
+        </section>
+
+        <section id="overview-view" class="maintenance-view">
+            <section class="summary-grid overview-summary-grid">
+                <article class="summary-card summary-card-kpi summary-card-amber">
+                    <span class="summary-label">Scheduled Tasks</span>
+                    <strong id="overview-scheduled-tasks">--</strong>
+                </article>
+                <article class="summary-card summary-card-kpi summary-card-green">
+                    <span class="summary-label">Completed Tasks</span>
+                    <strong id="overview-completed-tasks">--</strong>
+                </article>
+                <article class="summary-card summary-card-kpi summary-card-blue">
+                    <span class="summary-label">Pending Tasks</span>
+                    <strong id="overview-pending-tasks">--</strong>
+                </article>
+                <article class="summary-card summary-card-kpi summary-card-purple">
+                    <span class="summary-label">Completion Rate</span>
+                    <strong id="overview-completion-rate">--</strong>
+                </article>
+                <article class="summary-card summary-card-kpi summary-card-amber">
+                    <span class="summary-label">Tasks Requiring Inspection</span>
+                    <strong id="overview-inspection-tasks">--</strong>
+                </article>
+                <article class="summary-card summary-card-kpi summary-card-blue">
+                    <span class="summary-label">Tasks Pending Follow-Up</span>
+                    <strong id="overview-follow-up-tasks">--</strong>
+                </article>
+            </section>
+
+            <section class="card-shell filter-card">
+                <div class="section-head">
+                    <div>
+                        <h2>Maintenance Overview</h2>
+                        <p class="section-subtitle">Combined preventive maintenance summary across utility and equipment schedules</p>
+                    </div>
+                </div>
+                <div class="filter-grid">
+                    <label class="control-field">
+                        <span>Month</span>
+                        <select id="overview-filter-month"></select>
+                    </label>
+                    <label class="control-field">
+                        <span>Category</span>
+                        <select id="overview-filter-category"></select>
+                    </label>
+                    <label class="control-field">
+                        <span>Status</span>
+                        <select id="overview-filter-status"></select>
+                    </label>
+                    <label class="control-field">
+                        <span>Sort</span>
+                        <select id="overview-filter-sort"></select>
+                    </label>
+                    <label class="control-field search-field">
+                        <span>Search</span>
+                        <input id="overview-filter-search" type="search" placeholder="Asset code, name, or person in charge">
+                    </label>
+                    <div class="control-field action-field">
+                        <span>&nbsp;</span>
+                        <button type="button" id="apply-overview-filters" class="apply-btn">Apply Filters</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-shell table-card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Equipment / Utility Name</th>
+                                <th>Category</th>
+                                <th>Preventive Maintenance Required</th>
+                                <th>Status</th>
+                                <th>Date Provided</th>
+                                <th>Person In Charge</th>
+                                <th>Inspection Required</th>
+                                <th>Follow-Up Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overview-table-body">
+                            <tr><td colspan="9" class="empty-row">Loading maintenance overview.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="utility-view" class="maintenance-view hidden">
+            <section class="summary-grid" id="summary-grid">
+                <article class="summary-card summary-card-kpi summary-card-red" id="summary-card-1" data-summary-filter="due_this_week"><span class="summary-label" id="summary-label-1">Due This Week</span><strong id="summary-due-week">--</strong></article>
+                <article class="summary-card summary-card-kpi summary-card-amber" id="summary-card-2" data-summary-filter="due_this_month"><span class="summary-label" id="summary-label-2">Due This Month</span><strong id="summary-due-month">--</strong></article>
+                <article class="summary-card summary-card-kpi summary-card-blue" id="summary-card-3" data-summary-filter="completion_aux"><span class="summary-label" id="summary-label-3">Completion Rate Week</span><strong id="summary-rate-week">--</strong></article>
+                <article class="summary-card summary-card-kpi summary-card-amber" id="summary-card-4" data-summary-filter="completion_rate"><span class="summary-label" id="summary-label-4">Completion Rate Month</span><strong id="summary-rate-month">--</strong></article>
+                <article class="summary-card summary-card-kpi summary-card-blue" id="summary-card-5" data-summary-filter="upcoming"><span class="summary-label" id="summary-label-5">Upcoming Next 7 Days</span><strong id="summary-upcoming">--</strong></article>
+            </section>
+
+            <section class="secondary-grid">
+                <article class="card-shell insight-card">
+                    <span class="insight-label" id="summary-assets-label">Total Utility Assets</span>
+                    <strong id="summary-assets">--</strong>
+                </article>
+                <article class="card-shell insight-card">
+                    <span class="insight-label" id="summary-quarter-label">Tasks This Quarter</span>
+                    <strong id="summary-quarter">--</strong>
+                    <span class="insight-meta" id="summary-next-month">--</span>
+                </article>
+            </section>
+
+            <section class="timeline-layout">
+                <article class="card-shell timeline-card timeline-card-full">
+                    <div class="section-head">
+                        <div>
+                            <h2 id="timeline-title">Year Timeline</h2>
+                            <p class="section-subtitle" id="timeline-subtitle">Month-by-month preventive maintenance load for the selected year</p>
+                        </div>
+                    </div>
+                    <div id="timeline-month-strip" class="timeline-month-strip"></div>
+                    <div class="timeline-chart-wrap">
+                        <canvas id="timeline-chart"></canvas>
+                    </div>
+                </article>
+            </section>
+
+            <section class="monthly-layout">
+                <article class="card-shell monthly-card">
+                    <div class="section-head">
+                        <div>
+                            <h2 id="monthly-section-title">Monthly Maintenance</h2>
+                            <p class="section-subtitle" id="monthly-section-subtitle">Interactive month summary and maintenance status breakdown</p>
+                        </div>
+                        <label class="control-field compact-field">
+                            <span>Month</span>
+                            <select id="month-selector"></select>
+                        </label>
+                    </div>
+
+                    <div class="status-chip-row">
+                        <button type="button" class="status-chip equipment-only" data-status="all">All</button>
+                        <button type="button" class="status-chip" data-status="done">Done</button>
+                        <button type="button" class="status-chip active" data-status="pending">Pending</button>
+                        <button type="button" class="status-chip equipment-only" data-status="overdue">Overdue</button>
+                    </div>
+
+                    <div class="monthly-body">
+                        <div class="monthly-chart-wrap">
+                            <canvas id="monthly-status-chart"></canvas>
+                        </div>
+                        <div class="monthly-metric-grid">
+                            <article class="mini-card" data-status-target="done"><span>Done</span><strong id="monthly-done">--</strong></article>
+                            <article class="mini-card active" data-status-target="pending"><span>Pending</span><strong id="monthly-pending">--</strong></article>
+                            <article class="mini-card equipment-only" data-status-target="overdue"><span>Overdue</span><strong id="monthly-overdue">--</strong></article>
+                            <article class="mini-card equipment-only" data-status-target="all"><span>Total Scheduled</span><strong id="monthly-total">--</strong></article>
+                        </div>
+                    </div>
+
+                    <div class="monthly-detail-panel">
+                        <div class="monthly-detail-head">
+                            <div>
+                                <h3 id="monthly-detail-title">Pending Maintenance</h3>
+                                <p id="monthly-detail-subtitle" class="section-subtitle">Machine list for the selected month and progress state</p>
+                            </div>
+                        </div>
+                        <div id="monthly-detail-list" class="monthly-detail-list empty-state-block">No maintenance scheduled for the selected month.</div>
+                    </div>
+                </article>
+
+                <article class="card-shell breakdown-card">
+                    <div class="section-head">
+                        <div>
+                            <h2 id="breakdown-title">Breakdown</h2>
+                            <p class="section-subtitle" id="breakdown-subtitle">Selected month by utility category or location</p>
+                        </div>
+                    </div>
+                    <div class="status-chip-row breakdown-toggle-row">
+                        <button type="button" class="status-chip active" data-breakdown-mode="category" id="breakdown-category-chip">Category</button>
+                        <button type="button" class="status-chip" data-breakdown-mode="location" id="breakdown-location-chip">Location</button>
+                        <button type="button" class="status-chip" data-breakdown-mode="inspection" id="breakdown-inspection-chip">Additional Steps</button>
+                    </div>
+                    <div id="monthly-breakdown-list" class="stack-list empty-state-block">No maintenance data available.</div>
+                    <div class="equipment-only compact-top-space">
+                        <div class="section-head">
+                            <div>
+                                <h2 class="compact-title">Top Risky Equipment</h2>
+                            </div>
+                        </div>
+                        <div id="top-risky-equipment-list" class="stack-list empty-state-block">No open high-risk equipment items.</div>
+                    </div>
+                </article>
+            </section>
+
+            <section class="card-shell filter-card">
+                <div class="section-head">
+                    <div>
+                        <h2 id="maintenance-list-title">Maintenance List</h2>
+                        <p class="section-subtitle" id="maintenance-list-subtitle">Filter by month, status, category, location, and machine details</p>
+                    </div>
+                </div>
+                <div class="filter-grid">
+                    <label class="control-field">
+                        <span id="filter-month-label">Month</span>
+                        <select id="filter-month"></select>
+                    </label>
+                    <label class="control-field">
+                        <span id="filter-status-label">Status</span>
+                        <select id="filter-status"></select>
+                    </label>
+                    <label class="control-field">
+                        <span id="filter-category-label">Category</span>
+                        <select id="filter-category"></select>
+                    </label>
+                    <label class="control-field">
+                        <span id="filter-location-label">Location</span>
+                        <select id="filter-location"></select>
+                    </label>
+                    <label class="control-field">
+                        <span id="filter-inspection-label">Additional Steps</span>
+                        <select id="filter-inspection"></select>
+                    </label>
+                    <label class="control-field search-field">
+                        <span id="filter-search-label">Search</span>
+                        <input id="filter-search" type="search" placeholder="Machine code or machine name">
+                    </label>
+                    <label class="control-field">
+                        <span id="filter-sort-label">Sort</span>
+                        <select id="filter-sort"></select>
+                    </label>
+                    <div class="control-field action-field">
+                        <span>&nbsp;</span>
+                        <button type="button" id="apply-maintenance-filters" class="apply-btn">Apply Filters</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-shell table-card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Machine Code</th>
+                                <th>Machine Name</th>
+                                <th id="maintenance-category-heading">Category</th>
+                                <th id="maintenance-location-heading">Location</th>
+                                <th>Frequency</th>
+                                <th>Next Due</th>
+                                <th>Latest Maintenance Week</th>
+                                <th class="equipment-only">Status</th>
+                                <th class="equipment-only">Days Overdue</th>
+                                <th class="equipment-only">Assigned Technician</th>
+                            </tr>
+                        </thead>
+                        <tbody id="maintenance-table-body">
+                            <tr><td colspan="7" class="empty-row">Apply filters to load the maintenance list.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="non-scheduled-view" class="maintenance-view hidden">
+            <section class="card-shell placeholder-card wip-placeholder-card">
+                <span class="status-pill wip-pill">Coming Soon</span>
+                <p>Non-Scheduled Maintenance</p>
+                <span class="placeholder-note">This tab is reserved for future reactive maintenance integration. No live maintenance overview data is shown here yet.</span>
+            </section>
+        </section>
+
+    </main>
+
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+            .then(res => {
+                if (!res.ok) throw new Error('Navbar failed to load');
+                return res.text();
+            })
+            .then(html => {
+                document.getElementById('navbar').innerHTML = html;
+            })
+            .catch(err => console.error(err));
+    </script>
+    <script src="script.js" defer></script>
+</body>
+</html>

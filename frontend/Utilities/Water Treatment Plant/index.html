@@ -18,7 +18,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 
-<body>
+<body data-sync-page="wtp">
 
   <div id="navbar"></div>
   <script src="/shared/navbar.js"></script>
@@ -36,6 +36,29 @@
       <p class="subtitle">Live analysis of system pressure, chlorine safety, and real-time flow rates</p>
     </header>
 
+    <section class="volume-section">
+      <div class="card volume-card">
+        <div class="card-title">Treated Water Volume</div>
+        <div class="volume-grid">
+          <div class="volume-item volume-item-primary">
+            <span class="volume-label">Total Treated Water</span>
+            <strong class="volume-value" id="treated-water-total">--</strong>
+            <span class="volume-note">Combined RO Water + Softwater 1 + Softwater 2</span>
+          </div>
+          <div class="volume-item">
+            <span class="volume-label">RO Water</span>
+            <strong class="volume-value" id="treated-water-ro">--</strong>
+          </div>
+          <div class="volume-item">
+            <span class="volume-label">Softwater 1</span>
+            <strong class="volume-value" id="treated-water-soft1">--</strong>
+          </div>
+          <div class="volume-item">
+            <span class="volume-label">Softwater 2</span>
+            <strong class="volume-value" id="treated-water-soft2">--</strong>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="kpi-with-distribution">
