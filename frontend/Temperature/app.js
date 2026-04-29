@@ -27,6 +27,61 @@ function formatNumber(value, digits = 2, fallback = "N/A") {
   return num === null ? fallback : num.toFixed(digits);
 }
 
+function buildExpectedRangeText(range) {
+  if (!range || !range.configured) return null;
+  if (range.label) {
+    return `Configured Threshold: ${range.label}`;
+  }
+  if (range.min_normal === null || range.min_normal === undefined) {
+    return `Configured Threshold: <= ${formatNumber(range.max_normal)} deg C`;
+  }
+  if (range.max_normal === null || range.max_normal === undefined) {
+    return `Configured Threshold: >= ${formatNumber(range.min_normal)} deg C`;
+  }
+  const min = formatNumber(range.min_normal);
+  const max = formatNumber(range.max_normal);
+  return min === max
+    ? `Configured Threshold: ${min} deg C`
+    : `Configured Threshold: ${min} to ${max} deg C`;
+}
+
+function buildThresholdDeviationText(room) {
+  const range = room?.expected_range;
+  const actual = toNumber(room?.["Actual Temp"]);
+  if (!range?.configured || actual === null) return null;
+
+  const min = toNumber(range.min_normal);
+  const max = toNumber(range.max_normal);
+
+  if (min !== null && actual < min) {
+    return `Deviation vs Threshold: -${formatNumber(min - actual)} deg C`;
+  }
+  if (max !== null && actual > max) {
+    return `Deviation vs Threshold: +${formatNumber(actual - max)} deg C`;
+  }
+  return `Deviation vs Threshold: 0.00 deg C`;
+}
+
+function buildEnergyTooltipLines(energy, insight) {
+  if (!energy || !energy.mapped) return [];
+  if (!energy.available) {
+    return [
+      `Energy: ${energy.label || energy.source_key || "Mapped source"} unavailable`,
+      `Energy Status: ${energy.status || "UNAVAILABLE"}`
+    ];
+  }
+
+  const lines = [
+    `Energy: ${formatNumber(energy.latest_value, 3)} ${energy.unit || "kWh"}`,
+    `Energy Status: ${energy.status || "NORMAL"}`
+  ];
+  if (energy.baseline !== null && energy.baseline !== undefined) {
+    lines.push(`Energy Baseline: ${formatNumber(energy.baseline, 3)} ${energy.unit || "kWh"}`);
+  }
+  if (insight) lines.push(`Insight: ${insight}`);
+  return lines;
+}
+
 /* =========================
    LOAD SVG (INLINE)
 ========================= */
@@ -107,12 +162,18 @@ function applyDataToSVG(data) {
       el.appendChild(title);
     }
 
-    title.textContent =
-`${room.room_name ? room.room_name + " (" + room.base_room + ")" : room.base_room}
-Actual: ${formatNumber(room["Actual Temp"])} deg C
-Required: ${formatNumber(room.Requirement)} deg C
-Diff: ${formatNumber(room.temp_diff)} deg C
-Status: ${room.status || 'UNKNOWN'}`;
+    const tooltipLines = [
+      room.room_name ? `${room.room_name} (${room.base_room})` : room.base_room,
+      `Actual: ${formatNumber(room["Actual Temp"])} deg C`,
+      `Status: ${room.status || 'UNKNOWN'}`
+    ];
+    const expectedRangeText = buildExpectedRangeText(room.expected_range);
+    if (expectedRangeText) tooltipLines.push(expectedRangeText);
+    const thresholdDeviationText = buildThresholdDeviationText(room);
+    if (thresholdDeviationText) tooltipLines.push(thresholdDeviationText);
+    if (room.expected_range?.area_group) tooltipLines.push(`Area: ${room.expected_range.area_group}`);
+    tooltipLines.push(...buildEnergyTooltipLines(room.energy, room.combined_insight));
+    title.textContent = tooltipLines.join('\n');
 
     el.classList.add('room');
     target.classList.add('room');

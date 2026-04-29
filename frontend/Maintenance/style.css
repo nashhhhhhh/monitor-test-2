@@ -84,36 +84,6 @@ body {
     border-color: var(--accent);
 }
 
-.toggle-btn-wip {
-    border-color: rgba(245, 158, 11, 0.35);
-    background: #fff7ed;
-    color: #b45309;
-}
-
-.toggle-btn-wip.active {
-    background: #f59e0b;
-    color: #fff;
-    border-color: #f59e0b;
-}
-
-.toggle-badge {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 6px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: rgba(245, 158, 11, 0.16);
-    color: #b45309;
-    font-size: 0.66rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-}
-
-.toggle-btn-wip.active .toggle-badge {
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
-}
-
 .maintenance-view.hidden {
     display: none;
 }
@@ -142,10 +112,6 @@ body.maintenance-equipment td.equipment-only {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px;
     margin-bottom: 20px;
-}
-
-.non-scheduled-summary-grid {
-    grid-template-columns: repeat(3, minmax(220px, 1fr));
 }
 
 .summary-card,
@@ -239,6 +205,13 @@ body.maintenance-equipment td.equipment-only {
     box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
 }
 
+.summary-card-kpi {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    align-items: stretch;
+    gap: 14px;
+}
+
 .summary-card-kpi::before,
 .mini-card::before,
 .insight-card::before {
@@ -257,6 +230,26 @@ body.maintenance-equipment td.equipment-only {
     letter-spacing: -0.02em;
     position: relative;
     z-index: 1;
+}
+
+.summary-card-kpi .summary-label {
+    display: block;
+    max-width: 100%;
+    line-height: 1.45;
+    align-self: start;
+}
+
+.summary-card-kpi strong {
+    align-self: end;
+    justify-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 0;
+    text-align: center;
+    line-height: 0.95;
 }
 
 .summary-card-kpi .summary-label,
@@ -329,6 +322,13 @@ body.maintenance-equipment td.equipment-only {
     font-weight: 600;
     color: #64748b;
     letter-spacing: 0.01em;
+}
+
+.summary-metric-number {
+    display: block;
+    font-size: inherit;
+    line-height: 0.95;
+    letter-spacing: inherit;
 }
 
 .summary-label,
@@ -465,6 +465,136 @@ body.maintenance-equipment .stack-item.active {
     min-height: 280px;
 }
 
+.overview-mix-card {
+    margin-bottom: 20px;
+    background: linear-gradient(180deg, #ffffff, #fbfefd);
+}
+
+.mix-ratio-summary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.mix-card-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 14px;
+}
+
+.maintenance-mix-month-field {
+    min-width: 180px;
+    margin: 0;
+}
+
+.mix-ratio-summary span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    border-radius: 999px;
+    padding: 6px 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.mix-ratio-summary span + span {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+}
+
+.overview-mix-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.45fr) minmax(280px, 1fr);
+    gap: 24px;
+    align-items: center;
+}
+
+.overview-chart-wrap {
+    position: relative;
+    min-height: 260px;
+}
+
+.chart-empty-state {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #64748b;
+    font-size: 0.95rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.chart-empty-state[hidden] {
+    display: none;
+}
+
+.mix-breakdown {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.mix-breakdown article {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+}
+
+.mix-breakdown article::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 6px;
+    border-radius: 12px 0 0 12px;
+    background: var(--accent);
+}
+
+.mix-breakdown article:nth-child(2)::before {
+    background: #f59e0b;
+}
+
+.mix-breakdown article:nth-child(3)::before {
+    background: #3b82f6;
+}
+
+.mix-breakdown article:nth-child(4)::before {
+    background: #8b5cf6;
+}
+
+.mix-breakdown span {
+    display: block;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.mix-breakdown strong {
+    display: block;
+    margin-top: 12px;
+    font-size: 2.2rem;
+    line-height: 1;
+}
+
+.mix-total-note {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: #64748b;
+    font-size: 0.92rem;
+}
+
 .monthly-metric-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -565,6 +695,24 @@ body.maintenance-equipment .stack-item.active {
 .mini-card {
     cursor: pointer;
     min-height: 132px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.mini-card span {
+    display: block;
+    max-width: 100%;
+    line-height: 1.45;
+    align-self: start;
+}
+
+.mini-card strong {
+    align-self: end;
+    justify-self: end;
+    text-align: right;
+    line-height: 0.95;
 }
 
 .mini-card.active {
@@ -575,6 +723,30 @@ body.maintenance-equipment .stack-item.active {
 .filter-card,
 .table-card {
     margin-bottom: 20px;
+}
+
+.spare-summary-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.spare-source-grid {
+    margin-bottom: 20px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.spare-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.spare-chart-wrap {
+    min-height: 320px;
+}
+
+.spare-filter-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .filter-grid {
@@ -798,44 +970,24 @@ th {
     background: #fee2e2;
 }
 
-.placeholder-card {
-    min-height: 320px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    gap: 12px;
-}
-
-.placeholder-card p {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 800;
-}
-
 .placeholder-note,
 .insight-meta {
     color: #64748b;
     font-size: 0.92rem;
 }
 
-.wip-placeholder-card {
-    min-height: 360px;
-}
-
-.wip-pill {
-    color: #b45309;
-    background: #fef3c7;
-}
-
 @media (max-width: 1200px) {
-    .non-scheduled-summary-grid {
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
     .filter-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .spare-summary-grid,
+    .spare-filter-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .spare-source-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .search-field {
@@ -845,7 +997,9 @@ th {
     .secondary-grid,
     .monthly-layout,
     .timeline-layout,
-    .monthly-body {
+    .monthly-body,
+    .overview-mix-layout,
+    .spare-chart-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -868,8 +1022,26 @@ th {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .spare-summary-grid,
+    .spare-filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .spare-source-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .search-field {
         grid-column: span 2;
+    }
+
+    .mix-ratio-summary {
+        justify-content: flex-start;
+    }
+
+    .mix-card-actions {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 
@@ -877,11 +1049,19 @@ th {
     .summary-grid,
     .monthly-metric-grid,
     .timeline-month-strip,
-    .filter-grid {
+    .filter-grid,
+    .spare-summary-grid,
+    .spare-chart-grid,
+    .spare-filter-grid,
+    .spare-source-grid {
         grid-template-columns: 1fr;
     }
 
     .monthly-detail-item {
+        grid-template-columns: 1fr;
+    }
+
+    .mix-breakdown {
         grid-template-columns: 1fr;
     }
 

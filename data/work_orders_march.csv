@@ -1,0 +1,15 @@
+﻿Request State,TTR(hr),Machine ID,Machine Name,Request ID,Requester,WO ID,Description,Location,JobTrade,JobTypeId,WorkerG,Worker,Priority
+Finished,,ENPD-240047,Can Opener No.1,MNT-00004567,1900175,WRKO-00005445,เปลี่ยนใบมีดเครื่องเปิดกระป๋อง,Production Plant1,Production Machine,Inspection,ENG,1900083,4
+Finished,,ENUT-240001,Hot Oil Boiler No.1,MNT-00004551,1900231,WRKO-00005419,ปิดช่องหลังคาอาคารบอยเลอร์,Boiler1,ฺBuilding,Inspection,ENG,"",1
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004550,1900231,WRKO-00005418,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,ENG,"",1
+Finished,2 hr 59 min,ENUT-240134,Condencer Unit No.12,MNT-00004549,1900231,WRKO-00005417,CU.12 Pressure drop,Buiding1,Cooling machine,Inspection,ENG,"",1
+Finished,62 hr 17 min,ENWA-240004,Store Office,MNT-00004556,1900018,WRKO-00005426,ประตูห้อง chill  ฝั่งดิบประตูปิดเปิดไม่ได้ค่ะ,Work Area,Tool and Equipment,Inspection,ENG,"",4
+Finished,,ENWA-240005,Engineering Office,MNT-00004552,1900231,WRKO-00005420,ปั๊มคลอรีนรั่ว,Work Area,Tool and Equipment,Inspection,ENG,"",1
+Finished,13 hr 27 min,ENWA-240008,Producton High Risk,MNT-00004563,1900175,WRKO-00005439,แก้ไขฝาครอบหลอดไฟ Holding chill,Work Area,Electrical system,Inspection,ENG,"",4
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004548,1900254,WRKO-00005415,ก็อกห้องน้ำชายฝั่งดิบหลุด,Work Area,Tool and Equipment,Inspection,ENG,"",4
+Finished,46 hr 43 min,ENWA-240009,Producton Low Risk,MNT-00004553,1900175,WRKO-00005423,หลอดไฟห้องcooking RL334 ชำรุด 1 ดวง ฝั่งดิบ,Work Area,Electrical system,Inspection,ENG,"",4
+Finished,22 hr 26 min,ENWA-240009,Producton Low Risk,MNT-00004554,1900175,WRKO-00005424,แก้ไขหลอดไฟRL331 ชำรุด ฝั่งดิบ,Work Area,Electrical system,Inspection,ENG,"",4
+Finished,8 hr 45 min,ENWA-240009,Producton Low Risk,MNT-00004557,1900175,WRKO-00005433,ตั้งน้ำหนักเครื่องหยอดไข่ ฝั่งดิบ,Work Area,Production Machine,Inspection,ENG,"",4
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004559,1900175,WRKO-00005435,เชื่อมหูหม้อ ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,ENG,"",4
+Finished,14 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004560,1900175,WRKO-00005436,เปลี่ยนม่านประตูทางเข้าฝั่งสุก,Work Area,Tool and Equipment,Inspection,ENG,"",4
+Finished,7 hr 30 min,ENWA-240010,Producton Medium Risk,MNT-00004561,1900175,WRKO-00005437,ถอดชั้นวาง ห้องแต่งตัวชาย มีเดียม ไม่ได้ใช้งาน,Work Area,Tool and Equipment,Inspection,ENG,"",4

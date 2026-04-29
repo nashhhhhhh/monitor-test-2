@@ -1,11 +1,108 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const utils = window.lightingMonitoringUtils;
     const charts = {};
+    let refreshHandle = null;
+    const LIGHTING_ZONE_CONFIG = [
+        {
+            id: "ow-1f",
+            title: "Outgoing WH. 1st Floor",
+            colorClass: "zone-blue-left",
+            markerX: 12,
+            markerY: 10,
+            entries: [
+                { label: "Area 2 LCP-OW-01", aliases: ["lcp-ow-01", "outgoing warehouse"] },
+                { label: "Area 3 ELCP-OW-01", aliases: ["elcp-ow-01", "dispatch office"] }
+            ]
+        },
+        {
+            id: "hr-1f",
+            title: "HR Area 1st Floor",
+            colorClass: "zone-green",
+            markerX: 28,
+            markerY: 22,
+            entries: [
+                { label: "Area 4 LCP-HR-01", aliases: ["lcp-hr-01", "hr area", "hr room"] },
+                { label: "Area 5 ELCP-HR-01", aliases: ["elcp-hr-01", "label printing", "uv entrance", "packaging store"] }
+            ]
+        },
+        {
+            id: "lr-1f",
+            title: "LR Area 1st Floor",
+            colorClass: "zone-red",
+            markerX: 47,
+            markerY: 24,
+            entries: [
+                { label: "Area 6 LCP-LR-01", aliases: ["lcp-lr-01", "lr area"] },
+                { label: "Area 7 ELCP-LR-01", aliases: ["elcp-lr-01", "lr area"] }
+            ]
+        },
+        {
+            id: "iw-1f",
+            title: "IW Area 1st Floor",
+            colorClass: "zone-blue-right",
+            markerX: 82,
+            markerY: 18,
+            entries: [
+                { label: "Area 6 LCP-LR-01", aliases: ["lcp-lr-01", "lr area"] },
+                { label: "Area 7 ELCP-LR-01", aliases: ["elcp-lr-01", "lr area"] },
+                { label: "Area 8 LCP-IW-01", aliases: ["lcp-iw-01", "incoming warehouse 3", "incoming warehouse 2"] },
+                { label: "Area 9 ELCP-IW-01", aliases: ["elcp-iw-01", "incoming warehouse 3", "incoming warehouse 2"] },
+                { label: "Area 10 LCP-IW(OF)-01", aliases: ["lcp-iw(of)-01", "grn office", "corridor 1", "corridor 2", "office 1"] }
+            ]
+        },
+        {
+            id: "f1-f6",
+            title: "Area Line F1-F6",
+            colorClass: "zone-yellow",
+            markerX: 17,
+            markerY: 83,
+            entries: [
+                { label: "Area 2 LCP-OW-01", aliases: ["lcp-ow-01", "outgoing warehouse"] },
+                { label: "Area 3 ELCP-OW-01", aliases: ["elcp-ow-01", "dispatch office"] },
+                { label: "Area 50 OW Corridor (Sensor)", aliases: ["ow corridor", "corridor", "ambient packaging"] },
+                { label: "Area 51 OW Changing Room (Sensor)", aliases: ["ow changing room", "changing room"] },
+                { label: "Area 52 OW Toilet Male (Sensor)", aliases: ["ow toilet male", "toilet male"] },
+                { label: "Area 53 OW Toilet Female (Sensor)", aliases: ["ow toilet female", "toilet female"] }
+            ]
+        },
+        {
+            id: "f7-f13",
+            title: "Area Line F7-F13",
+            colorClass: "zone-white",
+            markerX: 41,
+            markerY: 83,
+            entries: [
+                { label: "Area 1", aliases: ["area 1"] },
+                { label: "Area 2 LCP-OW-01", aliases: ["lcp-ow-01", "outgoing warehouse"] },
+                { label: "Area 3 ELCP-OW-01", aliases: ["elcp-ow-01", "dispatch office"] },
+                { label: "Area 4 LCP-HR-01", aliases: ["lcp-hr-01", "hr area", "hr room"] },
+                { label: "Area 5 ELCP-HR-01", aliases: ["elcp-hr-01", "label printing", "uv entrance", "packaging store"] },
+                { label: "Area 6 LCP-LR-01", aliases: ["lcp-lr-01", "lr area"] },
+                { label: "Area 54 HR Corridor (Sensor)", aliases: ["hr corridor", "hr area"] },
+                { label: "Area 55 HR Toilet Male (Sensor)", aliases: ["hr toilet male", "toilet male"] },
+                { label: "Area 57 HR Toilet Female (Sensor)", aliases: ["hr toilet female", "toilet female"] }
+            ]
+        },
+        {
+            id: "f14-f19",
+            title: "Area Line F14-F19",
+            colorClass: "zone-orange",
+            markerX: 67,
+            markerY: 87,
+            entries: [
+                { label: "Area 6 LCP-LR-01", aliases: ["lcp-lr-01", "lr area"] },
+                { label: "Area 7 ELCP-LR-01", aliases: ["elcp-lr-01", "lr area"] },
+                { label: "Area 58 LR Corridor Toilet", aliases: ["lr corridor", "lr toilet"] },
+                { label: "Area 59 LR Toilet Male", aliases: ["lr toilet male", "toilet male"] },
+                { label: "Area 61 LR Toilet Female", aliases: ["lr toilet female", "toilet female"] }
+            ]
+        }
+    ];
     const state = {
         search: "",
-        status: "all",
         selectedAreas: new Set(),
-        alertOnly: false
+        alertOnly: false,
+        selectedLightingZoneId: null
     };
 
     if (!utils) {
@@ -14,44 +111,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const searchInput = document.getElementById("lighting-search");
-    const statusFilter = document.getElementById("status-filter");
     const areaFilterList = document.getElementById("area-filter-list");
     const areaFilterAll = document.getElementById("area-filter-all");
     const areaFilterClear = document.getElementById("area-filter-clear");
     const alertOnlyToggle = document.getElementById("alert-only-toggle");
     const areaSections = document.getElementById("area-sections");
-    const dataset = await loadLightingDataset();
-    const summary = utils.summarizePortfolio(dataset);
+    const lightingZoneList = document.getElementById("lighting-zone-list");
+    const lightingZoneMeta = document.getElementById("lighting-zone-meta");
+    const lightingFloorplanMarkers = document.getElementById("lighting-floorplan-markers");
+    let currentSummary = null;
 
-    populateSummary(summary);
-    populateAreaFilter(summary);
-    renderNotionalEnergyModule(summary);
-
-    requestAnimationFrame(() => {
-        renderCharts(summary);
-        setTimeout(() => renderAreaSections(summary), 0);
-    });
+    await refreshLightingPage();
 
     searchInput?.addEventListener("input", (event) => {
         state.search = event.target.value.trim().toLowerCase();
-        renderAreaSections(summary);
-    });
-
-    statusFilter?.addEventListener("change", (event) => {
-        state.status = event.target.value;
-        renderAreaSections(summary);
+        renderAreaSections(currentSummary);
     });
 
     areaFilterAll?.addEventListener("click", () => {
         state.selectedAreas.clear();
         syncAreaFilterButtons();
-        renderAreaSections(summary);
+        renderAreaSections(currentSummary);
     });
 
     areaFilterClear?.addEventListener("click", () => {
         state.selectedAreas.clear();
         syncAreaFilterButtons();
-        renderAreaSections(summary);
+        renderAreaSections(currentSummary);
     });
 
     alertOnlyToggle?.addEventListener("click", () => {
@@ -59,8 +145,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         alertOnlyToggle.classList.toggle("active", state.alertOnly);
         alertOnlyToggle.setAttribute("aria-pressed", String(state.alertOnly));
         alertOnlyToggle.textContent = state.alertOnly ? "Showing Alerted Fixtures Only" : "Show Alerted Fixtures Only";
-        renderAreaSections(summary);
+        renderAreaSections(currentSummary);
     });
+
+    refreshHandle = window.setInterval(() => {
+        refreshLightingPage({ preserveFilters: true }).catch((error) => {
+            console.warn("Lighting auto-refresh failed:", error);
+        });
+    }, 60000);
+
+    window.addEventListener("focus", () => {
+        refreshLightingPage({ preserveFilters: true }).catch((error) => {
+            console.warn("Lighting focus refresh failed:", error);
+        });
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            refreshLightingPage({ preserveFilters: true }).catch((error) => {
+                console.warn("Lighting visibility refresh failed:", error);
+            });
+        }
+    });
+
+    async function refreshLightingPage({ preserveFilters = false } = {}) {
+        const dataset = await loadLightingDataset();
+        const summary = utils.summarizePortfolio(dataset);
+        const runtimeFixtures = normalizeRuntimeFixtures(dataset.channelRuntimeRows || dataset.fixtures || []);
+
+        currentSummary = summary;
+
+        populateSummary(summary);
+        populateAreaFilter(summary);
+        renderNotionalEnergyModule(summary);
+        renderLightingFloorplan(summary, runtimeFixtures);
+
+        requestAnimationFrame(() => {
+            setTimeout(() => renderAreaSections(summary), 0);
+        });
+    }
 
     function formatNumber(value, digits = 1) {
         return utils.round(value, digits).toLocaleString(undefined, {
@@ -108,7 +231,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 syncAreaFilterButtons();
-                renderAreaSections(summary);
+                renderAreaSections(currentSummary);
             });
         });
 
@@ -129,11 +252,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
 
         const energyBreakdown = document.getElementById("lighting-energy-breakdown");
-        const circuitBreakdown = document.getElementById("lighting-circuit-breakdown");
-
         if (energyBreakdown) {
             energyBreakdown.innerHTML = currentSummary.areas
-                .slice(0, 10)
+                .slice(0, 6)
                 .map((area) => `
                     <div class="lighting-breakdown-item">
                         <span class="lighting-breakdown-room">${escapeHTML(area.areaName)}</span>
@@ -143,31 +264,201 @@ document.addEventListener("DOMContentLoaded", async () => {
                 .join("");
         }
 
-        if (circuitBreakdown) {
-            circuitBreakdown.innerHTML = currentSummary.circuits
-                .slice(0, 10)
-                .map((circuit) => `
-                    <div class="lighting-breakdown-item">
-                        <span class="lighting-breakdown-room">${escapeHTML(circuit.circuitName)}</span>
-                        <span class="lighting-breakdown-kwh">${formatNumber(circuit.totalNotionalEnergy, 1)} kWh</span>
-                    </div>
-                `)
-                .join("");
-        }
-
         createChart("lighting-area-energy-chart", {
             type: "bar",
             data: {
-                labels: currentSummary.areas.slice(0, 8).map((area) => area.areaName),
+                labels: currentSummary.areas.slice(0, 6).map((area) => area.areaName),
                 datasets: [{
                     label: "Lighting Energy (kWh)",
-                    data: currentSummary.areas.slice(0, 8).map((area) => area.totalNotionalEnergy),
+                    data: currentSummary.areas.slice(0, 6).map((area) => area.totalNotionalEnergy),
                     backgroundColor: "#2563eb",
                     borderRadius: 10
                 }]
             },
             options: chartOptions({ horizontal: true })
         });
+    }
+
+    function renderLightingFloorplan(currentSummary, runtimeRows) {
+        const zoneSummaries = LIGHTING_ZONE_CONFIG.map((zone) => summarizeLightingZone(zone, runtimeRows));
+        if (!state.selectedLightingZoneId || !zoneSummaries.some((zone) => zone.id === state.selectedLightingZoneId)) {
+            state.selectedLightingZoneId = zoneSummaries[0]?.id || null;
+        }
+        const selectedZone = zoneSummaries.find((zone) => zone.id === state.selectedLightingZoneId) || null;
+
+        if (lightingZoneMeta) {
+            lightingZoneMeta.textContent = selectedZone
+                ? `${selectedZone.title}`
+                : `${zoneSummaries.length} configured zones`;
+        }
+
+        if (lightingFloorplanMarkers) {
+            lightingFloorplanMarkers.innerHTML = zoneSummaries.map((zone) => `
+                <button type="button" class="lighting-zone-pin ${zone.colorClass}${zone.id === state.selectedLightingZoneId ? " is-active" : ""}" data-zone-target="${zone.id}">
+                    <span class="lighting-zone-pin-title">${escapeHTML(zone.shortTitle)}</span>
+                    <strong>${zone.coverageText}</strong>
+                </button>
+            `).join("");
+
+            lightingFloorplanMarkers.querySelectorAll(".lighting-zone-pin").forEach((button) => {
+                button.addEventListener("click", () => {
+                    state.selectedLightingZoneId = button.dataset.zoneTarget || null;
+                    renderLightingFloorplan(currentSummary, runtimeRows);
+                    const target = document.getElementById(`lighting-zone-card-${state.selectedLightingZoneId}`);
+                    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    target?.classList.add("flash-focus");
+                    window.setTimeout(() => target?.classList.remove("flash-focus"), 1400);
+                });
+            });
+
+            zoneSummaries.forEach((zone, index) => {
+                const marker = lightingFloorplanMarkers.children[index];
+                if (!marker) return;
+                marker.style.left = `${zone.markerX}%`;
+                marker.style.top = `${zone.markerY}%`;
+            });
+        }
+
+        if (lightingZoneList) {
+            const visibleZones = selectedZone ? [selectedZone] : zoneSummaries;
+            lightingZoneList.innerHTML = visibleZones.map((zone) => `
+                <article class="lighting-zone-card ${zone.colorClass}" id="lighting-zone-card-${zone.id}">
+                    <div class="lighting-zone-card-head">
+                        <div>
+                            <div class="lighting-zone-title">${escapeHTML(zone.title)}</div>
+                            <div class="lighting-zone-subtitle">${escapeHTML(zone.coverageNote)}</div>
+                        </div>
+                        <div class="lighting-zone-percentage">${zone.coverageText}</div>
+                    </div>
+                    <div class="lighting-zone-metrics">
+                        <span>${zone.matchedFixtures} channel box fixtures</span>
+                        <span>${zone.averageHealthPct.toFixed(1)}% avg light health</span>
+                        <span>${zone.totalWeightedEntries} mapped labels</span>
+                    </div>
+                    <div class="lighting-zone-entry-list">
+                        ${zone.entries.map((entry) => `
+                            <div class="lighting-zone-entry">
+                                <span class="lighting-zone-entry-label">${escapeHTML(entry.label)}</span>
+                                <span class="lighting-zone-entry-value">${entry.coverageText}</span>
+                            </div>
+                        `).join("")}
+                    </div>
+                </article>
+            `).join("");
+        }
+    }
+
+    function summarizeLightingZone(zone, fixtures) {
+        const entries = zone.entries.map((entry) => summarizeZoneEntry(entry, fixtures));
+        const zoneFixtureMap = new Map();
+        entries.forEach((entry) => {
+            entry.fixtures.forEach((fixture) => {
+                zoneFixtureMap.set(fixture.fixtureKey, fixture);
+            });
+        });
+        const zoneFixtures = [...zoneFixtureMap.values()];
+        const zoneFixtureTotal = zoneFixtures.length;
+        const matchedFixtures = zoneFixtureTotal;
+        const totalHealthWeight = zoneFixtures.reduce((sum, fixture) => sum + (fixture.fixtureHealthPct ?? 0), 0);
+        const coveragePct = zoneFixtureTotal
+            ? utils.round(totalHealthWeight / zoneFixtureTotal, 1)
+            : 0;
+
+        return {
+            ...zone,
+            shortTitle: zone.title.replace(" 1st Floor", "").replace("Area Line ", ""),
+            coveragePct,
+            coverageText: `${coveragePct.toFixed(1)}%`,
+            coverageNote: matchedFixtures
+                ? "Based on mapped box-level channel runtime rows and their light health"
+                : "No mapped lighting fixtures found yet for this highlighted zone",
+            totalWeightedEntries: zone.entries.length,
+            matchedFixtures,
+            averageHealthPct: coveragePct,
+            entries
+        };
+    }
+
+    function summarizeZoneEntry(entry, fixtures) {
+        const matchedFixtures = getEntryFixtures(entry, fixtures);
+        const totalHealthWeight = matchedFixtures.reduce((sum, fixture) => sum + (fixture.fixtureHealthPct ?? 0), 0);
+        const coveragePct = matchedFixtures.length
+            ? utils.round(totalHealthWeight / matchedFixtures.length, 1)
+            : 0;
+
+        return {
+            ...entry,
+            fixtures: matchedFixtures,
+            matchedFixtures: matchedFixtures.length,
+            totalHealthWeight,
+            coveragePct,
+            coverageText: matchedFixtures.length
+                ? `${coveragePct.toFixed(1)}% (${matchedFixtures.length} fixtures)`
+                : "No data"
+        };
+    }
+
+    function normalizeRuntimeFixtures(fixtures) {
+        const fixtureMap = new Map();
+
+        fixtures.forEach((fixture) => {
+            const areaName = String(fixture["Area Name"] || "").trim();
+            const circuitName = String(fixture["Circuit Name"] || "").trim();
+            const fixtureName = String(fixture["Fixture Name"] || "").trim();
+            if (!areaName || !fixtureName) return;
+
+            const fixtureKey = [normalizeAreaName(areaName), circuitName.toLowerCase(), fixtureName.toLowerCase()].join("|");
+            const runtimeHours = Number(fixture["Hours On In Period"] || 0);
+            const runningHours = Number(fixture["Hours On Running"] || 0);
+            const notionalEnergy = Number(fixture["Notional Energy"] || 0);
+            const fixtureHealthPct = utils.computeFixtureHealth(fixture["Lamp Life Remaining"]);
+
+            const existing = fixtureMap.get(fixtureKey);
+            if (!existing) {
+                fixtureMap.set(fixtureKey, {
+                    fixtureKey,
+                    areaName,
+                    normalizedAreaName: normalizeAreaName(areaName),
+                    circuitName,
+                    fixtureName,
+                    runtimeHours,
+                    runningHours,
+                    notionalEnergy,
+                    fixtureHealthPct
+                });
+                return;
+            }
+
+            existing.runtimeHours = Math.max(existing.runtimeHours, runtimeHours);
+            existing.runningHours = Math.max(existing.runningHours, runningHours);
+            existing.notionalEnergy = Math.max(existing.notionalEnergy, notionalEnergy);
+            existing.fixtureHealthPct = Math.max(existing.fixtureHealthPct ?? 0, fixtureHealthPct ?? 0);
+        });
+
+        return [...fixtureMap.values()];
+    }
+
+    function getEntryFixtures(entry, fixtures) {
+        const normalizedLabel = normalizeAreaName(entry.label);
+        const exactMatches = fixtures.filter((fixture) => fixture.normalizedAreaName === normalizedLabel);
+        if (exactMatches.length) return exactMatches;
+
+        const haystackMatches = fixtures.filter((fixture) => matchesLightingAlias(fixture, entry.aliases));
+        return haystackMatches;
+    }
+
+    function matchesLightingAlias(fixture, aliases = []) {
+        const haystack = [
+            fixture.areaName,
+            fixture.circuitName,
+            fixture.fixtureName
+        ].map((value) => String(value || "").toLowerCase()).join(" | ");
+
+        return aliases.some((alias) => haystack.includes(String(alias).toLowerCase()));
+    }
+
+    function normalizeAreaName(value) {
+        return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
 
     function renderAreaSections(currentSummary) {
@@ -237,7 +528,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function matchesFilters(fixture) {
-        const statusMatch = state.status === "all" || fixture.status.toLowerCase() === state.status;
         const areaMatch = state.selectedAreas.size === 0 || state.selectedAreas.has(fixture["Area Name"]);
         const alertMatch = !state.alertOnly || fixture.alerts.length > 0;
         const searchMatch = !state.search || [
@@ -246,7 +536,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             fixture["Circuit Name"]
         ].some((value) => String(value).toLowerCase().includes(state.search));
 
-        return statusMatch && areaMatch && alertMatch && searchMatch;
+        return areaMatch && alertMatch && searchMatch;
     }
 
     function syncAreaFilterButtons() {
@@ -300,36 +590,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         `;
     }
 
-    function renderCharts(currentSummary) {
-        createChart("area-health-chart", {
-            type: "bar",
-            data: {
-                labels: currentSummary.charts.areaHealth.labels,
-                datasets: [{
-                    label: "Average Fixture Health (%)",
-                    data: currentSummary.charts.areaHealth.values,
-                    backgroundColor: "#0891b2",
-                    borderRadius: 10
-                }]
-            },
-            options: chartOptions({ horizontal: true, suggestedMax: 100 })
-        });
-
-        createChart("lowest-health-chart", {
-            type: "bar",
-            data: {
-                labels: currentSummary.charts.lowestHealthFixtures.labels,
-                datasets: [{
-                    label: "Fixture Health (%)",
-                    data: currentSummary.charts.lowestHealthFixtures.values,
-                    backgroundColor: "#ef4444",
-                    borderRadius: 10
-                }]
-            },
-            options: chartOptions({ horizontal: true, suggestedMax: 100 })
-        });
-    }
-
     function chartOptions({ horizontal = false, suggestedMax, doughnut = false } = {}) {
         return {
             responsive: true,
@@ -372,7 +632,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function loadLightingDataset() {
         try {
-            const response = await fetch("/api/lighting");
+            const response = await fetch(`/api/lighting?_=${Date.now()}`, { cache: "no-store" });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             return {

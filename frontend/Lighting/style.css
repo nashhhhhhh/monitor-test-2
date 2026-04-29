@@ -179,16 +179,18 @@ body {
 
 .control-panel {
     display: grid;
-    grid-template-columns: minmax(260px, 1.3fr) minmax(180px, 0.8fr) minmax(320px, 1.5fr) minmax(180px, 0.9fr);
-    gap: 16px;
+    grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.25fr) minmax(260px, 0.8fr);
+    align-items: start;
+    gap: 18px;
     border-radius: 22px;
-    padding: 18px;
+    padding: 16px 18px;
     margin-bottom: 22px;
 }
 
 .control-group {
     display: grid;
     gap: 8px;
+    align-content: start;
 }
 
 .control-group label {
@@ -228,7 +230,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    max-height: 108px;
+    max-height: 52px;
     overflow-y: auto;
     padding-right: 4px;
 }
@@ -271,7 +273,7 @@ body {
 }
 
 .control-toggle {
-    align-content: end;
+    align-content: start;
 }
 
 .panel {
@@ -299,6 +301,12 @@ body {
 .lighting-energy-panel {
     margin-bottom: 22px;
     background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(255, 255, 255, 0.98));
+    padding: 18px;
+}
+
+.lighting-floorplan-panel {
+    margin-bottom: 22px;
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.05), rgba(255, 255, 255, 0.98));
 }
 
 .lighting-energy-head {
@@ -306,7 +314,7 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 }
 
 .lighting-energy-caption {
@@ -328,70 +336,346 @@ body {
 
 .lighting-energy-grid {
     display: grid;
-    grid-template-columns: minmax(340px, 1fr) minmax(420px, 1.05fr);
+    grid-template-columns: minmax(320px, 0.95fr) minmax(260px, 0.7fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.lighting-floorplan-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
     gap: 20px;
     align-items: start;
 }
 
+.lighting-floorplan-stage {
+    position: relative;
+    border: 1px solid #dce7f2;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #f8fbff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
+    max-width: 1440px;
+}
+
+.lighting-floorplan-stage img {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: saturate(1.08) contrast(1.04);
+}
+
+.lighting-floorplan-markers {
+    position: absolute;
+    inset: 0;
+}
+
+.lighting-zone-pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255,255,255,0.92);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.97);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.2);
+    padding: 7px 10px;
+    min-width: 120px;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.lighting-zone-pin:hover {
+    transform: translate(-50%, -50%) scale(1.02);
+}
+
+.lighting-zone-pin.is-active {
+    background: #0f172a;
+    border-color: #0f172a;
+}
+
+.lighting-zone-pin.is-active .lighting-zone-pin-title {
+    color: rgba(255,255,255,0.72);
+}
+
+.lighting-zone-pin.is-active strong {
+    color: #ffffff !important;
+}
+
+.lighting-zone-pin-title {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text);
+    opacity: 0.72;
+    margin-bottom: 4px;
+}
+
+.lighting-zone-pin strong {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.lighting-zone-sidecard {
+    display: grid;
+    gap: 10px;
+    border: 1px solid #e6edf5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), #ffffff);
+    padding: 14px;
+}
+
+.lighting-zone-sidehead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.lighting-zone-sidehead h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.lighting-zone-meta {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.lighting-zone-list {
+    display: grid;
+    gap: 10px;
+}
+
+.lighting-zone-card {
+    border: 1px solid #e6edf5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), #ffffff);
+    padding: 14px;
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+    margin: 0;
+    width: 100%;
+}
+
+.lighting-zone-card.flash-focus {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.lighting-zone-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.lighting-zone-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    margin-bottom: 2px;
+}
+
+.lighting-zone-subtitle {
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.lighting-zone-percentage {
+    font-size: 1.12rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.lighting-zone-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.lighting-zone-metrics span {
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #eef4fb;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.lighting-zone-entry-list {
+    display: grid;
+    gap: 4px;
+    margin-top: 10px;
+}
+
+.lighting-zone-entry {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.lighting-zone-entry:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.lighting-zone-entry-label {
+    color: var(--text);
+    font-size: 0.79rem;
+    font-weight: 600;
+}
+
+.lighting-zone-entry-value {
+    color: var(--muted);
+    font-size: 0.77rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.zone-blue-left,
+.zone-blue-right {
+    border-left: 5px solid #33d2ff;
+}
+
+.lighting-zone-pin.zone-blue-left,
+.lighting-zone-pin.zone-blue-right {
+    box-shadow: 0 0 0 3px rgba(51, 210, 255, 0.18), 0 14px 28px rgba(15, 23, 42, 0.2);
+}
+
+.zone-blue-left .lighting-zone-percentage,
+.zone-blue-right .lighting-zone-percentage,
+.lighting-zone-pin.zone-blue-left strong,
+.lighting-zone-pin.zone-blue-right strong {
+    color: #0891b2;
+}
+
+.zone-green {
+    border-left: 5px solid #22c55e;
+}
+
+.lighting-zone-pin.zone-green {
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18), 0 14px 28px rgba(15, 23, 42, 0.2);
+}
+
+.zone-green .lighting-zone-percentage,
+.lighting-zone-pin.zone-green strong {
+    color: #15803d;
+}
+
+.zone-red {
+    border-left: 5px solid #ef4444;
+}
+
+.lighting-zone-pin.zone-red {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18), 0 14px 28px rgba(15, 23, 42, 0.2);
+}
+
+.zone-red .lighting-zone-percentage,
+.lighting-zone-pin.zone-red strong {
+    color: #dc2626;
+}
+
+.zone-yellow {
+    border-left: 5px solid #facc15;
+}
+
+.lighting-zone-pin.zone-yellow {
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 14px 28px rgba(15, 23, 42, 0.2);
+}
+
+.zone-yellow .lighting-zone-percentage,
+.lighting-zone-pin.zone-yellow strong {
+    color: #ca8a04;
+}
+
+.zone-white {
+    border-left: 5px solid #cbd5e1;
+}
+
+.lighting-zone-pin.zone-white {
+    box-shadow: 0 0 0 3px rgba(203, 213, 225, 0.3), 0 14px 28px rgba(15, 23, 42, 0.2);
+}
+
+.zone-white .lighting-zone-percentage,
+.lighting-zone-pin.zone-white strong {
+    color: #475569;
+}
+
+.zone-orange {
+    border-left: 5px solid #f97316;
+}
+
+.lighting-zone-pin.zone-orange {
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2), 0 14px 28px rgba(15, 23, 42, 0.2);
+}
+
+.zone-orange .lighting-zone-percentage,
+.lighting-zone-pin.zone-orange strong {
+    color: #ea580c;
+}
+
 .lighting-energy-overview {
     display: grid;
-    gap: 18px;
+    gap: 10px;
 }
 
 .lighting-energy-value {
-    font-size: clamp(2.2rem, 4vw, 3.4rem);
+    font-size: clamp(1.55rem, 2.5vw, 2rem);
     font-weight: 800;
     color: var(--panel-strong);
     line-height: 1;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .lighting-energy-meta {
     color: var(--muted);
-    font-size: 1rem;
+    font-size: 0.84rem;
     line-height: 1.4;
 }
 
 .lighting-energy-note {
-    margin-top: 12px;
+    margin-top: 8px;
     color: var(--blue);
-    font-size: 1rem;
+    font-size: 0.84rem;
     font-weight: 600;
     line-height: 1.4;
-}
-
-.lighting-energy-breakdowns {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
 }
 
 .lighting-breakdown-card {
     border: 1px solid #e6edf5;
     border-radius: 18px;
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), #ffffff);
-    padding: 16px;
+    padding: 14px;
+}
+
+.lighting-breakdown-card-single {
+    align-self: stretch;
 }
 
 .lighting-breakdown-title {
-    font-size: 0.9rem;
+    font-size: 0.84rem;
     font-weight: 700;
     color: var(--panel-strong);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .lighting-breakdown-list {
     display: grid;
-    gap: 10px;
+    gap: 8px;
 }
 
 .lighting-breakdown-item {
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #e6edf5;
-    font-size: 0.9rem;
+    font-size: 0.84rem;
 }
 
 .lighting-breakdown-item:last-child {
@@ -454,7 +738,7 @@ body {
 }
 
 .chart-wrap.compact {
-    height: 280px;
+    height: 180px;
 }
 
 .area-list-section {
@@ -722,7 +1006,15 @@ body {
         grid-template-columns: 1fr;
     }
 
+    .lighting-floorplan-grid {
+        grid-template-columns: 1fr;
+    }
+
     .lighting-energy-breakdowns {
+        grid-template-columns: 1fr;
+    }
+
+    .lighting-zone-list {
         grid-template-columns: 1fr;
     }
 
@@ -743,6 +1035,11 @@ body {
     .lighting-energy-head {
         grid-template-columns: 1fr;
         display: grid;
+    }
+
+    .lighting-zone-pin {
+        min-width: 108px;
+        padding: 7px 8px;
     }
 
     .fixture-grid,

@@ -1,0 +1,344 @@
+﻿Request State,TTR(hr),Machine ID,Machine Name,Request ID,Requester,WO ID,Description,Location,JobTrade,JobTypeId,Responsible,WorkerG,Priority,Month,Day,Month,Day
+Finished,54 hr 31 min,ENPD-240014,Bowl Cutter (Chopper) No.1,MNT-00004158,1900175,WRKO-00004980,อุดรูสกรูหน้าจอเครื่อง Blow cutter,Production Plant1,Production Machine,Inspection,"",ENG,4,January,7,January,9
+Finished,999 hr 32 min,ENWA-240009,Producton Low Risk,MNT-00004222,1900175,WRKO-00005049,ห้องล้างสกรูไขไม่เรียบร้อย ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,13,February,23
+Finished,34 hr 18 min,ENWA-240008,Producton High Risk,MNT-00004244,1900254,WRKO-00005070,ห้องน้ำหญิงฝั่งสุกเบอร์12น้ำไม่ขึ้น,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,14,January,15
+Finished,33 hr 58 min,ENWA-240009,Producton Low Risk,MNT-00004242,1900254,WRKO-00005069,ห้องน้ำหญิงฝั่งดิบเบอร์20น้ำไม่ขึ้น,Work Area,ฺBuilding,Inspection,"",ENG,4,January,14,January,15
+Finished,24 hr 33 min,ENWA-240009,Producton Low Risk,MNT-00004415,1900254,WRKO-00005278,ห้องน้ำหญิงฝั่งดิบเบอร์19สายฉีดมีน้ำหยด,Work Area,Tool and Equipment,Inspection,"",ENG,1,February,12,February,13
+Finished,24 hr 51 min,ENWA-240008,Producton High Risk,MNT-00004419,1900254,WRKO-00005281,ห้องน้ำชายฝั่งสุกเบอร์4ลูกลอยหลุด,Work Area,ฺBuilding,Inspection,"",ENG,4,February,12,February,13
+Finished,33 hr 11 min,ENWA-240009,Producton Low Risk,MNT-00004245,1900254,WRKO-00005071,ห้องน้ำชายฝั่งดิบเบอร์18น้ำไม่ขึ้น,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,14,January,15
+Finished,25 hr 23 min,ENWA-240009,Producton Low Risk,MNT-00004418,1900254,WRKO-00005280,ห้องน้ำชายฝั่งดิบเบอร์14น้ำไหลไม่หยุด,Work Area,ฺBuilding,Inspection,"",ENG,4,February,12,February,13
+Finished,46 hr 43 min,ENWA-240009,Producton Low Risk,MNT-00004553,1900175,WRKO-00005423,หลอดไฟห้องcooking RL334 ชำรุด 1 ดวง ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,March,3,March,4
+Finished,38 hr 31 min,ENWA-240008,Producton High Risk,MNT-00004105,1900254,WRKO-00004918,สายฉีดห้องน้ำหญิงฝั่งสุกหลุดเบอร์10,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,6,January,7
+Finished,16 hr 8 min,ENWA-240008,Producton High Risk,MNT-00004171,1900254,WRKO-00004990,สายฉีดก้นห้องน้ำชายฝั่งสุกหลุดเบอร์2,Work Area,ฺBuilding,Inspection,"",ENG,4,January,9,January,9
+Finished,113 hr 27 min,ENWA-240008,Producton High Risk,MNT-00004537,1900175,WRKO-00005405,สายครอบปลั๊กไฟข้างสายพานฝั่งสุกชำรุด,Work Area,Electrical system,Inspection,"",ENG,4,February,28,March,4
+Finished,127 hr 39 min,ENWA-240004,Store Office,MNT-00004108,1900132,WRKO-00004921,สนิมตรงที่โหลดใหญ่ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,1,January,6,January,11
+Finished,107 hr 22 min,ENWA-240009,Producton Low Risk,MNT-00004181,1900175,WRKO-00005002,ล้างพัดลมดูดอากาศข้างตู้น้ำแข็งเก่า ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,10,January,14
+Finished,6 hr 45 min,ENUT-240014,Resin Tank No.2,MNT-00004292,1900231,WRKO-00005134,ล้างเรซินถัง SOFT 2,Water1,Water system,Inspection,"",ENG,1,January,21,January,21
+Finished,6 hr 14 min,ENUT-240014,Resin Tank No.2,MNT-00004388,1900231,WRKO-00005249,ล้างเรซินถัง SOFT 2,Water1,Water system,Inspection,"",ENG,1,February,7,February,7
+Finished,4 hr 37 min,ENUT-240014,Resin Tank No.2,MNT-00004489,1900231,WRKO-00005355,ล้างเรซินถัง SOFT 2,Water1,Water system,Inspection,"",ENG,1,February,23,February,23
+Finished,,ENUT-240013,Resin Tank No.1,MNT-00004144,1900231,WRKO-00004929,ล้างเรซินถัง SOFT 1,Water1,Water system,Inspection,"",ENG,1,January,6,January,4
+Finished,,ENUT-240013,Resin Tank No.1,MNT-00004290,1900231,WRKO-00005129,ล้างเรซินถัง SOFT 1,Water1,Water system,Inspection,"",ENG,1,January,21,January,20
+Finished,2 hr 17 min,ENUT-240013,Resin Tank No.1,MNT-00004387,1900231,WRKO-00005248,ล้างเรซินถัง SOFT 1,Water1,Water system,Inspection,"",ENG,1,February,7,February,7
+Finished,,ENUT-240013,Resin Tank No.1,MNT-00004504,1900231,WRKO-00005372,ล้างเรซินถัง SOFT 1,Water1,Water system,Inspection,"",ENG,1,February,25,February,24
+Finished,24 hr 10 min,ENWA-240010,Producton Medium Risk,MNT-00004525,1900175,WRKO-00005393,ยึดน็อต แผ่นรองสเเตนเลส หน้าประตู cold 1 ฝั่งมีเดียม,Work Area,ฺBuilding,Inspection,"",ENG,4,February,26,February,27
+Finished,10 hr 48 min,ENWA-240004,Store Office,MNT-00004109,1900132,WRKO-00004922,ม่านประตูเข้าโหลนใหญ่ขาด1แผ่น,Work Area,Tool and Equipment,Inspection,"",ENG,1,January,6,January,6
+Finished,,ENUT-240068,เครื่อง UV No.1,MNT-00004448,1900231,WRKO-00005309,พบท่อน้ำแตก เครื่อง UV No.1,Buiding1,Water system,Inspection,"",ENG,1,February,16,February,15
+Finished,83 hr 2 min,ENWA-240009,Producton Low Risk,MNT-00004120,1900254,WRKO-00004946,ฝาพนังล็อกเก้อชายฝั่งดิบชำรุด,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,9
+Finished,17 hr 43 min,ENWA-240008,Producton High Risk,MNT-00004170,1900254,WRKO-00004989,ฝาชักโครกห้องน้ำชายฝั่งสุกหลุดเบอร์5,Work Area,ฺBuilding,Inspection,"",ENG,4,January,9,January,9
+Finished,,ENUT-240001,Hot Oil Boiler No.1,MNT-00004551,1900231,WRKO-00005419,ปิดช่องหลังคาอาคารบอยเลอร์,Boiler1,ฺBuilding,Inspection,"",ENG,1,March,2,March,1
+Finished,,ENWA-240005,Engineering Office,MNT-00004552,1900231,WRKO-00005420,ปั๊มคลอรีนรั่ว,Work Area,Tool and Equipment,Inspection,"",ENG,1,March,2,March,1
+Finished,11 hr 17 min,ENWA-240010,Producton Medium Risk,MNT-00004160,1900118,WRKO-00004991,ปลั๊กไม่มีไฟ,Work Area,Electrical system,Inspection,"",ENG,1,January,8,January,8
+Finished,11 hr 10 min,ENWA-240009,Producton Low Risk,MNT-00004162,1900118,WRKO-00004992,ปลั๊กไม่มีไฟ,Work Area,Electrical system,Inspection,"",ENG,1,January,8,January,8
+Finished,206 hr 27 min,ENWA-240009,Producton Low Risk,MNT-00004417,1900254,WRKO-00005279,ประตูห้องน้ำชายฝั่งดิบหลุด,Work Area,ฺBuilding,Inspection,"",ENG,4,February,12,February,20
+Finished,12 hr 26 min,ENWA-240004,Store Office,MNT-00004111,1900132,WRKO-00004924,ประตูห้อง Chill ฝั่งดิบเปิดไม่สุดและปิดไม่ค่อยสนิท,Work Area,ฺBuilding,Inspection,"",ENG,1,January,6,January,6
+Finished,62 hr 17 min,ENWA-240004,Store Office,MNT-00004556,1900018,WRKO-00005426,ประตูห้อง chill  ฝั่งดิบประตูปิดเปิดไม่ได้ค่ะ,Work Area,Tool and Equipment,Inspection,"",ENG,4,March,3,March,5
+Finished,29 hr 40 min,ENWA-240017,Canteen,MNT-00004103,1900254,WRKO-00004917,ประตูโรงอาหารฝั่งสุกปิดไม่ใด้,Work Area,ฺBuilding,Inspection,"",ENG,4,January,5,January,6
+Finished,28 hr 37 min,ENWA-240008,Producton High Risk,MNT-00004166,1900175,WRKO-00004985,ประตูchill2 ฝั่งสุก ประตูหลุดจากราง,Work Area,ฺBuilding,Inspection,"",ENG,4,January,8,January,9
+Finished,13 hr 30 min,ENWA-240004,Store Office,MNT-00004110,1900132,WRKO-00004923,ประตู cold7 ฝั่งดิบตกราง,Work Area,ฺBuilding,Inspection,"",ENG,1,January,6,January,6
+Finished,61 hr 30 min,ENWA-240010,Producton Medium Risk,MNT-00004473,1900254,WRKO-00005339,น้ำไหลไม่หยุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,21,February,23
+Finished,112 hr 59 min,ENWA-240008,Producton High Risk,MNT-00004536,1900175,WRKO-00005404,น๊อตยึดด้ามจับประตูทางไป air blast 1 ฝั่งสุกหลุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,28,March,4
+Finished,60 hr 25 min,ENWA-240008,Producton High Risk,MNT-00004205,1900175,WRKO-00005032,ทำฐานวางกิโลใหญ่ ฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,12,January,14
+Finished,202 hr 42 min,ENWA-240010,Producton Medium Risk,MNT-00004236,1900175,WRKO-00005066,ทำแผ่นนสเเตนเลสปิดช่องล้อรถเข็นตะกร้า ไลน์มีเดียม,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,14,January,22
+Finished,327 hr 39 min,ENWA-240008,Producton High Risk,MNT-00004207,1900175,WRKO-00005034,ทาสีทับรอยน้ำหมึกปากกาผนังในไลน์ assembly  ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,12,January,25
+Finished,189 hr 46 min,ENWA-240017,Canteen,MNT-00004420,1900254,WRKO-00005282,ท่อน้ำอ่างล้างชามตรงโรงอาหารล็อกกลางมีน้ำรั่ว,Work Area,ฺBuilding,Inspection,"",ENG,4,February,12,February,19
+Finished,107 hr 28 min,ENWA-240008,Producton High Risk,MNT-00004269,1900175,WRKO-00005104,ท่อน้ำล่างอ่างมือ ในใลน์ฝั่งสุก มีน้ำรั่วจากเพดาน,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,17,January,21
+Finished,,ENUT-240188,Condencer Unit No.29 (Air Blast Freezer2),MNT-00004304,1900231,WRKO-00005148,ท่อน้ำยาแอร์บลาส 2 มีรั่วซึม,Buiding1,Cooling machine,Inspection,"",ENG,1,January,23,January,21
+Finished,104 hr 44 min,ENWA-240017,Canteen,MNT-00004339,1900254,WRKO-00005190,ท่อน้ำตรงอ่างล้างชามโรงอาหารมีน้ำหยด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,31,February,4
+Finished,7 hr 30 min,ENWA-240010,Producton Medium Risk,MNT-00004561,1900175,WRKO-00005437,ถอดชั้นวาง ห้องแต่งตัวชาย มีเดียม ไม่ได้ใช้งาน,Work Area,Tool and Equipment,Inspection,"",ENG,4,March,5,March,5
+Finished,,ENUT-240010,Sand Filter Tank No.2,MNT-00004487,1900231,WRKO-00005353,ติตตั้งกรองน้ำ PP,Water1,Water system,Inspection,"",ENG,1,February,23,February,21
+Finished,107 hr 18 min,ENWA-240002,Front Office,MNT-00004367,1900254,WRKO-00005225,ติดบอร์ดห้องผู้จัดการH.R,Work Area,ฺBuilding,Inspection,"",ENG,4,February,5,February,9
+Finished,30 hr 39 min,ENWA-240009,Producton Low Risk,MNT-00004165,1900175,WRKO-00004984,ติดตั้งอุปกรณ์ห้องล้างเก่า ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,8,January,9
+Finished,46 hr 6 min,ENWA-240009,Producton Low Risk,MNT-00004438,1900175,WRKO-00005299,ติดตั้งหลอดไฟห้องล้าง หลอดไฟล่วง ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,16,February,18
+Finished,,ENPD-240032,X-Ray No.2,MNT-00004345,1900231,WRKO-00005198,ติดตั้งสายลมเข้าเครื่อง X-Ray,Production Plant1,Production Machine,Inspection,"",ENG,1,February,3,February,1
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004343,1900231,WRKO-00005193,ติดตั้งท่อน้ำเครื่องทำน้ำแข็ง,Work Area,Tool and Equipment,Inspection,"","",1,February,2,January,31
+Finished,,ENWA-240017,Canteen,MNT-00004297,1900231,WRKO-00005138,ติดตั้งตู้น้ำดื่มโรงอาหาร,Work Area,Tool and Equipment,Inspection,"",ENG,1,January,22,January,21
+Finished,9 hr 20 min,ENWA-240010,Producton Medium Risk,MNT-00004316,1900254,WRKO-00005168,ติดตั้งตู้กินน้ำทีมีเดียม,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,27,January,27
+Finished,2 hr 36 min,ENWA-240010,Producton Medium Risk,MNT-00004090,1900231,WRKO-00004905,ติดตั้งจุดกรองน้ำ Medium Risk,Work Area,ฺBuilding,Inspection,"",ENG,1,January,2,January,2
+Finished,247 hr 4 min,ENWA-240004,Store Office,MNT-00004404,1900254,WRKO-00005267,ติดก๊อกน้ำเพิ่มตรงบริเวณห้องเก็บสารเคมีสโตร์,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,10,February,20
+Finished,174 hr 43 min,ENWA-240010,Producton Medium Risk,MNT-00004235,1900175,WRKO-00005065,ตัดล้อรถเข็นตะกร้าเพื่อทำฐานวางเครื่องชั่งไลน์มีเดียมตัวที่2,Work Area,Tool and Equipment,Inspection,"",ENG,1,January,14,January,21
+Finished,176 hr 47 min,ENWA-240010,Producton Medium Risk,MNT-00004234,1900175,WRKO-00005064,ตัดล้อรถเข็นตะกร้าเพื่อทำฐานวางเครื่องชั่งไลน์มีเดียมตัวที่1,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,14,January,21
+Finished,8 hr 45 min,ENWA-240009,Producton Low Risk,MNT-00004557,1900175,WRKO-00005433,ตั้งน้ำหนักเครื่องหยอดไข่ ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,March,5,March,5
+Finished,53 hr 33 min,ENWA-240009,Producton Low Risk,MNT-00004095,1900257,WRKO-00004910,ตะกร้อชำรุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,3,January,5
+Finished,40 hr 30 min,ENWA-240009,Producton Low Risk,MNT-00004096,1900068,WRKO-00004911,ตะกร้อชำรุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,3,January,4
+Finished,40 hr 27 min,ENWA-240009,Producton Low Risk,MNT-00004097,1900068,WRKO-00004912,ตะกร้อชำรุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,3,January,4
+Finished,73 hr 27 min,ENWA-240009,Producton Low Risk,MNT-00004100,1900257,WRKO-00004915,ตะกร้อชำรุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,3,January,6
+Finished,,ENWA-240005,Engineering Office,MNT-00004430,1900231,WRKO-00005293,"ต่อสายยาง,ก๊อกน้ำล้าง condenser",Work Area,Tool and Equipment,Inspection,"",ENG,1,February,14,February,13
+Finished,7 hr 46 min,ENPD-240045,Meatball making No.1,MNT-00004453,1900175,WRKO-00005314,ต่อสายไฟเครื่องทำมีทบอล,Production Plant1,Production Machine,Inspection,"",ENG,4,February,17,February,17
+Finished,113 hr 18 min,ENWA-240009,Producton Low Risk,MNT-00004378,1900175,WRKO-00005235,ต่อสามทางใส่ก็อกน้ำเพิ่มให้อีก1จุด หม้อราวแบทแพน ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,6,February,10
+Finished,,ENWA-240008,Producton High Risk,MNT-00004298,1900231,WRKO-00005139,ต่อลม ต่อเครื่อง Mobile ของ Ecolap  พ่นน้ำยาฆ่า,Work Area,Tool and Equipment,Inspection,"",HRGA,1,January,22,January,17
+Finished,,ENUT-240182,Condencer Unit No.24 (COLD6),MNT-00004433,1900231,WRKO-00005296,ต่อท่อเดน ร้อยสายฮีทเตอร์ Cold 6,Buiding1,Cooling machine,Inspection,"",ENG,1,February,14,February,12
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004476,1900175,WRKO-00005342,ตรวจสอบตู้Air shower ตู้ 2  มีน้ำไหล ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,23,February,20
+Finished,7 hr 57 min,ENWA-240009,Producton Low Risk,MNT-00004480,1900175,WRKO-00005346,ตรวจสอบเครื่องrobot coupeมอเตอร์ร้อน ทำให้เครื่องดับ ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,23,February,23
+Finished,228 hr 34 min,ENWA-240009,Producton Low Risk,MNT-00004271,1900175,WRKO-00005106,ซ่อมหูหม้อชำรุด3ใบ ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,17,January,26
+Finished,,ENWA-240008,Producton High Risk,MNT-00004197,1900175,WRKO-00005024,ซ่อมหลอดไฟในholding ชำรุดหลายหลอด,Work Area,Electrical system,Inspection,"",ENG,4,January,12,January,2
+Finished,,ENUT-240127,Condencer Unit No.9 (COLD5),MNT-00004390,1900231,WRKO-00005253,ซ่อมรอยรั่ว Cold room 5,Buiding1,Cooling machine,Inspection,"",ENG,1,February,9,February,7
+Finished,51 hr 45 min,ENWA-240009,Producton Low Risk,MNT-00004156,1900175,WRKO-00004978,ซ่อมโทลเล่ย์ชำรุด ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,7,January,9
+Finished,6 hr 28 min,ENWA-240009,Producton Low Risk,MNT-00004452,1900175,WRKO-00005313,ขันยูเนียนที่หม้อBran Pan4,Work Area,Production Machine,Inspection,"",ENG,4,February,17,February,17
+Finished,203 hr 42 min,ENWA-240009,Producton Low Risk,MNT-00004178,1900175,WRKO-00004999,ขอบประตูหน้าห้องผักฝั่งดิบแตกเป็นรู,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,10,January,18
+Finished,182 hr 28 min,ENWA-240009,Producton Low Risk,MNT-00004140,1900175,WRKO-00004969,ขอบที่จับประตูห้องPreparation3และห้องTumblingเป็นสนิม,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,13
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004548,1900254,WRKO-00005415,ก็อกห้องน้ำชายฝั่งดิบหลุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,March,2,February,27
+Finished,33 hr 44 min,ENWA-240009,Producton Low Risk,MNT-00004238,1900254,WRKO-00005068,ก๊อกน้ำตรงลานโหลดเล็กฝั่งดิบก๊อกปิดไม่สนิดมีน้ำไหลออกมา,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,14,January,15
+Finished,119 hr 5 min,ENWA-240009,Producton Low Risk,MNT-00004519,1900175,WRKO-00005386,ไฟห้องcookingไฟเสีย2หลอด RL093กับLR331 ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,26,March,3
+Finished,167 hr 56 min,ENWA-240004,Store Office,MNT-00004106,1900132,WRKO-00004919,ไฟลานโหลดใหญ่ฝั่งดิบเสีย,Work Area,Electrical system,Inspection,1900003,ENG,1,January,6,January,13
+Finished,24 hr 20 min,ENWA-240002,Front Office,MNT-00004394,1900254,WRKO-00005258,ไฟไม่ติดตรงหน้าห้องน้ำR&D,Work Area,Electrical system,Inspection,"",ENG,4,February,9,February,10
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004491,1900175,WRKO-00005359,ไขน๊อตเครื่องหั่นผัก น็อตหลุดออกจากตัวยึดสายพาน ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,25,February,24
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004376,1900175,WRKO-00005233,ใส่น๊อตล้อรถTrolley ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,6,February,5
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004484,1900175,WRKO-00005350,ใส่น็อตยึดรถTrolley ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,23,February,22
+Finished,63 hr 23 min,ENPD-240027,Bratt pan No.3,MNT-00004486,1900175,WRKO-00005352,ใส่น็อตฝาปิดเตา bratt pan 3 ฝั่งดิบ,Production Plant1,Production Machine,Inspection,"",ENG,4,February,23,February,25
+Finished,55 hr 7 min,ENWA-240017,Canteen,MNT-00004215,1900254,WRKO-00005042,แอร์สองตัวที่โรงอาหารฝั่งสุกมีน้ำหยด,Work Area,Air Condition,Inspection,"",ENG,4,January,12,January,14
+Finished,182 hr 28 min,ENUT-240117,Evapperator CDU5-UC5.3,MNT-00004249,1900175,WRKO-00005078,แอร์ UC-5.3 พัดลมแอร์อีกด้านไม่ทำงาน/ฝั่งดิบ,Buiding1,Tool and Equipment,Inspection,"",ENG,4,January,16,January,23
+Finished,104 hr 15 min,ENWA-240004,Store Office,MNT-00004267,1900271,WRKO-00005103,แจ้งซ่อมหลอดไฟเสีย 2 หลอด ที่ห้องเก็บกล่องสโตร์,Work Area,Electrical system,Inspection,"",ENG,1,January,16,January,20
+Finished,12 hr 47 min,ENWA-240010,Producton Medium Risk,MNT-00004264,1900123,WRKO-00005100,แจ้งซ่อมหลอดไฟCold4 ครับ,Work Area,Electrical system,Inspection,"",ENG,3,January,16,January,16
+Finished,31 hr 1 min,ENPD-240028,Round bratt pan No.1,MNT-00004094,1900224,WRKO-00004909,แจ้งซ่อมหม้อ Round bratt pan (sensor เสีย),Production Plant1,Production Machine,Inspection,"",ENG,4,January,3,January,4
+Finished,326 hr 5 min,ENWA-240009,Producton Low Risk,MNT-00004093,1900175,WRKO-00004908,แจ้งซ่อมหม้อ Bratt. Pan2 กับ Bratt. Pan4 วาล์วเปิดปิดสตรีมรั,Work Area,Production Machine,Inspection,"",ENG,4,January,3,January,16
+Finished,29 hr 7 min,ENWA-240004,Store Office,MNT-00004168,1900271,WRKO-00004987,แจ้งซ่อมสริงอ่างล้างมือสโตร์ค้าง49,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,8,January,9
+Finished,17 hr 46 min,ENWA-240009,Producton Low Risk,MNT-00004428,1900175,WRKO-00005292,แจ้งซ่อมม่านประตูทางเข้า - ออก ไลน์ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,13,February,13
+Finished,74 hr 31 min,ENWA-240009,Producton Low Risk,MNT-00004227,1900018,WRKO-00005054,แจ้งซ่อมประตูห้องทอไก่ ฝั่งดิบเปิดไม่ได้,Work Area,ฺBuilding,Inspection,"",ENG,4,January,13,January,16
+Finished,63 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004472,1900018,WRKO-00005338,แจ้งซ่อมประตูห้องทอไก่ ประตูเปิดปิดไม่ได้ค่ะ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,21,February,23
+Finished,13 hr 6 min,ENWA-240009,Producton Low Risk,MNT-00004334,1900271,WRKO-00005186,แจ้งซ่อมประตูห้องchill,Work Area,ฺBuilding,Inspection,1900003,ENG,4,January,30,January,30
+Finished,12 hr 47 min,ENWA-240009,Producton Low Risk,MNT-00004086,1900224,WRKO-00004901,แจ้งซ่อมประตูห้อง Preparation Room3 ลูกกลิ้งประตูไม่ตรงล็อค,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,2,January,2
+Finished,69 hr 22 min,ENWA-240009,Producton Low Risk,MNT-00004431,1900271,WRKO-00005294,แจ้งซ่อมประตู Cold5,Work Area,Tool and Equipment,Inspection,1900003,ENG,4,February,14,February,17
+Finished,14 hr 4 min,ENWA-240009,Producton Low Risk,MNT-00004083,1900238,WRKO-00004898,แจ้งซ่อมน็อตล้อรถเข็นตะกร้าหลุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,2,January,2
+Finished,9 hr 13 min,ENWA-240010,Producton Medium Risk,MNT-00004386,1900123,WRKO-00005247,แจ้งซ่อมที่จับประตูCold4,Work Area,Tool and Equipment,Inspection,"",ENG,1,February,7,February,7
+Finished,137 hr 4 min,ENWA-240004,Store Office,MNT-00004263,1900271,WRKO-00005099,แจ้งซ่อมแผ่นยางกั้นขอบประตูห้องถุงสโตร์,Work Area,Tool and Equipment,Inspection,1900003,ENG,4,January,16,January,21
+Finished,81 hr 36 min,ENWA-240009,Producton Low Risk,MNT-00004089,1900224,WRKO-00004904,แจ้งซ่อมเครื่อง drive ตัวแกนหมุนไม่หมุน,Work Area,Production Machine,Inspection,"",ENG,4,January,2,January,5
+Finished,693 hr 43 min,ENWA-240008,Producton High Risk,MNT-00004087,1900209,WRKO-00004902,แจ้งแก้ไขแอร์ห้อง packaging store มีเสียงดังผิดปกติ,Work Area,Air Condition,Inspection,"",ENG,1,January,2,January,31
+Finished,6 hr 52 min,ENWA-240009,Producton Low Risk,MNT-00004085,1900052,WRKO-00004900,แจ้งเปลี่ยนใบมีดเครื่อง Peeling เนื่องจากมีรอยร้าว 1 จุด,Work Area,Production Machine,Inspection,"",ENG,4,January,2,January,2
+Finished,106 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004340,1900175,WRKO-00005191,แก้ไขฮูดห้อง Cooking 2 ไม่ค่อยดูด ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,January,31,February,4
+Finished,204 hr 1 min,ENWA-240008,Producton High Risk,MNT-00004225,1900175,WRKO-00005052,แก้ไขอ่างล้างมือรั่ว จุดรับของฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,13,January,21
+Finished,65 hr 22 min,ENWA-240009,Producton Low Risk,MNT-00004478,1900175,WRKO-00005344,แก้ไขหลอดไฟห้องล้าง ฝาครอบหลอดชำรุด ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,23,February,25
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004351,1900175,WRKO-00005205,แก้ไขหลอดไฟห้องล้าง ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,4,February,3
+Finished,360 hr 17 min,ENWA-240009,Producton Low Risk,MNT-00004352,1900175,WRKO-00005206,แก้ไขหลอดไฟห้อง Cooking 2 จะหลุด ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,4,February,19
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004383,1900175,WRKO-00005244,แก้ไขหลอดไฟหน้าทางเข้าไลน์ผลิตเสีย-ไฟกระพริบ ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,7,February,7
+Finished,189 hr 42 min,ENWA-240008,Producton High Risk,MNT-00004456,1900175,WRKO-00005317,แก้ไขหลอดไฟหน้าblast chillชำรุด ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,February,17,February,24
+Finished,17 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004517,1900175,WRKO-00005384,แก้ไขหลอดไฟดับ1หลอด ที่ห้อง chill ติดห้องข้าว ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,26,February,26
+Finished,23 hr 19 min,ENWA-240008,Producton High Risk,MNT-00004211,1900175,WRKO-00005038,แก้ไขหลอดไฟชำรุด ไลน์ Assembly,Work Area,Electrical system,Inspection,"",ENG,4,January,12,January,13
+Finished,24 hr 3 min,ENWA-240008,Producton High Risk,MNT-00004308,1900175,WRKO-00005156,แก้ไขหลอดไฟไม่ติด ห้องเก็บกิโลฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,January,26,January,27
+Finished,22 hr 26 min,ENWA-240009,Producton Low Risk,MNT-00004554,1900175,WRKO-00005424,แก้ไขหลอดไฟRL331 ชำรุด ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,March,3,March,3
+Finished,8 hr 44 min,ENWA-240009,Producton Low Risk,MNT-00004084,1900224,WRKO-00004899,แก้ไขหลอดไฟ RL-024 กระพริบ. ห้อง Batching (Allergen),Work Area,Electrical system,Inspection,"",ENG,4,January,2,January,2
+Finished,20 hr 1 min,ENWA-240009,Producton Low Risk,MNT-00004202,1900175,WRKO-00005029,แก้ไขหลอดไฟ NCL 25 ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,January,12,January,12
+Finished,6 hr 11 min,ENPD-240026,Bratt pan No.2,MNT-00004516,1900175,WRKO-00005383,แก้ไขหม้อBratt Pan2 ปุ่มEmergenciaหลวม,Production Plant1,Production Machine,Inspection,"",ENG,4,February,26,February,26
+Finished,203 hr 24 min,ENWA-240009,Producton Low Risk,MNT-00004180,1900175,WRKO-00005001,แก้ไขสีขอบบัวหลุดร่อนในห้องผักฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,10,January,18
+Finished,4 hr 31 min,ENWA-240010,Producton Medium Risk,MNT-00004521,1900123,WRKO-00005388,แก้ไขสายพานโหลดสินค้ากระตุกอ,Work Area,Production Machine,Inspection,"",ENG,1,February,26,February,26
+Finished,7 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004201,1900175,WRKO-00005028,แก้ไขสายพานเครื่องทำMeatball ขาด,Work Area,Production Machine,Inspection,"",ENG,4,January,12,January,12
+Finished,0 hr 3 min,ENWA-240008,Producton High Risk,MNT-00004362,1900175,WRKO-00005216,แก้ไขสายพานcheck weight เลื่อน ฝั่งสุก,Work Area,Production Machine,Inspection,"",ENG,4,February,4,February,4
+Finished,24 hr 24 min,ENPD-240019,Conveyor No.1,MNT-00004406,1900175,WRKO-00005269,แก้ไขสายพาน assembly ไฟฟ้าช็อต,Production Plant1,Production Machine,Inspection,"",ENG,4,February,11,February,12
+Finished,8 hr 21 min,ENWA-240008,Producton High Risk,MNT-00004363,1900175,WRKO-00005217,แก้ไขสายพาน assembly เลื่อน ฝั่งสุก,Work Area,Production Machine,Inspection,"",ENG,4,February,4,February,4
+Finished,15 hr 40 min,ENWA-240010,Producton Medium Risk,MNT-00004475,1900175,WRKO-00005341,แก้ไขสายท่อลมแตกหัก ฝั่งมีเดียม,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,23,February,23
+Finished,67 hr 40 min,ENWA-240009,Producton Low Risk,MNT-00004424,1900175,WRKO-00005288,แก้ไขสายไฟเครื่องปลอกมัน เนื่องจากตัวครอบสายไฟจากปลั๊ก,Work Area,Production Machine,Inspection,"",ENG,4,February,13,February,15
+Finished,0 hr 7 min,ENWA-240009,Producton Low Risk,MNT-00004229,1900175,WRKO-00005056,แก้ไขสลักล็อคประตูฉุกเฉินหน้าห้อง cold6  สลักไม่ล็อค,Work Area,ฺBuilding,Inspection,"",ENG,4,January,13,January,13
+Finished,11 hr 15 min,ENWA-240010,Producton Medium Risk,MNT-00004254,1900175,WRKO-00005087,แก้ไขสปริงเท้าเหยียบจุดล้างมือทางเข้าไลน์มีเดียมหลุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,16,January,16
+Finished,63 hr 54 min,ENWA-240009,Producton Low Risk,MNT-00004481,1900175,WRKO-00005347,แก้ไขสนิมอ่างล้างมือทางเข้าไลน์ Low risk 3 อ่าง,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,23,February,25
+Finished,63 hr 23 min,ENWA-240008,Producton High Risk,MNT-00004411,1900175,WRKO-00005274,แก้ไขสนิมบริเวณผนังหน้าห้องเก็บอุปกรณ์ 2 ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,February,11,February,13
+Finished,618 hr 25 min,ENWA-240008,Producton High Risk,MNT-00004136,1900175,WRKO-00004965,แก้ไขสนิมแอร์ fcu 44 ห้องholding chill ฝั่งสุก,Work Area,Air Condition,Inspection,"",ENG,4,January,6,February,1
+Finished,949 hr 7 min,ENWA-240009,Producton Low Risk,MNT-00004208,1900175,WRKO-00005035,แก้ไขสนิมGas leak detector ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,12,February,20
+Finished,8 hr 0 min,ENPD-240027,Bratt pan No.3,MNT-00004203,1900175,WRKO-00005030,แก้ไขวาวล์ปิดเปิดน้ำหม้อ bratts pan 3 ปิดไม่อยู่,Production Plant1,Production Machine,Inspection,"",ENG,4,January,12,January,12
+Finished,286 hr 45 min,ENWA-240008,Producton High Risk,MNT-00004382,1900175,WRKO-00005243,แก้ไขวาวล์เปิดปิดสายยางหลุด บริเวณหน้าห้อง chill ฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,7,February,19
+Finished,15 hr 9 min,ENPD-240045,Meatball making No.1,MNT-00004498,1900175,WRKO-00005366,แก้ไขวาล์วน้ำทิ้งเครื่องทำมีทบอล ฝั่งดิบ,Production Plant1,Production Machine,Inspection,"",ENG,4,February,25,February,25
+Finished,135 hr 50 min,ENWA-240009,Producton Low Risk,MNT-00004250,1900175,WRKO-00005083,แก้ไขวาล์วก็อกน้ำรั่ว ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,16,January,21
+Finished,291 hr 52 min,ENWA-240009,Producton Low Risk,MNT-00004126,1900175,WRKO-00004955,แก้ไขวงกบประตูห้องผักผุกร่อน ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,18
+Finished,31 hr 33 min,ENWA-240010,Producton Medium Risk,MNT-00004330,1900175,WRKO-00005181,แก้ไขล้อหลุดจากรางประตูบลาส 1 ฝั่งมีเดียม,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,29,January,30
+Finished,62 hr 20 min,ENWA-240008,Producton High Risk,MNT-00004285,1900175,WRKO-00005122,แก้ไขราวจับทางออกฝั่งสุก ตัวยึดราวจับชำรุด,Work Area,ฺBuilding,Inspection,"",ENG,4,January,20,January,22
+Finished,313 hr 23 min,ENWA-240008,Producton High Risk,MNT-00004230,1900175,WRKO-00005057,แก้ไขราวกั้นขอบบัวหลุด หน้า blast chill 1 ฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,14,January,27
+Finished,50 hr 41 min,ENWA-240009,Producton Low Risk,MNT-00004157,1900175,WRKO-00004979,แก้ไขรถล้างผักล้อหลุด ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,7,January,9
+Finished,19 hr 7 min,ENWA-240008,Producton High Risk,MNT-00004198,1900175,WRKO-00005025,แก้ไขรถทอยเลย์ล้อชำรุด ฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,12,January,12
+Finished,2 hr 42 min,ENWA-240009,Producton Low Risk,MNT-00004496,1900175,WRKO-00005364,แก้ไขรถตู้Combi รางใส่ถาดชำรุด ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,25,February,25
+Finished,291 hr 58 min,ENWA-240009,Producton Low Risk,MNT-00004123,1900175,WRKO-00004948,แก้ไขมุมทางขึ้น Cooking แตก ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,18
+Finished,81 hr 44 min,ENWA-240009,Producton Low Risk,MNT-00004117,1900175,WRKO-00004943,แก้ไขมือจับประตูห้องล้างดิบ หลุด,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,9
+Finished,257 hr 11 min,ENWA-240009,Producton Low Risk,MNT-00004185,1900175,WRKO-00005006,แก้ไขม่านประตูขาด ห้อง Chicken Defrost Room,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,10,January,20
+Finished,114 hr 19 min,ENWA-240009,Producton Low Risk,MNT-00004115,1900175,WRKO-00004941,แก้ไขม่านขาดทางเข้า Low Risk,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,6,January,11
+Finished,14 hr 16 min,ENWA-240009,Producton Low Risk,MNT-00004349,1900175,WRKO-00005203,แก้ไขมอเตอร์เครื่องลับมีดไม่ทำงาน/Low Risk,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,4,February,4
+Finished,122 hr 49 min,ENWA-240009,Producton Low Risk,MNT-00004128,1900175,WRKO-00004957,แก้ไขพื้นห้อง Chill3 แตก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,11
+Finished,460 hr 37 min,ENWA-240010,Producton Medium Risk,MNT-00004153,1900175,WRKO-00004977,แก้ไขพื้นหน้าห้อง Anti บลาสฟรีส 3 แตก ฝั่งมีเดียม,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,25
+Finished,973 hr 46 min,ENWA-240009,Producton Low Risk,MNT-00004289,1900175,WRKO-00005128,แก้ไขพื้นหน้าตู้steam box พื้นแตกเป็นรอยกว้าง ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,20,March,1
+Finished,120 hr 39 min,ENWA-240009,Producton Low Risk,MNT-00004134,1900175,WRKO-00004963,แก้ไขพื้นหน้า Cold6 ชำรุด,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,11
+Finished,419 hr 46 min,ENWA-240009,Producton Low Risk,MNT-00004130,1900175,WRKO-00004959,แก้ไขพื้นปูร่อนห้อง Cooking ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,23
+Finished,291 hr 50 min,ENWA-240009,Producton Low Risk,MNT-00004127,1900175,WRKO-00004956,แก้ไขพื้นปูนห้องผักสีลอก ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,18
+Finished,119 hr 0 min,ENWA-240009,Producton Low Risk,MNT-00004122,1900175,WRKO-00004947,แก้ไขพื้นทางเข้าแตกและมีรอยเท้า ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,11
+Finished,165 hr 19 min,ENWA-240009,Producton Low Risk,MNT-00004501,1900175,WRKO-00005369,แก้ไขพื้นตรงทางเดิน เอาของเข้าตู้ STEAM BOX ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,25,March,3
+Finished,203 hr 37 min,ENWA-240009,Producton Low Risk,MNT-00004179,1900175,WRKO-00005000,แก้ไขพื้นในห้อง  chill room3ฝั่งดิบพื้นหลุดทั้งห้อง,Work Area,ฺBuilding,Inspection,"",ENG,4,January,10,January,18
+Finished,121 hr 40 min,ENWA-240009,Producton Low Risk,MNT-00004133,1900175,WRKO-00004962,แก้ไขพื้นแตกห้องล้างฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,11
+Finished,494 hr 43 min,ENWA-240010,Producton Medium Risk,MNT-00004255,1900175,WRKO-00005088,แก้ไขพื้นแตกหน้าห้อง x-ray medium,Work Area,ฺBuilding,Inspection,"",ENG,4,January,16,February,5
+Finished,,ENWA-240008,Producton High Risk,MNT-00004196,1900175,WRKO-00005023,แก้ไขพื้นแตกบริเวณประตูและในห้อง blast chill 2 ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,12,January,11
+Finished,110 hr 10 min,ENWA-240008,Producton High Risk,MNT-00004277,1900175,WRKO-00005112,แก้ไขพื้นแตกบริเวณขอบท่อระบายน้ำ ห้องสตีม,Work Area,ฺBuilding,Inspection,"",ENG,4,January,19,January,23
+Finished,42 hr 8 min,ENWA-240010,Producton Medium Risk,MNT-00004526,1900175,WRKO-00005394,แก้ไขพื้นแตกทางเดินไปลานโหลดฝั่งมีเดียม,Work Area,ฺBuilding,Inspection,"",ENG,4,February,26,February,28
+Finished,393 hr 7 min,ENWA-240009,Producton Low Risk,MNT-00004135,1900175,WRKO-00004964,แก้ไขพื้นแตก blast chill 1 ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,22
+Finished,24 hr 35 min,ENWA-240008,Producton High Risk,MNT-00004199,1900175,WRKO-00005026,แก้ไขพื้น blast chill 1 ฝั่งสุก พื้นนูนทำให้ปิดประตูไม่ได้,Work Area,ฺBuilding,Inspection,"",ENG,4,January,12,January,13
+Finished,31 hr 40 min,ENWA-240009,Producton Low Risk,MNT-00004164,1900175,WRKO-00004983,แก้ไขพัดลมระบายอากาศห้องล้างฝั่งดิบด้านหลัง,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,8,January,9
+Finished,88 hr 40 min,ENWA-240009,Producton Low Risk,MNT-00004465,1900175,WRKO-00005329,แก้ไขฝาผนังชำรุด ข้างตู้STEAM BOX ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,20,February,23
+Finished,215 hr 32 min,ENWA-240009,Producton Low Risk,MNT-00004482,1900175,WRKO-00005348,แก้ไขฝาครอบหลอดไฟห้องหุงข้าว ชำรุด ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,23,March,4
+Finished,18 hr 42 min,ENWA-240009,Producton Low Risk,MNT-00004508,1900175,WRKO-00005375,แก้ไขฝาครอบหลอดไฟที่ชำรุด ห้องหุงข้าวฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,26,February,26
+Finished,13 hr 27 min,ENWA-240008,Producton High Risk,MNT-00004563,1900175,WRKO-00005439,แก้ไขฝาครอบหลอดไฟ Holding chill,Work Area,Electrical system,Inspection,"",ENG,4,March,5,March,5
+Finished,16 hr 19 min,ENWA-240008,Producton High Risk,MNT-00004460,1900175,WRKO-00005321,แก้ไขฝาครอบหลอดไฟ cl-132 หน้าair blast1 ฝั่งสุกตัวล๊อคชำรุด,Work Area,Electrical system,Inspection,"",ENG,4,February,19,February,19
+Finished,222 hr 47 min,ENWA-240010,Producton Medium Risk,MNT-00004149,1900175,WRKO-00004973,แก้ไขฝาครอบท่อแอร์ หน้าCold 1 ชำรุด ฝั่งมีเดียม,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,15
+Finished,121 hr 26 min,ENWA-240009,Producton Low Risk,MNT-00004141,1900175,WRKO-00004970,แก้ไขฝ้าเหนือ Round batt pan เป็นสนิม,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,11
+Finished,544 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004221,1900175,WRKO-00005048,แก้ไขผนังห้องล้างบุบ ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,13,February,4
+Finished,882 hr 37 min,ENWA-240009,Producton Low Risk,MNT-00004118,1900175,WRKO-00004944,แก้ไขผนังเป็นสนิมห้องล้าง ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,February,12
+Finished,20 hr 8 min,ENWA-240008,Producton High Risk,MNT-00004511,1900175,WRKO-00005378,แก้ไขปุ่ม emergency ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,February,26,February,26
+Finished,6 hr 48 min,ENWA-240009,Producton Low Risk,MNT-00004515,1900175,WRKO-00005382,แก้ไขปลั๊กไฟมีสายหลุดออกมา ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,26,February,26
+Finished,,ENWA-240008,Producton High Risk,MNT-00004441,1900175,WRKO-00005302,แก้ไขปลั๊กไฟช็อต ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,February,16,February,15
+Finished,33 hr 26 min,ENWA-240009,Producton Low Risk,MNT-00004327,1900175,WRKO-00005178,แก้ไขประตูห้อง Tumbling ประตูตก,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,29,January,30
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004328,1900175,WRKO-00005179,แก้ไขประตูห้อง Preparation Room3 ชำรุด ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,29,January,28
+Finished,81 hr 37 min,ENWA-240009,Producton Low Risk,MNT-00004113,1900175,WRKO-00004939,แก้ไขประตูห้อง Preparation Room 3 ลูกกลิ้งประตูตกล็อค,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,9
+Finished,782 hr 15 min,ENWA-240009,Producton Low Risk,MNT-00004274,1900175,WRKO-00005109,แก้ไขประตูหน้าห้องเครื่องทำน้ำแข็งใหม่ประตูเปิดไม่ได้ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,19,February,20
+Finished,505 hr 58 min,ENWA-240009,Producton Low Risk,MNT-00004315,1900175,WRKO-00005162,แก้ไขประตูหน้าห้อง Tumbling ประตูตก เปิด-ปิดยาก ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,26,February,16
+Finished,,ENWA-240008,Producton High Risk,MNT-00004371,1900175,WRKO-00005228,แก้ไขประตูปิด-เปิดยาก Blast Chill 2 ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,February,6,February,5
+Finished,,ENWA-240010,Producton Medium Risk,MNT-00004530,1900175,WRKO-00005398,แก้ไขประตูบลาส2 ประตูหลุด ฝั่งมีเดียม,Work Area,ฺBuilding,Inspection,"",ENG,4,February,28,February,27
+Finished,326 hr 5 min,ENWA-240008,Producton High Risk,MNT-00004400,1900175,WRKO-00005263,แก้ไขประตูทางออกไลน์ผลิตฝั่งสุกชำรุด ปิดไม่สนิท สกรูหลุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,10,February,23
+Finished,231 hr 27 min,ENWA-240009,Producton Low Risk,MNT-00004300,1900175,WRKO-00005144,แก้ไขประตูตก เปิด-ปิด ยาก / ห้อง Preparation Room 3 ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,23,February,1
+Finished,2 hr 22 min,ENWA-240009,Producton Low Risk,MNT-00004407,1900175,WRKO-00005270,แก้ไขประตู(Preparation room2)หลุด ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,11,February,11
+Finished,7 hr 5 min,ENWA-240008,Producton High Risk,MNT-00004273,1900175,WRKO-00005108,แก้ไขประตู blast chill 1 ประตูเปิดไม่ได้,Work Area,ฺBuilding,Inspection,"",ENG,4,January,19,January,19
+Finished,43 hr 40 min,ENWA-240009,Producton Low Risk,MNT-00004206,1900175,WRKO-00005033,แก้ไขน้ำหยดลงมาหน้าตู้ steam box 2 ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,January,12,January,13
+Finished,107 hr 47 min,ENWA-240009,Producton Low Risk,MNT-00004384,1900175,WRKO-00005245,แก้ไขน้ำหยดลงมาตรงหลอดไฟห้องทำปลา ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,7,February,11
+Finished,61 hr 59 min,ENUT-240148,Evapperator CDU14-UC14.2,MNT-00004213,1900175,WRKO-00005040,"แก้ไขน้ำหยดบริเวณท่อแอร์ UC-14.2,UC-15.2",Buiding1,Cooling machine,Inspection,"",ENG,4,January,12,January,14
+Finished,14 hr 22 min,ENPD-240027,Bratt pan No.3,MNT-00004270,1900175,WRKO-00005105,แก้ไขน้ำหยดบริเวณเตา brattpan 3,Production Plant1,ฺBuilding,Inspection,"",ENG,4,January,17,January,17
+Finished,89 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004464,1900175,WRKO-00005328,แก้ไขน้ำหยดบนเพดาน หน้าตู้ STEAM BOXฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,20,February,23
+Finished,93 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004532,1900175,WRKO-00005400,แก้ไข้น้ำหยดที่เพดาน บนหม้อ Bratt pan2,Work Area,ฺBuilding,Inspection,"",ENG,4,February,28,March,3
+Finished,39 hr 13 min,ENWA-240009,Producton Low Risk,MNT-00004393,1900175,WRKO-00005257,แก้ไขน้ำหยดด้านบนเตา bratts pan 2,Work Area,ฺBuilding,Inspection,"",ENG,4,February,9,February,10
+Finished,140 hr 59 min,ENWA-240009,Producton Low Risk,MNT-00004518,1900175,WRKO-00005385,แก้ไขน้ำหยดด่วน ห้อง Cooking ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,26,March,3
+Finished,21 hr 49 min,ENWA-240008,Producton High Risk,MNT-00004169,1900175,WRKO-00004988,แก้ไขน้ำหยดจากหลอดไฟ ห้อง holding chill ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,8,January,9
+Finished,5 hr 5 min,ENUT-240182,Condencer Unit No.24 (COLD6),MNT-00004287,1900175,WRKO-00005124,แก้ไขน้ำหยดจากแอร์ทำให้น้ำขังห้องclod6,Buiding1,Cooling machine,Inspection,"",ENG,4,January,20,January,20
+Finished,8 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004216,1900175,WRKO-00005043,แก้ไขน้ำหยดแอร์ในห้อง Cold 6 ฝั่งดิบ,Work Area,Cooling machine,Inspection,"",ENG,4,January,12,January,12
+Finished,60 hr 3 min,ENWA-240008,Producton High Risk,MNT-00004275,1900175,WRKO-00005110,แก่ไขน้ำหยด อ่างล้างมือ จุดรับของฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,19,January,21
+Finished,73 hr 38 min,ENWA-240009,Producton Low Risk,MNT-00004112,1900175,WRKO-00004938,แก้ไขน้ำรั่วจากเพดานห้องพะโล้ /Low Risk,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,9
+Finished,18 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004492,1900175,WRKO-00005360,แก้ไขน้ำไหลลงมาจากช่องดูดอากาศช่องรองเท้าบูทฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,25,February,25
+Finished,7 hr 42 min,ENUT-240140,Evapperator CDU12-UC12.6,MNT-00004288,1900175,WRKO-00005126,แก้ไขน้ำแข็งเกาะ แอร์ FCU12.6หน้าห้องเตรียมกล่อง ฝั่งมีเดียม,Buiding1,ฺBuilding,Inspection,"",ENG,4,January,20,January,20
+Finished,137 hr 14 min,ENWA-240009,Producton Low Risk,MNT-00004534,1900175,WRKO-00005402,แก้ไขน๊อตหลุดที่โช๊คประตูทางออกฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,28,March,5
+Finished,166 hr 36 min,ENWA-240010,Producton Medium Risk,MNT-00004427,1900175,WRKO-00005291,แก้ไขที่จับประตูหน้าบาส1ชำรุด ฝั่งมีเดียม,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,13,February,19
+Finished,254 hr 16 min,ENWA-240008,Producton High Risk,MNT-00004253,1900175,WRKO-00005086,แก้ไขที่กันด้านบนประตู blast feezer 2 หลุดฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,16,January,26
+Finished,230 hr 58 min,ENWA-240009,Producton Low Risk,MNT-00004299,1900175,WRKO-00005143,แก้ไขที่เปิดสายฉีดน้ำ ห้อง Tumbling ฝั่งดิบชำรุด,Work Area,ฺBuilding,Inspection,"",ENG,4,January,23,February,1
+Finished,345 hr 31 min,ENWA-240009,Producton Low Risk,MNT-00004176,1900175,WRKO-00004997,แก้ไขท่ออ่างล้างมือห้องเตรียมปลาฝั่งดิบ น้ำรั่ว,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,9,January,23
+Finished,11 hr 3 min,ENWA-240008,Producton High Risk,MNT-00004099,1900224,WRKO-00004914,แก้ไขท่อระบายน้ำตัน ห้องแพ็คฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,3,January,3
+Finished,181 hr 14 min,ENWA-240008,Producton High Risk,MNT-00004322,1900175,WRKO-00005173,แก้ไขตัวหยุดประตู ห้อง blast freezer 1 ชำรุด,Work Area,ฺBuilding,Inspection,"",ENG,4,January,28,February,4
+Finished,8 hr 44 min,ENWA-240009,Producton Low Risk,MNT-00004490,1900175,WRKO-00005358,แก้ไขตัวล็อคตู้น้ำแข็ง ปิดล็อคไม่ได้ ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,24,February,24
+Finished,,ENPD-240019,Conveyor No.1,MNT-00004522,1900175,WRKO-00005389,แก้ไขตรงรอยต่อสายพาน/เสริมถาดด้านข้างระหว่างสายพาน ฝั่งสุก,Production Plant1,Production Machine,Inspection,"",ENG,4,February,26,February,26
+Finished,,ENPD-240015,Steambox1,MNT-00004531,1900175,WRKO-00005399,แก้ไขด้ามประตูตู้ steam box 1 ชำรุด ฝั่งสุก,Production Plant1,Production Machine,Inspection,"",ENG,4,February,28,February,27
+Finished,23 hr 29 min,ENWA-240009,Producton Low Risk,MNT-00004439,1900175,WRKO-00005300,แก้ไขด้ามจับประตูห้องตัดปลาชำรุด ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,16,February,17
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004389,1900175,WRKO-00005254,แก้ไขด้ามจับประตู ห้อง Fish Prep. ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,9,February,9
+Finished,23 hr 51 min,ENWA-240010,Producton Medium Risk,MNT-00004445,1900175,WRKO-00005306,แก้ไขด้ามจับประตู บลาส 1 ฝั่งมีเดียมหัก,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,16,February,17
+Finished,16 hr 22 min,ENWA-240009,Producton Low Risk,MNT-00004284,1900175,WRKO-00005121,แก้ไขซิลิโคนขอบประตูฉุกเฉินขึ้นเชื้อรา ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,20,January,20
+Finished,117 hr 32 min,ENWA-240009,Producton Low Risk,MNT-00004184,1900175,WRKO-00005005,แก้ไขซ่อมไฟไม่ติดห้อง Chicken Equipment Room,Work Area,Electrical system,Inspection,"",ENG,4,January,10,January,14
+Finished,373 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004182,1900175,WRKO-00005003,แก้ไขช่องดูดอากาศห้องเตรียมปลาเป็นสนิม ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,10,January,25
+Finished,366 hr 8 min,ENWA-240008,Producton High Risk,MNT-00004137,1900175,WRKO-00004966,แก้ไขคราบสนิมบนเพดาน บริเวณใกล้แอร์ fcu 44 ห้องholding chill,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,21
+Finished,224 hr 25 min,ENWA-240009,Producton Low Risk,MNT-00004142,1900175,WRKO-00004971,แก้ไขคราบน้ำไหลลงมาท่อฮูด Battpan1,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,15
+Finished,18 hr 43 min,ENWA-240009,Producton Low Risk,MNT-00004454,1900175,WRKO-00005315,แก้ไขขอบประตูห้องตัดปลา ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,17,February,17
+Finished,82 hr 41 min,ENWA-240009,Producton Low Risk,MNT-00004132,1900175,WRKO-00004961,แก้ไขขอบประตูช่องส่งขยะเป็นสนิม ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,9
+Finished,291 hr 54 min,ENWA-240009,Producton Low Risk,MNT-00004124,1900175,WRKO-00004953,แก้ไขขอบบัวห้อง WIP แตก ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,18
+Finished,153 hr 25 min,ENWA-240009,Producton Low Risk,MNT-00004209,1900175,WRKO-00005036,แก้ไขขอบบัวหน้าห้องล้างและสนิม,Work Area,ฺBuilding,Inspection,"",ENG,4,January,12,January,18
+Finished,291 hr 43 min,ENWA-240009,Producton Low Risk,MNT-00004131,1900175,WRKO-00004960,แก้ไขขอบบัวแตกมุมประตู ข้างเครื่องทำน้ำแข็ง ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,6,January,18
+Finished,18 hr 15 min,ENWA-240009,Producton Low Risk,MNT-00004335,1900175,WRKO-00005187,แก้ไขก๊อกน้ำอ่างล้างมือห้อง Batching (Allergen) น้ำหยด,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,30,January,30
+Finished,23 hr 18 min,ENWA-240009,Producton Low Risk,MNT-00004455,1900175,WRKO-00005316,แก้ไขไฟห้องล้างฝั่งดิบชำรุด ติดหลอดเดียว,Work Area,Electrical system,Inspection,"",ENG,4,February,17,February,18
+Finished,89 hr 24 min,ENWA-240009,Producton Low Risk,MNT-00004174,1900175,WRKO-00004995,แก้ไขไฟหน้าทางเดินไลน์ฝั่งดิบไม่ติด RL-042,Work Area,Electrical system,Inspection,"",ENG,4,January,9,January,13
+Finished,38 hr 4 min,ENWA-240010,Producton Medium Risk,MNT-00004324,1900175,WRKO-00005176,แก้ไขไฟดับCL -246 packing room/medium,Work Area,Electrical system,Inspection,"",ENG,4,January,28,January,29
+Finished,77 hr 45 min,ENWA-240010,Producton Medium Risk,MNT-00004150,1900175,WRKO-00004974,แก้ไขไฟดักแมลงห้องแสตมป์ไม่ติด ฝั่งมีเดียม,Work Area,Electrical system,Inspection,"",ENG,4,January,6,January,9
+Finished,74 hr 37 min,ENWA-240009,Producton Low Risk,MNT-00004183,1900175,WRKO-00005004,แก้ไขไฟไม่ติด หน้าห้อง Fish defrost room,Work Area,Electrical system,Inspection,"",ENG,4,January,10,January,13
+Finished,8 hr 12 min,ENWA-240009,Producton Low Risk,MNT-00004337,1900175,WRKO-00005188,แก้ไขใบมีดเครื่องหั่นผักบิ่นจากการใช้งาน/Low Risk,Work Area,Production Machine,Inspection,"",ENG,4,January,31,January,31
+Finished,14 hr 51 min,ENWA-240009,Producton Low Risk,MNT-00004350,1900175,WRKO-00005204,แก้ไขใบมีดเครื่องหั่นผักบิ่น ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,4,February,4
+Finished,41 hr 28 min,ENUT-240092,Evapperator CDU2-UC2.2,MNT-00004204,1900175,WRKO-00005031,แก้ไขแอร์2.2ห้องBatching(non allergenแอร์ไม่เย็น อุณหภูมิสูง,Buiding1,Cooling machine,Inspection,"",ENG,4,January,12,January,13
+Finished,201 hr 41 min,ENWA-240009,Producton Low Risk,MNT-00004355,1900175,WRKO-00005209,แก้ไขแอร์2.1ห้องBatching(Allergen)  แอร์ไม่เย็นอุณหภูมิสูง,Work Area,Cooling machine,Inspection,"",ENG,4,February,4,February,12
+Finished,32 hr 36 min,ENUT-240148,Evapperator CDU14-UC14.2,MNT-00004167,1900175,WRKO-00004986,แก้ไขแอร์ uc 14.2 มีน้ำหยด บริเวณท่อ ฝั่งสุก,Buiding1,Air Condition,Inspection,"",ENG,4,January,8,January,9
+Finished,183 hr 19 min,ENUT-240131,Evapperator CDU11-UC11.1,MNT-00004402,1900175,WRKO-00005265,แก้ไขแอร์ 11 . 1 เสียงพัดลมดัง ฝั่งดิบ,Buiding1,Cooling machine,Inspection,"",ENG,4,February,10,February,17
+Finished,34 hr 20 min,ENUT-240091,Evapperator CDU2-UC2.1,MNT-00004408,1900175,WRKO-00005271,แก้ไขแอร์  2.1  ห้อง Batching (Allergen).  อุณหภูมิสูง,Buiding1,Cooling machine,Inspection,"",ENG,4,February,11,February,12
+Finished,161 hr 30 min,ENWA-240009,Producton Low Risk,MNT-00004353,1900175,WRKO-00005207,แก้ไขแผ่นปิดรู ข้างท่อสตรีมหม้อ Round Bratts ชำรุด ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,February,4,February,10
+Finished,,ENWA-240010,Producton Medium Risk,MNT-00004251,1900175,WRKO-00005084,แก้ไขเสียงดังผิดปกติจากสายพานเครื่องinkjetฝั่งมีเดียม,Work Area,Production Machine,Inspection,"",ENG,4,January,16,January,15
+Finished,39 hr 37 min,ENWA-240009,Producton Low Risk,MNT-00004220,1900175,WRKO-00005012,แก้ไขเพดานน้ำหยด ห้อง Chicken Defrosted Room ฝั่งดิบ,Work Area,ฺBuilding,Inspection,"",ENG,4,January,13,January,14
+Finished,6 hr 52 min,ENPD-240048,Batch Frye 1,MNT-00004444,1900175,WRKO-00005305,แก้ไขเตาทอดเปิดไม่ติด ฝั่งดิบ,Production Plant1,Production Machine,Inspection,"",ENG,1,February,16,February,16
+Finished,26 hr 9 min,ENWA-240009,Producton Low Risk,MNT-00004365,1900175,WRKO-00005219,แก้ไขเครื่องหยดไข่กระบอกลูกสูบขัด ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,4,February,5
+Finished,9 hr 43 min,ENWA-240009,Producton Low Risk,MNT-00004354,1900175,WRKO-00005208,แก้ไขเครื่องปั่น Sharp เครื่องมีกลิ่นไหม้ ห้อง Batching,Work Area,Production Machine,Inspection,"",ENG,4,February,4,February,4
+Finished,7 hr 23 min,ENWA-240009,Producton Low Risk,MNT-00004311,1900175,WRKO-00005159,แก้ไขเครื่องปอกมัน กดปุ่มสีเขียวไม่ทำงาน ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,January,26,January,26
+Finished,30 hr 17 min,ENUT-240192,Condencer Unit No.33 (Ice Maker),MNT-00004175,1900175,WRKO-00004996,แก้ไขเครื่องทำน้ำแข็งเก่า มีรอยบิ่นจากด้านใน,Buiding1,Production Machine,Inspection,"",ENG,4,January,9,January,10
+Finished,24 hr 57 min,ENWA-240008,Producton High Risk,MNT-00004405,1900175,WRKO-00005268,แก้ไขเครื่องซีลฝั่งสุก ซีลไม่ติด,Work Area,Production Machine,Inspection,"",ENG,4,February,11,February,12
+Finished,157 hr 26 min,ENWA-240009,Producton Low Risk,MNT-00004513,1900175,WRKO-00005380,แก้ไขเครื่องชั่งฝั่งดิบ ตัวเลขไม่นิ่ง,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,26,March,4
+Finished,6 hr 8 min,ENWA-240010,Producton Medium Risk,MNT-00004403,1900175,WRKO-00005266,แก้ไขเครื่องx-ray ดังผิดปกติ ฝั่งมีเดียม,Work Area,Production Machine,Inspection,"",ENG,4,February,10,February,10
+Finished,,ENPD-240003,Vacuum Tumbler  เล็ก No.1,MNT-00004474,1900175,WRKO-00005340,แก้ไขเครื่อง Tumbling เล็ก Vacc ไม่ทำงาน ฝั่งดิบ,Production Plant1,Production Machine,Inspection,"",ENG,4,February,23,February,20
+Finished,4 hr 55 min,ENWA-240009,Producton Low Risk,MNT-00004468,1900175,WRKO-00005332,แก้ไขเครื่อง dice เนื่องจากไฟไม่เข้า ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,February,20,February,20
+Finished,25 hr 21 min,ENPD-240014,Bowl Cutter (Chopper) No.1,MNT-00004391,1900175,WRKO-00005255,แก้ไขเครื่อง Bolw cutter หน้าจอไม่ติด,Production Plant1,Production Machine,Inspection,"",ENG,4,February,9,February,10
+Finished,,ENWA-240008,Producton High Risk,MNT-00004440,1900175,WRKO-00005301,แก้ไขcheck weight สายพานไม่ทำงาน ฝั่งสุก,Work Area,Production Machine,Inspection,"",ENG,4,February,16,February,13
+Finished,302 hr 42 min,ENWA-240008,Producton High Risk,MNT-00004218,1900175,WRKO-00005010,แก้ไขAir blast3 พื้นแตก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,13,January,25
+Finished,23 hr 19 min,ENWA-240008,Producton High Risk,MNT-00004306,1900175,WRKO-00005154,แก้ไข หลอดไฟไลน์ผลิตฝั่งสุกเสีย Cl-032 cl-025 cl-029,Work Area,Electrical system,Inspection,"",ENG,4,January,26,January,27
+Finished,21 hr 41 min,ENWA-240008,Producton High Risk,MNT-00004305,1900175,WRKO-00005153,แก้ไข พื้นแตกจากการซ่อมราวเหล็ก บริเวณทางออกไลน์ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,26,January,26
+Finished,11 hr 34 min,ENWA-240008,Producton High Risk,MNT-00004410,1900175,WRKO-00005273,แก้ไข ประตูบลาส 1 ฝั่งสุก ชำรุด,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,11,February,11
+Finished,133 hr 57 min,ENWA-240008,Producton High Risk,MNT-00004252,1900175,WRKO-00005085,แก้ไข ประตู blast freezer 3 เปิดยาก ฝั่งสุก,Work Area,ฺBuilding,Inspection,"",ENG,4,January,16,January,21
+Finished,16 hr 8 min,ENWA-240008,Producton High Risk,MNT-00004425,1900175,WRKO-00005289,แก้ไข น้ำหยดบริเวณหลอดไฟ CL-037 ตรงกับสายพาน assembly,Work Area,Electrical system,Inspection,"",ENG,4,February,13,February,13
+Finished,182 hr 11 min,ENWA-240008,Producton High Risk,MNT-00004276,1900175,WRKO-00005111,แก้ไข น้ำหยดจากเพดาน ท้ายไลน์ assembly,Work Area,ฺBuilding,Inspection,"",ENG,4,January,19,January,26
+Finished,805 hr 39 min,ENPD-240024,Combi oven No.2,MNT-00004258,1900175,WRKO-00005095,แก้ไข combi 2 ล้างไม่ได้,Production Plant1,Production Machine,Inspection,"",ENG,4,January,16,February,18
+Finished,36 hr 49 min,ENPD-240023,Bratt pan No.1,MNT-00004233,1900175,WRKO-00005063,แก้ไข Brattpan 1 วาล์วรั่ว,Production Plant1,Production Machine,Inspection,"",ENG,4,January,14,January,15
+Finished,1 hr 47 min,ENPD-240027,Bratt pan No.3,MNT-00004494,1900175,WRKO-00005362,แก้ไข Bratt pan 3 รั่ว ฝั่งดิบ,Production Plant1,Production Machine,Inspection,"",ENG,4,February,25,February,25
+Finished,,ENPD-240023,Bratt pan No.1,MNT-00004477,1900175,WRKO-00005343,แก้ไข Bratt pan 1 สตรีมรั่ว,Production Plant1,Production Machine,Inspection,"",ENG,4,February,23,February,21
+Finished,,ENWA-240008,Producton High Risk,MNT-00004495,1900175,WRKO-00005363,เปลี่ยนหัวสายยาง ฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,25,February,24
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004503,1900231,WRKO-00005371,เปลี่ยนหลอดไฟห้องหุงข้าว,Work Area,Electrical system,Inspection,"",ENG,1,February,25,February,25
+Finished,10 hr 58 min,ENWA-240001,Container Office,MNT-00004366,1900254,WRKO-00005223,เปลี่ยนหลอดไฟห้องน้ำทีจอดรถผู้บริหาร,Work Area,Electrical system,Inspection,"",ENG,4,February,5,February,5
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004200,1900175,WRKO-00005027,เปลี่ยนหลอดไฟห้องเตรียมปลา ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,January,12,January,12
+Finished,7 hr 26 min,ENWA-240008,Producton High Risk,MNT-00004102,1900175,WRKO-00004916,เปลี่ยนหลอดไฟ ห้องแต่งตัวฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,January,5,January,5
+Finished,,ENWA-240008,Producton High Risk,MNT-00004212,1900175,WRKO-00005039,เปลี่ยนหลอดไฟ Holding chill room ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,January,12,January,12
+Finished,70 hr 21 min,ENWA-240009,Producton Low Risk,MNT-00004318,1900175,WRKO-00005169,เปลี่ยนสายอ่างล้างมือ ข้างห้อง cooking ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,28,January,30
+Finished,,ENUT-240180,Condencer Unit No.23 (Air Blast Freezer1),MNT-00004449,1900231,WRKO-00005310,เปลี่ยนวาล์ว Air Blast No.1,Buiding1,Cooling machine,Inspection,"",ENG,1,February,16,February,15
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004450,1900231,WRKO-00005311,เปลี่ยนล้อหม้อทอด,Work Area,Production Machine,Inspection,"",ENG,1,February,16,February,15
+Finished,14 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004560,1900175,WRKO-00005436,เปลี่ยนม่านประตูทางเข้าฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,March,5,March,5
+Finished,13 hr 26 min,ENWA-240008,Producton High Risk,MNT-00004502,1900175,WRKO-00005370,เปลี่ยนม่านประตูทางเข้า-ทางออก ฝั่งสุก,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,25,February,25
+Finished,,ENUT-240118,Condencer Unit No.6,MNT-00004379,1900231,WRKO-00005236,เปลี่ยนมอเตอร์ + ใบพัดลม condenser unit no.6,Buiding1,Cooling machine,Inspection,"",ENG,1,February,6,February,6
+Finished,83 hr 29 min,ENWA-240008,Producton High Risk,MNT-00004139,1900175,WRKO-00004968,เปลี่ยนฝาครอบสวิชต์ไฟ หน้าประตูทางไปblast freezer 1,Work Area,Electrical system,Inspection,"",ENG,4,January,6,January,9
+Finished,39 hr 0 min,ENPD-240048,Batch Frye 1,MNT-00004533,1900175,WRKO-00005401,เปลี่ยนปลั๊กไฟเตา deep fry แตกชำรุด,Production Plant1,Production Machine,Inspection,"",ENG,4,February,28,March,1
+Finished,335 hr 13 min,ENWA-240008,Producton High Risk,MNT-00004224,1900175,WRKO-00005051,เปลี่ยนปลั๊กและตัวครอบสายไฟ หน้าห้องสตีม ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,January,13,January,27
+Finished,,ENUT-240003,Steam Boiler  No.2,MNT-00004398,1900231,WRKO-00005261,เปลี่ยนประเก็นท่อสตีม,Boiler1,๊Utility machine,Inspection,"",ENG,1,February,9,February,8
+Finished,,ENUT-240002,Steam Boiler  No.1,MNT-00004447,1900231,WRKO-00005308,เปลี่ยนประเก็นท่อสตีม,Boiler1,๊Utility machine,Inspection,"",ENG,1,February,16,February,15
+Finished,7 hr 18 min,ENWA-240005,Engineering Office,MNT-00004370,1900231,WRKO-00005227,เปลี่ยนบล็อกปลั๊กหน้าอาคารบอยเลอร์,Work Area,Electrical system,Inspection,"",ENG,1,February,5,February,5
+Finished,17 hr 35 min,ENWA-240009,Producton Low Risk,MNT-00004461,1900175,WRKO-00005322,เปลี่ยนท่อหุ้มสายไฟ ห้องตัดปลา ฝั่งดิบ,Work Area,Electrical system,Inspection,"",ENG,4,February,19,February,19
+Finished,1 hr 21 min,ENUT-240009,Sand Filter Tank No.1,MNT-00004091,1900231,WRKO-00004906,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,January,2,January,2
+Finished,,ENUT-240010,Sand Filter Tank No.2,MNT-00004145,1900231,WRKO-00004930,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,January,6,January,4
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004231,1900231,WRKO-00005058,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,January,14,January,11
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004293,1900231,WRKO-00005135,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,January,21,January,18
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004314,1900231,WRKO-00005161,เปลี่ยนกรองน้ำ,Water1,Tool and Equipment,Inspection,"",ENG,1,January,26,January,25
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004344,1900231,WRKO-00005194,เปลี่ยนกรองน้ำ,Water1,Tool and Equipment,Inspection,"",ENG,1,February,2,February,1
+Finished,,ENUT-240010,Sand Filter Tank No.2,MNT-00004396,1900231,WRKO-00005260,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,February,9,February,8
+Finished,,ENUT-240010,Sand Filter Tank No.2,MNT-00004446,1900231,WRKO-00005307,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,February,16,February,15
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004458,1900231,WRKO-00005318,เปลี่ยนกรองน้ำ,Water1,Tool and Equipment,Inspection,"",ENG,1,February,18,February,17
+Finished,,ENUT-240010,Sand Filter Tank No.2,MNT-00004488,1900231,WRKO-00005354,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,February,23,February,22
+Finished,,ENUT-240009,Sand Filter Tank No.1,MNT-00004550,1900231,WRKO-00005418,เปลี่ยนกรองน้ำ,Water1,Water system,Inspection,"",ENG,1,March,2,March,1
+Finished,,ENUT-240010,Sand Filter Tank No.2,MNT-00004326,1900231,WRKO-00005174,เปลี่ยนกรอง Carbon,Water1,Water system,Inspection,"",ENG,1,January,28,January,28
+Finished,7 hr 10 min,ENWA-240009,Producton Low Risk,MNT-00004257,1900175,WRKO-00005094,เปลี่ยนใบมีดเครื่องหั่นผัก ฝั่งดิบ,Work Area,Production Machine,Inspection,"",ENG,4,January,16,January,16
+Finished,,ENPD-240047,Can Opener No.1,MNT-00004567,1900175,WRKO-00005445,เปลี่ยนใบมีดเครื่องเปิดกระป๋อง,Production Plant1,Production Machine,Inspection,"",ENG,4,March,6,March,4
+Finished,11 hr 2 min,ENWA-240009,Producton Low Risk,MNT-00004359,1900175,WRKO-00005213,เปลี่ยนใบมีด เครื่องปอกมันฝรั่ง1 ใบยาว,Work Area,Production Machine,Inspection,"",ENG,4,February,4,February,4
+Finished,,ENUT-240182,Condencer Unit No.24 (COLD6),MNT-00004155,1900231,WRKO-00004934,เปลี่ยน Probe Cold 6,Buiding1,Cooling machine,Inspection,"",ENG,1,January,6,January,6
+Finished,,ENUT-240188,Condencer Unit No.29 (Air Blast Freezer2),MNT-00004092,1900231,WRKO-00004907,เปลี่ยน oil strainer comp no.1-2,Buiding1,Cooling machine,Inspection,"",ENG,1,January,2,December,31
+Finished,,ENUT-240127,Condencer Unit No.9 (COLD5),MNT-00004154,1900231,WRKO-00004933,เปลี่ยน contactor compressor cold5,Buiding1,Cooling machine,Inspection,"",ENG,1,January,6,January,3
+Finished,,ENUT-240218,ระบบเติมอากาศ ตัวที่1,MNT-00004506,1900231,WRKO-00005373,เติมน้ำยา Fresh air,Buiding1,Cooling machine,Inspection,"",ENG,1,February,25,February,24
+Finished,,ENUT-240114,Condencer Unit No.5,MNT-00004147,1900231,WRKO-00004932,เติมน้ำยา CU.5,Buiding1,Cooling machine,Inspection,"",ENG,1,January,6,December,26
+Finished,,ENUT-240157,Condencer Unit No.16,MNT-00004146,1900231,WRKO-00004931,เติมน้ำยา CU.16,Buiding1,Cooling machine,Inspection,"",ENG,1,January,6,December,26
+Finished,,ENUT-240144,Condencer Unit No.13,MNT-00004520,1900231,WRKO-00005387,เติมน้ำมันคอม CDU.13,Buiding1,Cooling machine,Inspection,"",ENG,1,February,26,February,25
+Finished,,ENUT-240118,Condencer Unit No.6,MNT-00004143,1900231,WRKO-00004928,เติมน้ำมัน CU.6,Buiding1,Cooling machine,Inspection,"",ENG,1,January,6,January,4
+Finished,2 hr 49 min,ENWA-240005,Engineering Office,MNT-00004348,1900231,WRKO-00005201,เติม Bio ลดกลิ่นตะกอน,Work Area,Water system,Inspection,"",ENG,1,February,3,February,3
+Finished,23 hr 3 min,ENWA-240009,Producton Low Risk,MNT-00004358,1900175,WRKO-00005212,เชื่อมหูหม้อ ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,4,February,5
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004559,1900175,WRKO-00005435,เชื่อมหูหม้อ ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,March,5,March,5
+Finished,,ENPD-240045,Meatball making No.1,MNT-00004509,1900175,WRKO-00005376,เชื่อมรอยร้าวของเครื่องทำมีทบอล,Production Plant1,Production Machine,Inspection,"",ENG,4,February,26,February,25
+Finished,31 hr 39 min,ENWA-240009,Producton Low Risk,MNT-00004338,1900175,WRKO-00005189,เชื่อมพายสแตนเลส ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,31,February,1
+Finished,1 hr 53 min,ENWA-240009,Producton Low Risk,MNT-00004375,1900175,WRKO-00005232,เชื่อมพายสแตนเลส ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,6,February,6
+Finished,36 hr 8 min,ENWA-240009,Producton Low Risk,MNT-00004307,1900175,WRKO-00005155,เชื่อมตะกร้าลวก ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,26,January,27
+Finished,1 hr 54 min,ENWA-240009,Producton Low Risk,MNT-00004374,1900175,WRKO-00005231,เชื่อมตะกร้อใหญ่ 1อัน,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,6,February,6
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004373,1900175,WRKO-00005230,เชื่อมตะกร้อ2อัน ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,6,February,6
+Finished,23 hr 47 min,ENWA-240009,Producton Low Risk,MNT-00004321,1900175,WRKO-00005172,เชื่อมตะกร้อ ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,28,January,29
+Finished,22 hr 33 min,ENWA-240009,Producton Low Risk,MNT-00004325,1900175,WRKO-00005177,เชื่อมตะกร้อ ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,28,January,29
+Finished,1 hr 20 min,ENWA-240009,Producton Low Risk,MNT-00004493,1900175,WRKO-00005361,เชื่อมตะกร้อ 3 อัน ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,25,February,25
+Finished,,ENWA-240009,Producton Low Risk,MNT-00004485,1900175,WRKO-00005351,เชื่อมตะกร้อ 2อัน ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,23,February,22
+Finished,16 hr 6 min,ENWA-240009,Producton Low Risk,MNT-00004500,1900175,WRKO-00005368,เชื่อมตะกร้อ 2 อัน ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,25,February,25
+Finished,1 hr 48 min,ENWA-240009,Producton Low Risk,MNT-00004319,1900175,WRKO-00005170,เชื่อมตะแกรงทอด ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,January,28,January,28
+Finished,,ENWA-240002,Front Office,MNT-00004462,1900254,WRKO-00005323,เชื่อมเหล็กรถเข็นขยะ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,19,February,18
+Finished,33 hr 27 min,ENWA-240009,Producton Low Risk,MNT-00004372,1900175,WRKO-00005229,เช็คฐานเครื่องปั่น SHARPแกนกลางสูงทำให้ขอบยางชำรุด ฝั่งดิบ,Work Area,Tool and Equipment,Inspection,"",ENG,4,February,6,February,7
+Finished,7 hr 26 min,ENWA-240009,Producton Low Risk,MNT-00004347,1900224,WRKO-00005200,เครื่องหยอดไข่ให้หน่อยลมออกมาไม่เสมอกัน,Work Area,Production Machine,Inspection,"",ENG,4,February,3,February,3
+Finished,,ENWA-240008,Producton High Risk,MNT-00004436,1900175,WRKO-00005297,เครื่องซีล เปลี่ยนโปรแกรมไม่ได้ และใช้ได้ข้างเดียว ฝั่งสุก,Work Area,Production Machine,Inspection,"",ENG,4,February,16,February,13
+Finished,22 hr 48 min,ENWA-240008,Producton High Risk,MNT-00004514,1900175,WRKO-00005381,เครื่องswing vaccuumฝั่งสุก โปรแกรมเครื่องปรับขึ้น-ลงเอง,Work Area,Production Machine,Inspection,"",ENG,4,February,26,February,26
+Finished,43 hr 37 min,ENPD-240034,Check weigth  No.1,MNT-00004426,1900175,WRKO-00005290,เครื่อง check weight กิโลไม่นิ่ง ฝั่งสุก,Production Plant1,Production Machine,Inspection,"",ENG,4,February,13,February,14
+Finished,265 hr 15 min,ENWA-240008,Producton High Risk,MNT-00004189,1900175,WRKO-00005014,เก็บสายไฟประตูแอนตี้บลาส 1ฝั่งสุก,Work Area,Electrical system,Inspection,"",ENG,4,January,10,January,21
+Finished,59 hr 46 min,ENWA-240021,RD Kitchen,MNT-00004341,1900150,WRKO-00005192,WATER BOILER Leak,Work Area,Tool and Equipment,Inspection,"",ENG,1,February,2,February,4
+Finished,,ENWA-240021,RD Kitchen,MNT-00004395,1900150,WRKO-00005259,WATER BOILER Leak,Work Area,Tool and Equipment,Inspection,"",ENG,1,February,9,January,1
+Finished,,ENWA-240021,RD Kitchen,MNT-00004457,1900150,WRKO-00005319,Kitchen Hood ทำงานผิดปกติ,Work Area,Tool and Equipment,Inspection,"",ENG,1,February,18,January,1
+Finished,,ENUT-240127,Condencer Unit No.9 (COLD5),MNT-00004368,1900231,WRKO-00005224,CU.9 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,February,5,February,5
+Finished,,ENUT-240114,Condencer Unit No.5,MNT-00004380,1900231,WRKO-00005237,CU.9 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,February,6,February,6
+Finished,,ENUT-240114,Condencer Unit No.5,MNT-00004268,1900231,WRKO-00005073,CU.5 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,January,16,January,14
+Finished,,ENUT-240114,Condencer Unit No.5,MNT-00004294,1900231,WRKO-00005136,CU.5 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,January,21,January,20
+Finished,2 hr 21 min,ENUT-240091,Evapperator CDU2-UC2.1,MNT-00004422,1900231,WRKO-00005284,CU.2.1 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,February,12,February,12
+Finished,2 hr 59 min,ENUT-240134,Condencer Unit No.12,MNT-00004549,1900231,WRKO-00005417,CU.12 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,March,2,March,2
+Finished,1 hr 37 min,ENUT-240182,Condencer Unit No.24 (COLD6),MNT-00004313,1900231,WRKO-00005160,Cold 6 พบรอยรั่ว,Buiding1,Cooling machine,Inspection,"",ENG,1,January,26,January,26
+Finished,20 hr 53 min,ENUT-240188,Condencer Unit No.29 (Air Blast Freezer2),MNT-00004232,1900231,WRKO-00005059,Air blast 2 คอม No.2 ผิดปกติ,Buiding1,Cooling machine,Inspection,"",ENG,1,January,14,January,14
+Finished,,ENUT-240188,Condencer Unit No.29 (Air Blast Freezer2),MNT-00004432,1900231,WRKO-00005295,Air blast 2 Pressure drop,Buiding1,Cooling machine,Inspection,"",ENG,1,February,14,February,14
+Finished,16 hr 4 min,ENWA-240009,Producton Low Risk,MNT-00004443,1900175,WRKO-00005304, แก้ไข Hood ห้อง Cooking ฝั่งดิบ ไม่ทำงาน,Work Area,Production Machine,Inspection,"",ENG,4,February,16,February,16

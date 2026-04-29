@@ -30,6 +30,34 @@ document.addEventListener("DOMContentLoaded", () => {
         return res.json();
     }
 
+    function classifyCombinedChlorine(value) {
+        const val = Number(value);
+        if (!Number.isFinite(val)) return "UNAVAILABLE";
+        if (val < 0.1 || val > 1.5) return "WARNING";
+        if (val < 0.2 || val > 1.2) return "ATTENTION";
+        return "NORMAL";
+    }
+
+    function classifyPressureDeviation(data) {
+        if (!Array.isArray(data) || data.length === 0) return "UNAVAILABLE";
+        const values = data.map(d => Number(d.bar)).filter(Number.isFinite);
+        if (values.length < 6) return "NORMAL";
+        const latest = values[values.length - 1];
+        const baselineValues = values.slice(0, -1);
+        const baseline = baselineValues.reduce((sum, value) => sum + value, 0) / baselineValues.length;
+        if (!Number.isFinite(baseline) || baseline <= 0) return "NORMAL";
+        const deviation = Math.abs(latest - baseline) / baseline;
+        if (deviation > 0.30) return "WARNING";
+        if (deviation > 0.20) return "ATTENTION";
+        return "NORMAL";
+    }
+
+    function applyKpiStatus(el, status) {
+        if (!el) return;
+        el.textContent = status;
+        el.className = status === "NORMAL" ? "kpi-status pos" : status === "UNAVAILABLE" ? "kpi-status unavailable" : "kpi-status neg";
+    }
+
     // ── DATA LOADERS ─────────────────────────────────────────────────────────
 
     async function loadWTPData() {
@@ -81,14 +109,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.length > 0) {
                     const val = data[data.length - 1].mg;
                     document.getElementById(id).textContent = val.toFixed(2);
-                    const el = document.getElementById(statusId);
-                    el.textContent = val < 0.1 ? "ATTENTION" : "NORMAL";
-                    el.className = val < 0.1 ? "kpi-status neg" : "kpi-status pos";
+                    applyKpiStatus(document.getElementById(statusId), classifyCombinedChlorine(val));
                 } else {
                     document.getElementById(id).textContent = "--";
-                    const el = document.getElementById(statusId);
-                    el.textContent = "UNAVAILABLE";
-                    el.className = "kpi-status unavailable";
+                    applyKpiStatus(document.getElementById(statusId), "UNAVAILABLE");
                 }
             };
             setStatus("kpi-ro-chlorine",   "kpi-ro-status",   roData);
@@ -111,12 +135,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const setPres = (valId, statusId, data) => {
                 if (data.length > 0) {
                     document.getElementById(valId).textContent = data[data.length - 1].bar.toFixed(1);
-                    const el = document.getElementById(statusId);
-                    if (el) { el.textContent = "NORMAL"; el.className = "kpi-status pos"; }
+                    applyKpiStatus(document.getElementById(statusId), classifyPressureDeviation(data));
                 } else {
                     document.getElementById(valId).textContent = "--";
-                    const el = document.getElementById(statusId);
-                    if (el) { el.textContent = "UNAVAILABLE"; el.className = "kpi-status"; }
+                    applyKpiStatus(document.getElementById(statusId), "UNAVAILABLE");
                 }
             };
             setPres("kpi-ro-pressure",    "kpi-ro-pres-status",    roData);

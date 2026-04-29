@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Downtime & Reliability</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Downtime</title>
+    <link rel="stylesheet" href="style.css?v=20260427-ytd-clip-1">
     <link rel="stylesheet" href="/shared/navbar.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body data-sync-page="downtime">
@@ -15,23 +16,21 @@
     <script src="/shared/navbar.js"></script>
     <script>
         fetch('/shared/navbar.html')
-        .then(res => res.ok ? res.text() : Promise.reject())
-        .then(html => document.getElementById('navbar').innerHTML = html)
-        .catch(err => console.error('Navbar load error:', err));
+            .then(res => res.ok ? res.text() : Promise.reject())
+            .then(html => { document.getElementById('navbar').innerHTML = html; })
+            .catch(err => console.error('Navbar load error:', err));
     </script>
 
     <main class="dashboard-content">
-
         <header class="dash-header">
             <div>
-                <h2>Downtime & Reliability</h2>
-                <p class="text-muted">Downtime timing derived from imported fault/down status tags and supported activity traces</p>
+                <h2>Downtime</h2>
+                <p class="text-muted">Work order TTR is used as the downtime measure, grouped by AssetID and operational criticality.</p>
             </div>
             <div class="header-right">
                 <div class="filter-inline" id="month-filter-wrap" style="display:none;">
                     <label class="inline-label" for="month-select">Month</label>
-                    <select id="month-select" class="inline-select">
-                    </select>
+                    <select id="month-select" class="inline-select"></select>
                 </div>
                 <div class="filter-inline">
                     <label class="inline-label" for="period-select">Period</label>
@@ -40,135 +39,187 @@
                         <option value="30d">Last 30 Days</option>
                         <option value="mtd">Month to Date</option>
                         <option value="90d">Quarter</option>
-                        <option value="ytd" selected>Year to Date</option>
+                        <option value="ytd" selected>Year-To-Date</option>
                     </select>
                 </div>
+                <div class="refresh-badge" id="last-synced">Last synced unavailable</div>
             </div>
         </header>
 
-        <section class="kpi-grid">
+        <section class="card-shell view-toggle maintenance-tab-toggle">
+            <button type="button" class="toggle-btn" onclick="window.location.href='/Maintenance/index.html'">Overview</button>
+            <button type="button" class="toggle-btn" onclick="window.location.href='/Maintenance/index.html?view=utility'">Utility</button>
+            <button type="button" class="toggle-btn" onclick="window.location.href='/Maintenance/index.html?view=equipment'">Equipment</button>
+            <button type="button" class="toggle-btn" onclick="window.location.href='/Maintenance/index.html?view=spare_parts'">Spare Parts</button>
+            <button type="button" class="toggle-btn active" onclick="window.location.href='/Downtime/index.html'">Downtime</button>
+        </section>
+
+        <section class="kpi-grid" id="summary-kpis">
             <div class="kpi-card highlight-red">
-                <div class="kpi-label">Total Downtime</div>
+                <div class="kpi-label">Total Downtime Hours</div>
                 <div class="kpi-value" id="kpi-total-downtime">--</div>
-                <div class="kpi-trend" id="kpi-downtime-sub">Selected period</div>
-            </div>
-            <div class="kpi-card highlight-amber">
-                <div class="kpi-label">Downtime This Week</div>
-                <div class="kpi-value" id="kpi-week-downtime">--</div>
-                <div class="kpi-trend">From latest imported week</div>
+                <div class="kpi-trend" id="kpi-total-downtime-sub">Selected work orders</div>
             </div>
             <div class="kpi-card highlight-blue">
-                <div class="kpi-label">Downtime This Month</div>
-                <div class="kpi-value" id="kpi-month-downtime">--</div>
-                <div class="kpi-trend">From latest imported month</div>
+                <div class="kpi-label">Total Work Orders</div>
+                <div class="kpi-value" id="kpi-total-work-orders">--</div>
+                <div class="kpi-trend" id="kpi-total-work-orders-sub">Grouped by AssetID mapping</div>
             </div>
             <div class="kpi-card highlight-amber">
-                <div class="kpi-label">Downtime Events</div>
-                <div class="kpi-value" id="kpi-event-count">--</div>
-                <div class="kpi-trend">Grouped event count</div>
+                <div class="kpi-label">Status-Derived Downtime Events</div>
+                <div class="kpi-value" id="kpi-status-events">--</div>
+                <div class="kpi-trend" id="kpi-status-events-sub">Fault / down event count in the selected period</div>
             </div>
             <div class="kpi-card highlight-purple">
-                <div class="kpi-label">Average Downtime / Event</div>
-                <div class="kpi-value" id="kpi-avg-event">--</div>
-                <div class="kpi-trend">Operating-hours events only</div>
+                <div class="kpi-label">Overall MTTR</div>
+                <div class="kpi-value" id="kpi-overall-mttr">--</div>
+                <div class="kpi-trend" id="kpi-overall-mttr-sub">Average downtime per work order from imported TTR</div>
             </div>
-            <div class="kpi-card highlight-blue">
-                <div class="kpi-label">Longest Downtime Event</div>
-                <div class="kpi-value" id="kpi-longest-event">--</div>
-                <div class="kpi-trend">Single detected event</div>
-            </div>
-        </section>
-
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card card-wide">
-                <div class="card-title">Downtime Timing Trend</div>
-                <div class="chart-container" data-chart-slot="trendChart">
-                    <canvas id="trendChart"></canvas>
-                </div>
+            <div class="kpi-card highlight-purple">
+                <div class="kpi-label">Status-Derived Downtime Hours</div>
+                <div class="kpi-value mini" id="kpi-highest-mttr-group">--</div>
+                <div class="kpi-trend" id="kpi-highest-mttr-group-sub">Fault / down machine-status hours in the selected period</div>
             </div>
         </section>
 
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card">
-                <div class="card-title">Downtime by System</div>
-                <div class="chart-container" style="height: 280px;" data-chart-slot="systemChart">
-                    <canvas id="systemChart"></canvas>
+        <section class="card summary-section combined-summary-section">
+            <div class="section-tabbar" id="summary-tabbar">
+                <button type="button" class="section-tab active" data-summary-view="criticality">Mean Time to Repair</button>
+                <button type="button" class="section-tab" data-summary-view="mtbf">Mean Time Before Failure</button>
+            </div>
+            <div class="summary-panel active" id="criticality-summary-panel">
+                <div class="card-title-block">
+                    <div class="card-title">Mean Time to Repair</div>
+                    <p class="card-subtitle">Management view of downtime impact by operational criticality.</p>
+                </div>
+                <div class="criticality-grid" id="criticality-cards"></div>
+                <div class="main-grid" style="margin-top: 24px;">
+                    <div class="card nested-card">
+                        <div class="card-title">Downtime by Criticality</div>
+                        <div class="chart-container" data-chart-id="criticalityChart"><canvas id="criticalityChart"></canvas></div>
+                    </div>
+                    <div class="card nested-card">
+                        <div class="card-title">MTTR by Machine Group</div>
+                        <div class="chart-container" data-chart-id="mttrChart"><canvas id="mttrChart"></canvas></div>
+                    </div>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-title">Downtime by Source</div>
-                <div class="chart-container" style="height: 280px;" data-chart-slot="sourceChart">
-                    <canvas id="sourceChart"></canvas>
+            <div class="summary-panel mtbf-section" id="mtbf-summary-panel">
+                <div class="card-title-block">
+                    <div class="card-title">Mean Time Before Failure</div>
+                    <p class="card-subtitle">MTBF shows the average operating time before the same asset requires repair again. Lower MTBF indicates repeated failures and lower reliability.</p>
                 </div>
-                <div id="source-note" class="card-note"></div>
-            </div>
-        </section>
-
-        <section class="main-grid" style="margin-top: 24px;">
-            <div class="card">
-                <div class="card-title">Top Downtime Assets</div>
-                <div class="chart-container" style="height: 300px;" data-chart-slot="assetChart">
-                    <canvas id="assetChart"></canvas>
+                <div class="kpi-grid compact-kpi-grid" id="mtbf-summary-kpis">
+                    <div class="kpi-card highlight-blue">
+                        <div class="kpi-label">Overall Average MTBF</div>
+                        <div class="kpi-value" id="mtbf-overall-average">--</div>
+                        <div class="kpi-trend" id="mtbf-overall-average-sub">Across assets with valid repeat failure data</div>
+                    </div>
+                    <div class="kpi-card highlight-red">
+                        <div class="kpi-label">Lowest MTBF Asset</div>
+                        <div class="kpi-value mini" id="mtbf-lowest-asset">--</div>
+                        <div class="kpi-trend" id="mtbf-lowest-asset-sub">Shortest run time before repeat repair</div>
+                    </div>
+                    <div class="kpi-card highlight-amber">
+                        <div class="kpi-label">Assets with Repeated Failures</div>
+                        <div class="kpi-value" id="mtbf-repeated-assets">--</div>
+                        <div class="kpi-trend" id="mtbf-repeated-assets-sub">Assets with multiple repairs in the selected period</div>
+                    </div>
+                    <div class="kpi-card highlight-blue">
+                        <div class="kpi-label">Assets with Valid MTBF Data</div>
+                        <div class="kpi-value" id="mtbf-valid-assets">--</div>
+                        <div class="kpi-trend" id="mtbf-valid-assets-sub">Assets with at least one valid failure-to-failure gap</div>
+                    </div>
                 </div>
-            </div>
-            <div class="card">
-                <div class="card-title">Area Breakdown</div>
-                <div id="area-breakdown" class="reliability-list"></div>
-                <div class="card-note" id="work-order-note"></div>
+                <div class="criticality-grid mtbf-criticality-grid" id="mtbf-criticality-cards"></div>
+                <div class="mtbf-chart-grid" style="margin-top: 24px;">
+                    <div class="card nested-card">
+                        <div class="card-title">MTBF Asset List</div>
+                        <div id="mtbf-lowest-list" class="mtbf-mini-list">
+                            <div class="empty-state">No MTBF data available</div>
+                        </div>
+                    </div>
+                    <div class="card nested-card">
+                        <div class="card-title">MTBF by Criticality</div>
+                        <div class="chart-container compact-chart" data-chart-id="mtbfCriticalityChart"><canvas id="mtbfCriticalityChart"></canvas></div>
+                    </div>
+                    <div class="card nested-card">
+                        <div class="card-title">MTBF Trend</div>
+                        <div class="chart-container compact-chart" data-chart-id="mtbfTrendChart"><canvas id="mtbfTrendChart"></canvas></div>
+                    </div>
+                </div>
             </div>
         </section>
 
         <section style="margin-top: 24px;">
             <div class="card table-card">
-                <div class="card-title">Downtime Event Log</div>
-                <div class="filter-toolbar">
-                    <div class="filter-group">
-                        <label for="system-filter">System</label>
-                        <select id="system-filter">
-                            <option value="">All Systems</option>
-                        </select>
+                <div class="section-tabbar section-tabbar-inline">
+                    <button type="button" class="section-tab active" data-performance-view="machine-groups">Machine Group Performance</button>
+                    <button type="button" class="section-tab" data-performance-view="utilities">Utilities Machine Status</button>
+                </div>
+                <div class="performance-panel active" id="machine-groups-panel">
+                    <div class="filter-toolbar machine-filter-toolbar">
+                        <div class="filter-group">
+                            <label for="group-criticality-filter">Criticality</label>
+                            <select id="group-criticality-filter">
+                                <option value="">All Criticalities</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="group-location-filter">Location</label>
+                            <select id="group-location-filter">
+                                <option value="">All Locations</option>
+                            </select>
+                        </div>
+                        <div class="filter-group filter-grow grid-span-2">
+                            <label for="group-search">Search</label>
+                            <input id="group-search" type="text" placeholder="Machine group or AssetID">
+                        </div>
                     </div>
-                    <div class="filter-group">
-                        <label for="area-filter">Area</label>
-                        <select id="area-filter">
-                            <option value="">All Areas</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="source-filter">Source</label>
-                        <select id="source-filter">
-                            <option value="">All Sources</option>
-                        </select>
-                    </div>
-                    <div class="filter-group filter-grow">
-                        <label for="search-filter">Search</label>
-                        <input id="search-filter" type="text" placeholder="Machine code or machine name">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Criticality</th>
+                                    <th>Machine Group</th>
+                                    <th>AssetIDs / Individual TTR</th>
+                                    <th>Building / Location</th>
+                                    <th>Work Orders</th>
+                                    <th>Total Downtime</th>
+                                    <th>MTTR</th>
+                                    <th>MTBF</th>
+                                    <th>Latest Work Order</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="machine-group-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="table-wrapper">
-                    <table id="downtime-table">
-                        <thead>
-                            <tr>
-                                <th>System</th>
-                                <th>Machine Name</th>
-                                <th>Area</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
-                                <th>Duration</th>
-                                <th>Source</th>
-                                <th>Detection Type</th>
-                            </tr>
-                        </thead>
-                        <tbody id="downtime-tbody">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
+                <div class="performance-panel" id="utilities-panel">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>System</th>
+                                    <th>Machine</th>
+                                    <th>Machine Code</th>
+                                    <th>Location</th>
+                                    <th>Downtime</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Detection</th>
+                                </tr>
+                            </thead>
+                            <tbody id="utilities-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
 
     </main>
 
-    <script src="script.js?v=20260408l"></script>
+    <script src="script.js?v=20260427-utilities-tab-1" defer></script>
 </body>
 </html>

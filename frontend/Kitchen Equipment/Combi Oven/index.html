@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combi Oven | Stage 2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/navbar.css">
+    <style>
+        body {
+            margin: 0;
+            background: #f0f2f5;
+            color: #1a202c;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .dashboard-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .draft-panel {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 32px 40px;
+        }
+
+        .draft-label {
+            display: inline-block;
+            margin-bottom: 16px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #334155;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            padding: 6px 12px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        p {
+            color: #718096;
+            margin: 8px 0 0;
+        }
+    </style>
+</head>
+<body data-sync-page="combi-oven">
+    <div id="navbar"></div>
+    <script src="/shared/navbar.js"></script>
+    <script>
+        fetch('/shared/navbar.html')
+            .then(res => res.ok ? res.text() : Promise.reject())
+            .then(html => document.getElementById('navbar').innerHTML = html)
+            .catch(err => console.error('Navbar load error:', err));
+    </script>
+
+    <main class="dashboard-content">
+        <section class="draft-panel">
+            <span class="draft-label">Draft</span>
+            <h1>Combi Oven</h1>
+            <p>This section is reserved for the Combi Oven dashboard. Data and widgets can be added next time.</p>
+        </section>
+    </main>
+</body>
+</html>

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import io
+import os
+import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -65,6 +67,126 @@ SHEET_EXPORT_MAP = {
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 2
 SOURCE_TIME_OFFSET_HOURS = 0
+REFRESH_SOURCE_WORKBOOK_BEFORE_EXPORT = os.environ.get("SFST_REFRESH_EXCEL_BEFORE_EXPORT", "0") == "1"
+EXCEL_REFRESH_TIMEOUT_SECONDS = 240
+
+
+def powershell_quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def refresh_source_workbook(source_file: Path, force: bool = False) -> bool:
+    """Open the BMS workbook in Excel, refresh linked data, save it, then close Excel."""
+    if not force and not REFRESH_SOURCE_WORKBOOK_BEFORE_EXPORT:
+        return False
+
+    if not source_file.exists():
+        raise FileNotFoundError(f"Source workbook not found: {source_file}")
+
+    workbook_path = powershell_quote(str(source_file))
+    script = f"""
+$ErrorActionPreference = 'Stop'
+$path = {workbook_path}
+$directory = [System.IO.Path]::GetDirectoryName($path)
+$stem = [System.IO.Path]::GetFileNameWithoutExtension($path)
+$tempPath = [System.IO.Path]::Combine($directory, "$stem.refreshing.xlsx")
+$excel = $null
+$workbook = $null
+$savedCopy = $false
+try {{
+    if (Test-Path -LiteralPath $tempPath) {{
+        Remove-Item -LiteralPath $tempPath -Force
+    }}
+
+    $excel = New-Object -ComObject Excel.Application
+    $excel.Visible = $false
+    $excel.DisplayAlerts = $false
+    $excel.AskToUpdateLinks = $false
+    $excel.EnableEvents = $false
+
+    $workbook = $excel.Workbooks.Open($path, 3, $false)
+
+    foreach ($connection in $workbook.Connections) {{
+        try {{
+            if ($connection.OLEDBConnection -ne $null) {{
+                $connection.OLEDBConnection.BackgroundQuery = $false
+            }}
+        }} catch {{}}
+        try {{
+            if ($connection.ODBCConnection -ne $null) {{
+                $connection.ODBCConnection.BackgroundQuery = $false
+            }}
+        }} catch {{}}
+    }}
+
+    foreach ($sheet in $workbook.Worksheets) {{
+        foreach ($queryTable in $sheet.QueryTables) {{
+            try {{
+                $queryTable.BackgroundQuery = $false
+            }} catch {{}}
+        }}
+        foreach ($listObject in $sheet.ListObjects) {{
+            try {{
+                if ($listObject.QueryTable -ne $null) {{
+                    $listObject.QueryTable.BackgroundQuery = $false
+                }}
+            }} catch {{}}
+        }}
+    }}
+
+    $workbook.RefreshAll()
+
+    for ($i = 0; $i -lt 12; $i++) {{
+        try {{
+            $excel.CalculateUntilAsyncQueriesDone()
+        }} catch {{
+            # Older Excel builds may not expose this method; the save below still captures synchronous refreshes.
+        }}
+        Start-Sleep -Seconds 5
+    }}
+
+    $excel.CalculateFullRebuild()
+    $workbook.Saved = $false
+    $workbook.Save()
+    $workbook.SaveCopyAs($tempPath)
+    $savedCopy = $true
+}} finally {{
+    if ($workbook -ne $null) {{
+        $workbook.Close($false)
+    }}
+    if ($excel -ne $null) {{
+        $excel.Quit()
+    }}
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+}}
+
+if ($savedCopy -and (Test-Path -LiteralPath $tempPath)) {{
+    Copy-Item -LiteralPath $tempPath -Destination $path -Force
+    Remove-Item -LiteralPath $tempPath -Force
+}}
+"""
+
+    completed = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=EXCEL_REFRESH_TIMEOUT_SECONDS,
+    )
+
+    if completed.returncode != 0:
+        details = (completed.stderr or completed.stdout or "").strip()
+        raise RuntimeError(f"Excel refresh/save failed: {details}")
+
+    print(f"[OK] Refreshed and saved source workbook: {source_file}")
+    return True
 
 
 def normalize_column_name(name: object) -> str:
@@ -289,6 +411,7 @@ def export_dashboard_sheets() -> None:
     if not SOURCE_FILE.exists():
         raise FileNotFoundError(f"Source workbook not found: {SOURCE_FILE}")
 
+    refresh_source_workbook(SOURCE_FILE)
     workbook = load_workbook(SOURCE_FILE)
 
     for sheet_name, export_config in SHEET_EXPORT_MAP.items():

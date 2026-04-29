@@ -3,6 +3,7 @@ import sqlite3
 import csv
 import os
 import io
+import json
 import random
 import copy
 import pandas as pd
@@ -34,8 +35,9 @@ from maintenance_service import (
     get_maintenance_last_synced,
     get_equipment_maintenance_last_synced,
 )
+from spare_parts_service import build_spare_parts_payload
 from projection_service import build_projection_payload as build_maintenance_projection_payload
-from downtime_service import build_downtime_payload
+from downtime_service import build_downtime_payload, DOWNTIME_CACHE_OUTPUT_FILE
 
 
 export_pdf_bp = Blueprint("export_pdf", __name__)
@@ -62,7 +64,14 @@ app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 300
 
 _CSV_READ_CACHE = {}
 _CSV_TIMESTAMP_CACHE = {}
+_NUMERIC_TIMESERIES_CACHE = {}
 _LIGHTING_DATA_CACHE = {}
+PDF_REPORT_CACHE_SECONDS = 300
+_PDF_REPORT_CACHE = {
+    "signature": None,
+    "generated_at": None,
+    "bytes": None,
+}
 
 
 def get_file_signature(path):
@@ -72,6 +81,60 @@ def get_file_signature(path):
         return None
 
     return (stat.st_mtime_ns, stat.st_size)
+
+
+def build_pdf_report_signature():
+    signature = []
+
+    try:
+        with os.scandir(DATA_DIR) as entries:
+            for entry in entries:
+                if not entry.is_file():
+                    continue
+                if not entry.name.lower().endswith((".csv", ".xlsx", ".json", ".db")):
+                    continue
+                try:
+                    stat = entry.stat()
+                except OSError:
+                    continue
+                signature.append((entry.name, stat.st_mtime_ns, stat.st_size))
+    except OSError:
+        pass
+
+    for extra_path in [
+        DOWNTIME_CACHE_OUTPUT_FILE,
+        os.path.join(BASE_DIR, "temps.db"),
+    ]:
+        signature.append((extra_path, get_file_signature(extra_path)))
+
+    return tuple(sorted(signature, key=lambda item: str(item[0])))
+
+
+def get_cached_pdf_report(signature):
+    cached_bytes = _PDF_REPORT_CACHE.get("bytes")
+    cached_at = _PDF_REPORT_CACHE.get("generated_at")
+
+    if not cached_bytes or not cached_at:
+        return None
+    if _PDF_REPORT_CACHE.get("signature") != signature:
+        return None
+    if (datetime.now() - cached_at).total_seconds() > PDF_REPORT_CACHE_SECONDS:
+        return None
+
+    return cached_bytes
+
+
+def make_pdf_report_response(pdf_bytes, cache_status):
+    pdf_stream = BytesIO(pdf_bytes)
+    pdf_stream.seek(0)
+    response = send_file(
+        pdf_stream,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="SFST_Master_Report.pdf"
+    )
+    response.headers["X-PDF-Cache"] = cache_status
+    return response
 
 
 def get_path_mtime_iso(path):
@@ -132,10 +195,13 @@ def get_latest_timestamp_from_files(file_names):
 
 def get_temperature_last_synced():
     db_path = os.path.join(BASE_DIR, "temps.db")
+    sync_values = []
     if not os.path.exists(db_path):
-        return None
+        db_path = None
 
     try:
+        if not db_path:
+            raise FileNotFoundError("Temperature database missing")
         conn = sqlite3.connect(db_path)
         columns = conn.execute("PRAGMA table_info(room_temperature)").fetchall()
         name_map = {
@@ -155,22 +221,143 @@ def get_temperature_last_synced():
             parsed = pd.to_datetime(value, errors="coerce")
             if pd.notna(parsed):
                 conn.close()
-                return parsed.isoformat()
+                sync_values.append(parsed.isoformat())
+                break
 
         conn.close()
     except Exception:
         pass
 
-    return get_path_mtime_iso(db_path)
+    if db_path:
+        sync_values.append(get_path_mtime_iso(db_path))
+
+    for source in (TEMPERATURE_ENERGY_CONFIG.get("sources") or {}).values():
+        file_name = source.get("file_name")
+        if not file_name:
+            continue
+        path = file_name if os.path.isabs(file_name) else os.path.join(DATA_DIR, file_name)
+        if os.path.exists(path):
+            sync_values.append(get_source_timestamp(file_name) if not os.path.isabs(file_name) else get_path_mtime_iso(path))
+
+    return max([value for value in sync_values if value], default=None)
 
 
 PROJECTION_TARGET_HOURS = 24
 PROJECTION_TREND_HOURS = 1
-PROJECTION_WARNING_HEALTH_PCT = 20
-PROJECTION_CRITICAL_HEALTH_PCT = 10
+PROJECTION_WARNING_HEALTH_PCT = 70
+PROJECTION_CRITICAL_HEALTH_PCT = 40
 PROJECTION_FREEZER_TEMP_LIMIT = -18
 PROJECTION_FREEZER_PRESSURE_LIMIT = 6.5
 PROJECTION_COMPRESSOR_SPECIFIC_POWER_WARN = 1.15
+
+ROOM_TEMP_THRESHOLDS = {
+    # User-provided expected temperature list. Tolerance checks should use these
+    # configured thresholds, not the reported source setpoint field.
+    "L:01": {"target": 10, "area_group": "Medium risk - Inbound", "label": "10 deg C"},
+    "L:02": {"target": 25, "area_group": "Medium risk - Inbound", "label": "25 deg C"},
+    "L:03": {"min_normal": 20, "max_normal": 25, "area_group": "Medium risk - Inbound", "label": "20-25 deg C"},
+    "L:04": {"target": 10, "area_group": "Medium risk - Inbound", "label": "10 deg C"},
+    "L:05": {"target": 10, "area_group": "Medium risk - Inbound", "label": "10 deg C"},
+    "L:06": {"min_normal": 4, "max_normal": 10, "area_group": "Medium risk - Inbound", "label": "4-10 deg C"},
+    "L:07": {"target": 25, "area_group": "Medium risk - Inbound", "label": "25 deg C"},
+    "L:08": {"target": 25, "area_group": "Medium risk - Inbound", "label": "25 deg C"},
+    "L:09": {"min_normal": 18, "max_normal": 20, "area_group": "Medium risk - Inbound", "label": "18-20 deg C"},
+    "L:10": {"target": 25, "area_group": "Medium risk - Inbound", "label": "25 deg C"},
+    "L:11": {"target": 10, "area_group": "Medium risk - Inbound", "label": "10 deg C"},
+    "L:12": {"min_normal": 4, "max_normal": 8, "area_group": "Medium risk - Inbound", "label": "4-8 deg C"},
+    "L:13": {"min_normal": 4, "max_normal": 8, "area_group": "Medium risk - Inbound", "label": "4-8 deg C"},
+    "L:14": {"min_normal": -5, "max_normal": 10, "area_group": "Medium risk - Inbound", "label": "-5 to +10 deg C"},
+    "L:15": {"target": -20, "area_group": "Medium risk - Inbound", "label": "-20 deg C"},
+    "L:16": {"min_normal": -5, "max_normal": 10, "area_group": "Medium risk - Inbound", "label": "-5 to +10 deg C"},
+    "L:17": {"target": -20, "area_group": "Medium risk - Inbound", "label": "-20 deg C"},
+    "L:18": {"target": -20, "area_group": "Medium risk - Inbound", "label": "-20 deg C"},
+    "L:19": {"target": 25, "area_group": "Medium risk - Inbound", "label": "25 deg C"},
+    "L:20": {"target": 10, "area_group": "Medium risk - Inbound", "label": "10 deg C"},
+    "L:21": {"target": 10, "area_group": "Low risk - Preparation & Cooking", "label": "10 deg C"},
+    "L:22": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:23": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:24": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:25": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:26": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:27": {"target": 10, "area_group": "Medium risk - Inbound", "label": "10 deg C"},
+    "L:28": {"min_normal": 4, "max_normal": 8, "area_group": "Low risk - Preparation & Cooking", "label": "4-8 deg C"},
+    "L:29": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:30": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:31": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:32": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:33": {"min_normal": 10, "max_normal": 12, "area_group": "Low risk - Preparation & Cooking", "label": "10-12 deg C"},
+    "L:34": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:35": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:36": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:37": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:38": {"target": 25, "area_group": "Low risk - Preparation & Cooking", "label": "25 deg C"},
+    "L:39": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:40": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:41": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:42": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:43": {"min_normal": 10, "max_normal": 12, "area_group": "Low risk - Preparation & Cooking", "label": "10-12 deg C"},
+    "L:44": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:45": {"min_normal": 10, "max_normal": 12, "area_group": "Low risk - Preparation & Cooking", "label": "10-12 deg C"},
+    "L:46": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:47": {"min_normal": 10, "max_normal": 12, "area_group": "Low risk - Preparation & Cooking", "label": "10-12 deg C"},
+    "L:48": {"max_normal": 4, "area_group": "Low risk - Preparation & Cooking", "label": "<=4 deg C"},
+    "L:49": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:51": {"min_normal": 20, "max_normal": 25, "area_group": "Low risk - Preparation & Cooking", "label": "20-25 deg C"},
+    "L:52": {"min_normal": 10, "max_normal": 12, "area_group": "Low risk - Preparation & Cooking", "label": "10-12 deg C"},
+    "H:01": {"min_normal": 20, "max_normal": 25, "area_group": "High risk - Assembly", "label": "20-25 deg C"},
+    "H:02": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:03": {"min_normal": 20, "max_normal": 25, "area_group": "High risk - Assembly", "label": "20-25 deg C"},
+    "H:04": {"target": -10, "area_group": "High risk - Assembly", "label": "-10 deg C"},
+    "H:05": {"target": -10, "area_group": "High risk - Assembly", "label": "-10 deg C"},
+    "H:06": {"target": -10, "area_group": "High risk - Assembly", "label": "-10 deg C"},
+    "H:07": {"max_normal": 4, "area_group": "High risk - Assembly", "label": "<=4 deg C"},
+    "H:08": {"target": -10, "area_group": "High risk - Assembly", "label": "-10 deg C"},
+    "H:09": {"target": -10, "area_group": "High risk - Assembly", "label": "-10 deg C"},
+    "H:10": {"max_normal": 4, "area_group": "High risk - Assembly", "label": "<=4 deg C"},
+    "H:11": {"min_normal": -5, "max_normal": 10, "area_group": "High risk - Assembly", "label": "-5 to +10 deg C"},
+    "H:12": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:13": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:14": {"target": -35, "area_group": "High risk - Assembly", "label": "-35 deg C"},
+    "H:15": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:16": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:17": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:18": {"min_normal": 10, "max_normal": 12, "area_group": "High risk - Assembly", "label": "10-12 deg C"},
+    "H:19": {"target": -20, "area_group": "High risk - Assembly", "label": "-20 deg C"},
+    "M:02": {"min_normal": 10, "max_normal": 12, "area_group": "Medium risk - Outbound", "label": "10-12 deg C"},
+    "M:03": {"min_normal": 20, "max_normal": 25, "area_group": "Medium risk - Outbound", "label": "20-25 deg C"},
+    "M:04": {"target": 25, "area_group": "Medium risk - Outbound", "label": "25 deg C"},
+    "M:05": {"min_normal": 10, "max_normal": 12, "area_group": "Medium risk - Outbound", "label": "10-12 deg C"},
+    "M:06": {"min_normal": -5, "max_normal": 10, "area_group": "High risk - Assembly", "label": "-5 to +10 deg C"},
+    "M:07": {"min_normal": -5, "max_normal": 10, "area_group": "Medium risk - Outbound", "label": "-5 to +10 deg C"},
+    "M:08": {"target": -20, "area_group": "Medium risk - Outbound", "label": "-20 deg C"},
+    "M:09": {"min_normal": -5, "max_normal": 10, "area_group": "Medium risk - Outbound", "label": "-5 to +10 deg C"},
+    "M:10": {"target": -20, "area_group": "Medium risk - Outbound", "label": "-20 deg C"},
+}
+
+TEMPERATURE_ENERGY_CONFIG = {
+    "minimum_baseline_samples": 5,
+    "history_points": 24,
+    "sources": {
+        # Future-ready default source. Edit this when the final temperature
+        # energy export name/columns are confirmed.
+        "temperature_energy": {
+            "file_name": "temp_energy.csv",
+            "label": "Temperature Energy",
+            "unit": "kWh",
+            "timestamp_columns": ["Time", "Timestamp", "DateTime", "Date"],
+            "value_columns": ["kWh", "Value (kWh)", "Value", "Energy"],
+            "room_columns": ["base_room", "room_name", "Room", "Room Name", "Equipment", "Source"],
+        },
+    },
+}
+
+ROOM_TO_ENERGY_SOURCE_MAP = {
+    # Add mappings here when room-level energy source ownership is confirmed.
+    # "Room A": {"source_key": "temperature_energy", "label": "Room A Cooling Energy", "type": "energy"},
+    # "H:01": {"source_key": "temperature_energy", "label": "Trolley Storage Cooling Energy", "type": "energy"},
+}
+
+OVERVIEW_MIN_BASELINE_SAMPLES = 5
 
 
 def normalize_projection_key(value):
@@ -194,10 +381,18 @@ def load_numeric_timeseries(file_name, preferred_value_names=None):
         return pd.DataFrame(columns=["dt", "value"])
 
     preferred = [normalize_projection_key(name) for name in (preferred_value_names or [])]
+    signature = get_file_signature(path)
+    cache_key = (file_name, tuple(preferred))
+    cached = _NUMERIC_TIMESERIES_CACHE.get(cache_key)
+    if cached and cached["signature"] == signature:
+        return cached["data"].copy()
 
     for skiprows in (0, 1, 2):
         try:
-            df = pd.read_csv(path, skiprows=skiprows, encoding="utf-8-sig")
+            if str(path).lower().endswith((".xlsx", ".xls")):
+                df = pd.read_excel(path, sheet_name=source_config.get("sheet_name", 0), skiprows=skiprows)
+            else:
+                df = pd.read_csv(path, skiprows=skiprows, encoding="utf-8-sig")
             df.columns = [str(col).strip().replace("\ufeff", "") for col in df.columns]
         except Exception:
             continue
@@ -234,7 +429,12 @@ def load_numeric_timeseries(file_name, preferred_value_names=None):
         working["value"] = pd.to_numeric(working[value_col], errors="coerce")
         working = working.dropna(subset=["dt", "value"]).sort_values("dt")
         if not working.empty:
-            return working[["dt", "value"]].reset_index(drop=True)
+            result = working[["dt", "value"]].reset_index(drop=True)
+            _NUMERIC_TIMESERIES_CACHE[cache_key] = {
+                "signature": signature,
+                "data": result.copy(),
+            }
+            return result
 
     return pd.DataFrame(columns=["dt", "value"])
 
@@ -373,6 +573,360 @@ def calculate_projection_variance(projected_total, baseline_total):
     if projected_total is None or baseline_total in (None, 0):
         return None
     return round(((projected_total - baseline_total) / baseline_total) * 100, 1)
+
+
+def combine_status(*statuses):
+    priority = {"NORMAL": 0, "ATTENTION": 1, "WARNING": 2, "OFFLINE": 3, "UNAVAILABLE": 3}
+    cleaned = [str(status or "NORMAL").upper() for status in statuses]
+    return max(cleaned or ["NORMAL"], key=lambda status: priority.get(status, 0))
+
+
+def recent_value_baseline(series_df, min_samples=OVERVIEW_MIN_BASELINE_SAMPLES, window=24):
+    if series_df is None or series_df.empty:
+        return None
+    values = pd.to_numeric(series_df.sort_values("dt")["value"], errors="coerce").dropna()
+    if len(values) < min_samples + 1:
+        return None
+    baseline_values = values.iloc[-(window + 1):-1] if len(values) > window else values.iloc[:-1]
+    if len(baseline_values) < min_samples:
+        return None
+    baseline = float(baseline_values.mean())
+    return baseline if baseline > 0 else None
+
+
+def classify_high_baseline(current_value, baseline_value, attention_ratio=1.20, warning_ratio=1.40):
+    if current_value is None or baseline_value in (None, 0):
+        return "NORMAL"
+    try:
+        ratio = float(current_value) / float(baseline_value)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return "NORMAL"
+    if ratio > warning_ratio:
+        return "WARNING"
+    if ratio > attention_ratio:
+        return "ATTENTION"
+    return "NORMAL"
+
+
+def classify_low_baseline(current_value, baseline_value, attention_ratio=0.80, warning_ratio=0.70):
+    if current_value is None or baseline_value in (None, 0):
+        return "NORMAL"
+    try:
+        ratio = float(current_value) / float(baseline_value)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return "NORMAL"
+    if ratio < warning_ratio:
+        return "WARNING"
+    if ratio < attention_ratio:
+        return "ATTENTION"
+    return "NORMAL"
+
+
+def classify_deviation_from_baseline(current_value, baseline_value, attention_pct=0.20, warning_pct=0.30):
+    if current_value is None or baseline_value in (None, 0):
+        return "NORMAL"
+    try:
+        deviation = abs(float(current_value) - float(baseline_value)) / abs(float(baseline_value))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return "NORMAL"
+    if deviation > warning_pct:
+        return "WARNING"
+    if deviation > attention_pct:
+        return "ATTENTION"
+    return "NORMAL"
+
+
+def classify_projection_against_baseline(projection_payload, mode="high"):
+    if not projection_payload:
+        return "NORMAL"
+    projected = projection_payload.get("projected")
+    baseline = projection_payload.get("baseline_7d")
+    if baseline in (None, 0) or projected is None:
+        return "NORMAL"
+    if mode == "low":
+        return classify_low_baseline(projected, baseline)
+    return classify_high_baseline(projected, baseline)
+
+
+def classify_flatline_against_baseline(series_df, baseline_value):
+    if series_df is None or series_df.empty or baseline_value in (None, 0):
+        return "NORMAL"
+    ordered = series_df.sort_values("dt").tail(6)
+    if len(ordered) < 4:
+        return "NORMAL"
+    values = pd.to_numeric(ordered["value"], errors="coerce").dropna()
+    if len(values) < 4:
+        return "NORMAL"
+    recent_delta = float(values.max() - values.min())
+    baseline = float(baseline_value)
+    if recent_delta <= max(baseline * 0.005, 0.01):
+        return "WARNING"
+    if recent_delta <= max(baseline * 0.02, 0.05):
+        return "ATTENTION"
+    return "NORMAL"
+
+
+def classify_chlorine_overview(value):
+    if value is None:
+        return "NORMAL"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "NORMAL"
+    if numeric < 0.1 or numeric > 1.5:
+        return "WARNING"
+    if numeric < 0.2 or numeric > 1.2:
+        return "ATTENTION"
+    return "NORMAL"
+
+
+def normalize_room_threshold_config(config):
+    if not config:
+        return None
+    normalized = dict(config)
+    if normalized.get("target") is not None:
+        normalized.setdefault("min_normal", normalized.get("target"))
+        normalized.setdefault("max_normal", normalized.get("target"))
+    normalized.setdefault("attention_buffer", 1)
+    normalized.setdefault("warning_buffer", 3)
+    return normalized
+
+
+def classify_temperature_value(value, config):
+    if value is None:
+        return "NORMAL"
+    config = normalize_room_threshold_config(config)
+    if not config:
+        return "NORMAL"
+    min_normal = config.get("min_normal")
+    max_normal = config.get("max_normal")
+    if min_normal is None and max_normal is None:
+        return "NORMAL"
+    try:
+        temp = float(value)
+        min_normal = float(min_normal) if min_normal is not None else None
+        max_normal = float(max_normal) if max_normal is not None else None
+    except (TypeError, ValueError):
+        return "NORMAL"
+    attention_buffer = float(config.get("attention_buffer", 1) or 0)
+    warning_buffer = float(config.get("warning_buffer", attention_buffer or 1) or attention_buffer or 1)
+    above_min = min_normal is None or temp >= min_normal
+    below_max = max_normal is None or temp <= max_normal
+    if above_min and below_max:
+        return "NORMAL"
+    attention_min = min_normal - attention_buffer if min_normal is not None else None
+    attention_max = max_normal + attention_buffer if max_normal is not None else None
+    warning_min = min_normal - warning_buffer if min_normal is not None else None
+    warning_max = max_normal + warning_buffer if max_normal is not None else None
+    if (attention_min is None or temp >= attention_min) and (attention_max is None or temp <= attention_max):
+        return "ATTENTION"
+    if (warning_min is not None and temp < warning_min) or (warning_max is not None and temp > warning_max):
+        return "WARNING"
+    return "WARNING"
+
+
+def classify_room_temperature(room_name, value):
+    return classify_temperature_value(value, find_room_threshold_config(room_name))
+
+
+def find_room_threshold_config(room_name):
+    normalized_room = normalize_projection_key(room_name)
+    if not normalized_room:
+        return None
+    matching_key = next(
+        (key for key in ROOM_TEMP_THRESHOLDS if normalize_projection_key(key) == normalized_room),
+        None,
+    )
+    if not matching_key:
+        matching_key = next(
+            (
+                key for key, config in ROOM_TEMP_THRESHOLDS.items()
+                if normalized_room in {normalize_projection_key(alias) for alias in config.get("aliases", [])}
+            ),
+            None,
+        )
+    return normalize_room_threshold_config(ROOM_TEMP_THRESHOLDS.get(matching_key)) if matching_key else None
+
+
+def find_temperature_energy_mapping(room):
+    candidates = [
+        room.get("base_room"),
+        room.get("room_name"),
+        room.get("Room"),
+        room.get("Room Name"),
+    ]
+    normalized_candidates = {normalize_projection_key(value) for value in candidates if value}
+    for key, mapping in ROOM_TO_ENERGY_SOURCE_MAP.items():
+        if normalize_projection_key(key) in normalized_candidates:
+            return mapping or {}
+    return None
+
+
+def load_temperature_energy_source(source_key):
+    source_config = (TEMPERATURE_ENERGY_CONFIG.get("sources") or {}).get(source_key)
+    if not source_config:
+        return pd.DataFrame(columns=["dt", "value", "room_key"])
+
+    file_name = source_config.get("file_name")
+    if not file_name:
+        return pd.DataFrame(columns=["dt", "value", "room_key"])
+
+    path = file_name if os.path.isabs(file_name) else os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path):
+        return pd.DataFrame(columns=["dt", "value", "room_key"])
+
+    timestamp_preferences = [normalize_projection_key(col) for col in source_config.get("timestamp_columns", [])]
+    value_preferences = [normalize_projection_key(col) for col in source_config.get("value_columns", [])]
+    room_preferences = [normalize_projection_key(col) for col in source_config.get("room_columns", [])]
+
+    for skiprows in (0, 1, 2):
+        try:
+            df = pd.read_csv(path, skiprows=skiprows, encoding="utf-8-sig")
+            df.columns = [str(col).strip().replace("\ufeff", "") for col in df.columns]
+        except Exception:
+            continue
+
+        normalized = {normalize_projection_key(col): col for col in df.columns if str(col).strip()}
+        time_col = next((normalized[key] for key in timestamp_preferences if key in normalized), None)
+        if time_col is None:
+            time_col = next(
+                (
+                    original
+                    for key, original in normalized.items()
+                    if key in {"timestamp", "time", "datetime", "date"} or "timestamp" in key
+                ),
+                None,
+            )
+
+        value_col = next((normalized[key] for key in value_preferences if key in normalized), None)
+        if value_col is None:
+            value_col = next(
+                (
+                    original
+                    for key, original in normalized.items()
+                    if key not in {"timestamp", "time", "datetime", "date", "status", "trendflags"}
+                    and "timestamp" not in key
+                ),
+                None,
+            )
+
+        if time_col is None or value_col is None:
+            continue
+
+        room_col = next((normalized[key] for key in room_preferences if key in normalized), None)
+        working = df[[time_col, value_col] + ([room_col] if room_col else [])].copy()
+        working["dt"] = working[time_col].apply(parse_dashboard_timestamp)
+        working["value"] = pd.to_numeric(working[value_col], errors="coerce")
+        working["room_key"] = working[room_col].apply(normalize_projection_key) if room_col else None
+        working = working.dropna(subset=["dt", "value"]).sort_values("dt")
+        if not working.empty:
+            return working[["dt", "value", "room_key"]].reset_index(drop=True)
+
+    return pd.DataFrame(columns=["dt", "value", "room_key"])
+
+
+def build_temperature_energy_payload(room):
+    mapping = find_temperature_energy_mapping(room)
+    if not mapping:
+        return {
+            "mapped": False,
+            "available": False,
+            "status": "NORMAL",
+            "source_key": None,
+            "label": None,
+            "unit": None,
+            "latest_value": None,
+            "latest_timestamp": None,
+            "baseline": None,
+            "trend": [],
+            "insight": None,
+        }
+
+    source_key = mapping.get("source_key")
+    source_config = (TEMPERATURE_ENERGY_CONFIG.get("sources") or {}).get(source_key, {})
+    source_df = load_temperature_energy_source(source_key)
+    room_key = normalize_projection_key(room.get("base_room") or room.get("room_name"))
+    room_df = source_df
+    if not source_df.empty and source_df["room_key"].notna().any():
+        mapped_room_keys = {
+            normalize_projection_key(value)
+            for value in [room.get("base_room"), room.get("room_name"), mapping.get("room_key")]
+            if value
+        }
+        room_df = source_df[source_df["room_key"].isin(mapped_room_keys)]
+
+    if room_df.empty:
+        return {
+            "mapped": True,
+            "available": False,
+            "status": "UNAVAILABLE",
+            "source_key": source_key,
+            "label": mapping.get("label"),
+            "unit": mapping.get("unit") or source_config.get("unit"),
+            "latest_value": None,
+            "latest_timestamp": None,
+            "baseline": None,
+            "trend": [],
+            "insight": "Energy mapping exists, but no valid energy readings are available yet.",
+        }
+
+    baseline = recent_value_baseline(
+        room_df,
+        min_samples=TEMPERATURE_ENERGY_CONFIG.get("minimum_baseline_samples", OVERVIEW_MIN_BASELINE_SAMPLES),
+        window=TEMPERATURE_ENERGY_CONFIG.get("history_points", 24),
+    )
+    latest_value = get_latest_value(room_df)
+    energy_status = combine_status(
+        classify_high_baseline(latest_value, baseline),
+        classify_low_baseline(latest_value, baseline),
+        classify_flatline_against_baseline(room_df, baseline),
+    )
+    history = [
+        {"time": pd.Timestamp(row["dt"]).isoformat(), "value": round(float(row["value"]), 3)}
+        for _, row in room_df.sort_values("dt").tail(TEMPERATURE_ENERGY_CONFIG.get("history_points", 24)).iterrows()
+    ]
+    latest_dt = get_latest_timestamp_from_series(room_df)
+
+    return {
+        "mapped": True,
+        "available": True,
+        "status": energy_status,
+        "source_key": source_key,
+        "label": mapping.get("label") or source_config.get("label"),
+        "unit": mapping.get("unit") or source_config.get("unit"),
+        "latest_value": round(latest_value, 3) if latest_value is not None else None,
+        "latest_timestamp": latest_dt.isoformat() if latest_dt is not None else None,
+        "baseline": round(float(baseline), 3) if baseline is not None else None,
+        "trend": history,
+        "insight": None,
+    }
+
+
+def build_temperature_combined_insight(temp_status, energy_payload):
+    energy_status = (energy_payload or {}).get("status")
+    energy_available = (energy_payload or {}).get("available")
+    if not energy_available:
+        return None
+    temp_status = str(temp_status or "NORMAL").upper()
+    energy_status = str(energy_status or "NORMAL").upper()
+    temp_abnormal = temp_status in {"ATTENTION", "WARNING", "CRITICAL"}
+    energy_abnormal = energy_status in {"ATTENTION", "WARNING"}
+    if not temp_abnormal and energy_abnormal:
+        return "Temperature stable while energy is deviating; possible efficiency issue."
+    if temp_abnormal and energy_status in {"NORMAL"}:
+        return "Temperature is outside expected range while energy appears normal; check load, door, or sensor conditions."
+    if temp_abnormal and energy_abnormal:
+        return "Temperature and energy are both deviating; check cooling performance."
+    return "Temperature and mapped energy are stable."
+
+
+def temperature_status_to_page_status(status):
+    normalized = str(status or "NORMAL").upper()
+    if normalized == "WARNING":
+        return "CRITICAL"
+    if normalized == "ATTENTION":
+        return "WARNING"
+    return "OK"
 
 
 def build_metric_card(metric_id, title, value, unit="", subtitle="", status="normal", empty_state="Unavailable"):
@@ -599,8 +1153,44 @@ def temperature_rooms():
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT * FROM room_temperature").fetchall()
         conn.close()
-        return jsonify([dict(r) for r in rows])
-    except:
+        enriched_rows = []
+        for row in rows:
+            room = dict(row)
+            actual_temp = pd.to_numeric(room.get("Actual Temp"), errors="coerce")
+            threshold_config = find_room_threshold_config(room.get("room_name")) or find_room_threshold_config(room.get("base_room"))
+            threshold_configured = bool(
+                threshold_config
+                and (
+                    threshold_config.get("min_normal") is not None
+                    or threshold_config.get("max_normal") is not None
+                )
+            )
+            threshold_status = classify_temperature_value(actual_temp, threshold_config) if threshold_configured else "NORMAL"
+            if threshold_configured:
+                room["status"] = temperature_status_to_page_status(threshold_status)
+
+            energy_payload = build_temperature_energy_payload(room)
+            effective_temp_status = threshold_status if threshold_configured else room.get("status")
+            combined_insight = build_temperature_combined_insight(effective_temp_status, energy_payload)
+
+            room["temperature_status"] = effective_temp_status
+            room["temperature_threshold_status"] = threshold_status
+            room["expected_range"] = {
+                "min_normal": threshold_config.get("min_normal") if threshold_config else None,
+                "max_normal": threshold_config.get("max_normal") if threshold_config else None,
+                "attention_buffer": threshold_config.get("attention_buffer") if threshold_config else None,
+                "warning_buffer": threshold_config.get("warning_buffer") if threshold_config else None,
+                "label": threshold_config.get("label") if threshold_config else None,
+                "area_group": threshold_config.get("area_group") if threshold_config else None,
+                "configured": threshold_configured,
+            }
+            room["energy"] = energy_payload
+            room["combined_insight"] = combined_insight
+            enriched_rows.append(room)
+
+        return jsonify(enriched_rows)
+    except Exception as exc:
+        print(f"Temperature rooms API error: {exc}")
         return jsonify([])
     
 # =====================================================
@@ -687,6 +1277,7 @@ def cctv_log():
         ])
     except:
         return jsonify([])
+
 
 
 # =====================================================
@@ -914,6 +1505,7 @@ def load_lighting_data():
             "generatedAt": metadata.get("generatedAt"),
             "sourcePath": csv_path,
             "fixtures": fixtures,
+            "channelRuntimeRows": raw_fixtures,
             "meta": {
                 "reportGenerationTime": metadata.get("reportGenerationTime"),
                 "site": metadata.get("site"),
@@ -1399,7 +1991,11 @@ def wtp_chlorine():
         # Find the value column (mg)
         val_col = next((c for c in df.columns if c.lower() not in ('timestamp', 'trend flags', 'status') and 'timestamp' not in c.lower()), None)
 
-        # Filter by date range, single date, or fall back to latest 50
+        full_df = df.copy()
+
+        # Filter by date range, single date, or fall back to latest 50.
+        # The WTP files are manually inputted/static in some deployments, so a
+        # "today" filter can be empty even when the latest valid readings exist.
         if start_date and end_date:
             df = df[(df['dt'].dt.strftime('%Y-%m-%d') >= start_date) &
                     (df['dt'].dt.strftime('%Y-%m-%d') <= end_date)]
@@ -1407,6 +2003,9 @@ def wtp_chlorine():
             df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
         else:
             df = df.tail(50)
+
+        if df.empty:
+            df = full_df.tail(50)
 
         multi_day = (start_date and end_date and start_date != end_date) or (not date_str and not start_date)
         for _, row in df.iterrows():
@@ -1452,7 +2051,11 @@ def wtp_pressure():
             print(f"Pressure: no bar/pres column found in {file_name}, columns: {list(df.columns)}")
             return jsonify([])
 
-        # Filter by date range, single date, or fall back to latest 50
+        full_df = df.copy()
+
+        # Filter by date range, single date, or fall back to latest 50.
+        # The WTP files are manually inputted/static in some deployments, so a
+        # "today" filter can be empty even when the latest valid readings exist.
         if start_date and end_date:
             df = df[(df['dt'].dt.strftime('%Y-%m-%d') >= start_date) &
                     (df['dt'].dt.strftime('%Y-%m-%d') <= end_date)]
@@ -1460,6 +2063,9 @@ def wtp_pressure():
             df = df[df['dt'].dt.strftime('%Y-%m-%d') == date_str]
         else:
             df = df.tail(50)
+
+        if df.empty:
+            df = full_df.tail(50)
 
         multi_day = (start_date and end_date and start_date != end_date) or (not date_str and not start_date)
         for _, row in df.iterrows():
@@ -2022,6 +2628,7 @@ def maintenance_overview():
             search=request.args.get("search", ""),
             sort=request.args.get("sort", "date_asc"),
             year=request.args.get("year", type=int),
+            mix_month_value=request.args.get("mix_month"),
         )
     )
 
@@ -2141,6 +2748,11 @@ def maintenance_non_scheduled_list():
 def maintenance_non_scheduled_filters():
     year = request.args.get("year", type=int)
     return jsonify(build_non_scheduled_filter_payload(year))
+
+
+@app.route("/api/maintenance/spare_parts")
+def maintenance_spare_parts():
+    return jsonify(build_spare_parts_payload())
 
 
 def get_page_last_synced(page_key):
@@ -2265,7 +2877,10 @@ def get_page_last_synced(page_key):
             default=None,
         )
 
-    if page_key in {"kitchen", "hobart", "steambox", "xray", "checkweigher", "downtime"}:
+    if page_key == "downtime":
+        return datetime.fromtimestamp(os.path.getmtime(DOWNTIME_CACHE_OUTPUT_FILE)).isoformat() if os.path.exists(DOWNTIME_CACHE_OUTPUT_FILE) else datetime.now().isoformat()
+
+    if page_key in {"kitchen", "hobart", "steambox", "xray", "checkweigher"}:
         return datetime.now().isoformat()
 
     if page_key not in page_sources:
@@ -2350,34 +2965,100 @@ def overview_health_fast():
 
     systems = []
 
-    emdb_load = latest_value("mdb_emdb.csv", "kwh")
+    emdb_series = load_numeric_timeseries("mdb_emdb.csv", ["Value (KWh)", "Value (kW-hr)", "Value", "kWh"])
+    emdb_projection = calculate_cumulative_projection(emdb_series)
+    emdb_load = emdb_projection.get("current_value")
     if emdb_load is None:
         systems.append(build_system("mdb", "Power Systems (MDB)", "/Utilities/MDB/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
     else:
-        systems.append(build_system("mdb", "Power Systems (MDB)", "/Utilities/MDB/index.html", "NORMAL", "System Operational", f"{emdb_load:,.0f} kWh"))
+        mdb_status = classify_deviation_from_baseline(
+            emdb_projection.get("projected"),
+            emdb_projection.get("baseline_7d"),
+        )
+        mdb_message = {
+            "WARNING": "MDB load changed abruptly from recent baseline",
+            "ATTENTION": "MDB load showing a notable shift from recent baseline",
+        }.get(mdb_status, "System Operational")
+        systems.append(build_system("mdb", "Power Systems (MDB)", "/Utilities/MDB/index.html", mdb_status, mdb_message, f"{emdb_load:,.0f} kWh"))
 
-    ro_chlorine = latest_value("RES102ROWaterSupply_ResCl2.csv", "value")
-    if ro_chlorine is None:
+    ro_water_total = latest_value("FIT-103-ROWaterSupply_Total.csv", "m3")
+    soft_water_1_total = latest_value("FIT-102-SoftWaterSupply-01_Total.csv", "m3")
+    soft_water_2_total = latest_value("FIT-104-SoftWaterSupply-02_Total.csv", "m3")
+    treated_water_total = sum(value or 0 for value in [ro_water_total, soft_water_1_total, soft_water_2_total])
+    if ro_water_total is None and soft_water_1_total is None and soft_water_2_total is None:
         systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
-    elif ro_chlorine < 0.1:
-        systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", "ATTENTION", "Residual chlorine below threshold", f"{ro_chlorine:.2f} mg"))
     else:
-        systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", "NORMAL", "System Operational", f"{ro_chlorine:.2f} mg"))
+        chlorine_statuses = [
+            classify_chlorine_overview(get_latest_value(load_numeric_timeseries(file_name, ["mg", "Value"])))
+            for file_name in ["RES102ROWaterSupply_ResCl2.csv", "RES101SoftWaterSupplyNo1_ResCl2.csv", "RES103SoftWaterSupplyNo2_ResCl2.csv"]
+        ]
+        pressure_statuses = []
+        for file_name in ["PT102ROWaterSupply_Pres.csv", "PT101SoftWaterSupplyNo1_Pres.csv", "PT103SoftWaterSupplyNo2_Pres.csv"]:
+            pressure_series = load_numeric_timeseries(file_name, ["bar", "Value"])
+            pressure_statuses.append(classify_deviation_from_baseline(get_latest_value(pressure_series), recent_value_baseline(pressure_series)))
+
+        flow_projections = [
+            calculate_cumulative_projection(load_numeric_timeseries(file_name, ["m3", "Value"]))
+            for file_name in ["FIT-103-ROWaterSupply_Total.csv", "FIT-102-SoftWaterSupply-01_Total.csv", "FIT-104-SoftWaterSupply-02_Total.csv"]
+        ]
+        flow_projected = sum(item.get("projected") or 0 for item in flow_projections)
+        flow_baseline = sum(item.get("baseline_7d") or 0 for item in flow_projections)
+        flow_status = classify_low_baseline(flow_projected, flow_baseline) if flow_baseline > 0 else "NORMAL"
+        wtp_status = combine_status(*(chlorine_statuses + pressure_statuses + [flow_status]))
+        wtp_message = {
+            "WARNING": "Water treatment KPI outside operating threshold",
+            "ATTENTION": "Water treatment KPI needs monitoring",
+        }.get(wtp_status, "System Operational")
+        systems.append(build_system("wtp", "Water Treatment", "/Utilities/Water%20Treatment%20Plant/index.html", wtp_status, wtp_message, f"{treated_water_total:,.0f} m³"))
 
     raw_temp = latest_value("_RawWasteWater_Temp.csv", "value")
-    if raw_temp is None:
+    effluent_pump = latest_value("EffluentPump_Total.csv", "value")
+    raw_pump = latest_value("_RawWaterWastePump-01_Total.csv", "value")
+    active_wwtp_pumps = (1 if (effluent_pump or 0) > 0 else 0) + (1 if (raw_pump or 0) > 0 else 0)
+    active_wwtp_pumps_label = f"{active_wwtp_pumps} Active {'Pump' if active_wwtp_pumps == 1 else 'Pumps'}"
+    if raw_temp is None and effluent_pump is None and raw_pump is None:
         systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
-    elif raw_temp >= 35:
-        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "WARNING", "Wastewater inflow temperature elevated", f"{raw_temp:.1f} C"))
+    elif raw_temp is not None and raw_temp >= 35:
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "WARNING", "Wastewater inflow temperature elevated", active_wwtp_pumps_label))
+    elif raw_temp is not None and raw_temp >= 30:
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "ATTENTION", "Wastewater inflow temperature rising", active_wwtp_pumps_label))
+    elif raw_temp is not None and (effluent_pump is None or raw_pump is None):
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "ATTENTION", "One wastewater pump signal unavailable", active_wwtp_pumps_label))
+    elif raw_temp is not None and active_wwtp_pumps == 0:
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "WARNING", "Wastewater pump movement not detected", active_wwtp_pumps_label))
     else:
-        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "NORMAL", "System Operational", f"{raw_temp:.1f} C"))
+        systems.append(build_system("wwtp", "Wastewater Plant", "/Utilities/Wastewater%20Plant/index.html", "NORMAL", "System Operational", active_wwtp_pumps_label))
 
     try:
         db_path = os.path.join(BASE_DIR, "temps.db")
         conn = sqlite3.connect(db_path)
-        room_count = conn.execute("SELECT COUNT(*) FROM room_temperature").fetchone()[0]
+        conn.row_factory = sqlite3.Row
+        room_rows = [dict(row) for row in conn.execute("SELECT * FROM room_temperature").fetchall()]
         conn.close()
-        systems.append(build_system("temp", "Room Temperatures", "/Temperature/index.html", "NORMAL", "System Operational", f"{room_count} Rooms Monitored"))
+        room_count = len(room_rows)
+        temp_statuses = []
+        for row in room_rows:
+            room_name = next(
+                (row.get(col) for col in row.keys() if normalize_projection_key(col) in {"baseroom", "room", "roomname", "name", "area", "zonename", "zone"}),
+                None,
+            )
+            temp_value = next(
+                (
+                    pd.to_numeric(row.get(col), errors="coerce")
+                    for col in row.keys()
+                    if any(token in normalize_projection_key(col) for token in ["temp", "temperature", "value"])
+                ),
+                None,
+            )
+            if room_name is not None and pd.notna(temp_value):
+                threshold_config = find_room_threshold_config(row.get("base_room")) or find_room_threshold_config(room_name)
+                temp_statuses.append(classify_temperature_value(temp_value, threshold_config))
+        temp_status = combine_status(*temp_statuses)
+        temp_message = {
+            "WARNING": "Room temperature outside configured threshold",
+            "ATTENTION": "Room temperature nearing configured threshold",
+        }.get(temp_status, "System Operational")
+        systems.append(build_system("temp", "Room Temperatures", "/Temperature/index.html", temp_status, temp_message, f"{room_count} Rooms Monitored"))
     except Exception:
         systems.append(build_system("temp", "Room Temperatures", "/Temperature/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
 
@@ -2390,7 +3071,33 @@ def overview_health_fast():
     if spiral_online == 0:
         systems.append(build_system("sbf", "Spiral Blast Freezer", "/Spiral%20Blast%20Freezer/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
     else:
-        systems.append(build_system("sbf", "Spiral Blast Freezer", "/Spiral%20Blast%20Freezer/index.html", "NORMAL", "System Operational", f"{spiral_online} Lines Online"))
+        freezer_statuses = []
+        for path in spiral_files:
+            rows = read_sbf_csv(path)
+            if not rows:
+                continue
+            latest_row = rows[-1]
+            temps = [
+                pd.to_numeric(latest_row.get(key), errors="coerce")
+                for key in ["tef01", "tef02"]
+                if latest_row.get(key) is not None
+            ]
+            valid_temps = [float(value) for value in temps if pd.notna(value)]
+            if not valid_temps:
+                continue
+            warmest_temp = max(valid_temps)
+            if warmest_temp > -18:
+                freezer_statuses.append("WARNING")
+            elif warmest_temp > -22:
+                freezer_statuses.append("ATTENTION")
+            else:
+                freezer_statuses.append("NORMAL")
+        sbf_status = combine_status(*freezer_statuses)
+        sbf_message = {
+            "WARNING": "Freezer temperature above critical threshold",
+            "ATTENTION": "Freezer temperature approaching threshold",
+        }.get(sbf_status, "System Operational")
+        systems.append(build_system("sbf", "Spiral Blast Freezer", "/Spiral%20Blast%20Freezer/index.html", sbf_status, sbf_message, f"{spiral_online} Lines Online"))
 
     cctv_path = os.path.join(DATA_DIR, "Resource Online Status Log_2026_02_05_10_21_49.xlsx")
     try:
@@ -2400,6 +3107,8 @@ def overview_health_fast():
         offline_cams = len(cctv_df[cctv_df["Current Status"].astype(str).str.lower() != "online"])
         offline_ratio = (offline_cams / total_cams) if total_cams else 0
         if offline_ratio >= 0.10:
+            systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "WARNING", f"{offline_cams} camera(s) offline", f"{total_cams - offline_cams} / {total_cams} Online"))
+        elif offline_ratio >= 0.05:
             systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "ATTENTION", f"{offline_cams} camera(s) offline", f"{total_cams - offline_cams} / {total_cams} Online"))
         elif offline_cams > 0:
             systems.append(build_system("cctv", "CCTV Monitoring", "/CCTV/index.html", "NORMAL", f"{offline_cams} camera(s) offline", f"{total_cams - offline_cams} / {total_cams} Online"))
@@ -2426,7 +3135,12 @@ def overview_health_fast():
 
             if health is not None:
                 health_scores.append(health)
-                if health < 40:
+                critical_area = any(
+                    normalize_projection_key(key) in {"criticalarea", "critical", "risklevel", "risk"}
+                    and str(row.get(key, "")).strip().lower() in {"true", "yes", "1", "critical", "high", "high risk"}
+                    for key in row.keys()
+                )
+                if health < 40 or (critical_area and health < 60):
                     critical_fixtures += 1
                 elif health < 70:
                     warning_fixtures += 1
@@ -2435,37 +3149,67 @@ def overview_health_fast():
         if total_fixtures == 0:
             systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
         elif critical_fixtures > 0:
-            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "ATTENTION", f"{critical_fixtures} critical fixture(s) across {total_fixtures} monitored lights", f"{total_energy:,.0f} kWh"))
+            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "WARNING", f"{critical_fixtures} critical fixture(s) across {total_fixtures} monitored lights", f"{total_energy:,.0f} kWh"))
         elif warning_fixtures > 0:
-            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "WARNING", f"{warning_fixtures} fixture(s) approaching maintenance threshold", f"{average_health}% Avg Health"))
+            systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "ATTENTION", f"{warning_fixtures} fixture(s) approaching maintenance threshold", f"{average_health}% Avg Health"))
         else:
             systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "NORMAL", f"{total_fixtures} fixtures monitored", f"{average_health}% Avg Health"))
     except Exception:
         systems.append(build_system("lighting", "Lighting Control", "/Lighting/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
 
-    direct_energy = latest_value("boiler_direct_energy.csv", "energy")
-    indirect_energy = latest_value("boiler_indirect_energy.csv", "energy")
+    boiler_direct_series = load_numeric_timeseries("boiler_direct_energy.csv", ["Value (kW-hr)", "Value", "kWh", "energy"])
+    boiler_indirect_series = load_numeric_timeseries("boiler_indirect_energy.csv", ["Value (kW-hr)", "Value", "kWh", "energy"])
+    boiler_direct_projection = calculate_cumulative_projection(boiler_direct_series)
+    boiler_indirect_projection = calculate_cumulative_projection(boiler_indirect_series)
+    direct_energy = boiler_direct_projection.get("current_value")
+    indirect_energy = boiler_indirect_projection.get("current_value")
     if direct_energy is None and indirect_energy is None:
         systems.append(build_system("boiler", "Boiler Systems", "/Utilities/Boiler/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
     else:
         total_boiler_energy = (direct_energy or 0) + (indirect_energy or 0)
-        systems.append(build_system("boiler", "Boiler Systems", "/Utilities/Boiler/index.html", "NORMAL", "System Operational", f"{total_boiler_energy:,.0f} kWh"))
+        boiler_projected = (boiler_direct_projection.get("projected") or 0) + (boiler_indirect_projection.get("projected") or 0)
+        boiler_baseline = (boiler_direct_projection.get("baseline_7d") or 0) + (boiler_indirect_projection.get("baseline_7d") or 0)
+        boiler_status = combine_status(
+            classify_high_baseline(boiler_projected, boiler_baseline) if boiler_baseline > 0 else "NORMAL",
+            classify_flatline_against_baseline(boiler_direct_series, boiler_direct_projection.get("baseline_7d")),
+            classify_flatline_against_baseline(boiler_indirect_series, boiler_indirect_projection.get("baseline_7d")),
+        )
+        boiler_message = {
+            "WARNING": "Boiler energy outside expected baseline",
+            "ATTENTION": "Boiler energy needs monitoring",
+        }.get(boiler_status, "System Operational")
+        systems.append(build_system("boiler", "Boiler Systems", "/Utilities/Boiler/index.html", boiler_status, boiler_message, f"{total_boiler_energy:,.0f} kWh"))
 
-    air_flow = latest_value("airmeter_flow.csv", "flow")
+    air_flow_series = load_numeric_timeseries("airmeter_flow.csv", ["Value (m³)", "Value (m3)", "Value", "flow"])
+    air_flow_projection = calculate_cumulative_projection(air_flow_series)
+    air_flow = air_flow_projection.get("current_value")
     if air_flow is None:
         systems.append(build_system("air", "Air Compressor", "/Utilities/Air%20Compressor/index.html", "OFFLINE", "System Unreachable", "Check Data Source"))
     else:
-        systems.append(build_system("air", "Air Compressor", "/Utilities/Air%20Compressor/index.html", "NORMAL", "System Operational", f"{air_flow:,.2f} Flow"))
+        air_flow_status = classify_low_baseline(air_flow_projection.get("projected"), air_flow_projection.get("baseline_7d"))
+        air_flow_message = {
+            "WARNING": "Air flow dropped below recent baseline",
+            "ATTENTION": "Air flow below expected baseline",
+        }.get(air_flow_status, "System Operational")
+        systems.append(build_system("air", "Air Compressor", "/Utilities/Air%20Compressor/index.html", air_flow_status, air_flow_message, f"{air_flow:,.2f} Flow"))
 
     last_synced = max(
         [ts for ts in [
             get_latest_csv_timestamp("mdb_emdb.csv"),
             get_latest_csv_timestamp("RES102ROWaterSupply_ResCl2.csv"),
+            get_latest_csv_timestamp("FIT-103-ROWaterSupply_Total.csv"),
+            get_latest_csv_timestamp("FIT-102-SoftWaterSupply-01_Total.csv"),
+            get_latest_csv_timestamp("FIT-104-SoftWaterSupply-02_Total.csv"),
             get_latest_csv_timestamp("_RawWasteWater_Temp.csv"),
+            get_latest_csv_timestamp("EffluentPump_Total.csv"),
+            get_latest_csv_timestamp("_RawWaterWastePump-01_Total.csv"),
             get_latest_csv_timestamp("boiler_direct_energy.csv"),
             get_latest_csv_timestamp("boiler_indirect_energy.csv"),
             get_latest_csv_timestamp("airmeter_flow.csv"),
             get_latest_csv_timestamp("Channel Runtime_Light.csv"),
+            get_maintenance_last_synced(),
+            get_equipment_maintenance_last_synced(),
+            get_page_last_synced("downtime"),
         ] if ts],
         default=None
     )
@@ -3036,6 +3780,41 @@ def safe_float(df):
         return float(val)
     except (ValueError, TypeError, IndexError):
         return 0.0
+
+def format_pdf_downtime_hours(hours):
+    try:
+        value = float(hours or 0)
+    except (TypeError, ValueError):
+        return "--"
+
+    if value <= 0:
+        return "0 min"
+    if value < 1:
+        return f"{round(value * 60)} min"
+    if value >= 24:
+        days = max(1, round(value / 24))
+        return f"{days} {'day' if days == 1 else 'days'}"
+
+    whole_hours = int(value)
+    minutes = round((value - whole_hours) * 60)
+    if minutes == 60:
+        return f"{whole_hours + 1} hr"
+    if minutes > 0:
+        return f"{whole_hours} hr {minutes} min"
+    return f"{whole_hours} hr"
+
+def load_downtime_overview_payload(period="ytd"):
+    try:
+        if os.path.exists(DOWNTIME_CACHE_OUTPUT_FILE):
+            with open(DOWNTIME_CACHE_OUTPUT_FILE, "r", encoding="utf-8") as handle:
+                cached = json.load(handle)
+            payload = (cached.get("payloads") or {}).get(period)
+            if payload:
+                return payload
+    except Exception as exc:
+        print(f"Downtime overview cache read failed: {exc}")
+
+    return build_downtime_payload(period)
     
 def load_aircompressor_data():
     try:
@@ -3747,8 +4526,12 @@ def generate_downtime_reliability_chart(dt_data):
 # =====================================================
 @app.route("/api/export/report")
 def export_report():
+    report_signature = build_pdf_report_signature()
+    cached_report = get_cached_pdf_report(report_signature)
+    if cached_report is not None:
+        return make_pdf_report_response(cached_report, "HIT")
+
     temp_files = []
-    excel_path = os.path.join(DATA_DIR, 'Temperature_Reading.xlsx')
     generated_time = datetime.now().strftime('%d %b %Y, %I:%M %p')
 
     try:
@@ -3765,6 +4548,7 @@ def export_report():
         lnk_sbf     = pdf.add_link()
         lnk_boiler  = pdf.add_link()
         lnk_kitchen = pdf.add_link()
+        lnk_downtime = pdf.add_link()
 
         pdf.set_link(lnk_mdb,     page=1)
         pdf.set_link(lnk_tmp,     page=1)
@@ -3775,6 +4559,7 @@ def export_report():
         pdf.set_link(lnk_sbf,     page=1)
         pdf.set_link(lnk_boiler,  page=1)
         pdf.set_link(lnk_kitchen, page=1)
+        pdf.set_link(lnk_downtime, page=1)
 
         # --- PAGE 1: COVER ---
         pdf.add_page()
@@ -3834,10 +4619,12 @@ def export_report():
 
         # --- Temperature ---
         try:
-            df_sum = pd.read_excel(excel_path, sheet_name='Summary')
-            total_out = df_sum[df_sum.iloc[:, 0] == "Total:"].iloc[0, 1]
+            conn = sqlite3.connect(os.path.join(BASE_DIR, "temps.db"))
+            df_temp = pd.read_sql("SELECT status FROM room_temperature", conn)
+            conn.close()
+            total_out = int((df_temp["status"] == "CRITICAL").sum())
             add_row("Cold Chain (Temp)", lnk_tmp,
-                    "ATTENTION" if int(total_out) > 0 else "NORMAL",
+                    "ATTENTION" if total_out > 0 else "NORMAL",
                     f"{total_out} Alarms Found")
         except:
             add_row("Cold Chain (Temp)", lnk_tmp, "OFFLINE", "Data Error")
@@ -3853,22 +4640,41 @@ def export_report():
         # --- WTP (live) ---
         try:
             wtp_live = get_wtp_raw_data()
-            ro_cl_live = load_wtp_chlorine_data('ro')
-            cl_val = ro_cl_live[-1]["mg"] if ro_cl_live else None
-            wtp_status = "ATTENTION" if cl_val is not None and cl_val < 0.1 else "NORMAL"
-            cl_str = f"{cl_val:.2f} mg/L Cl₂" if cl_val is not None else "No Data"
-            add_row("Water Treatment (WTP)", lnk_util, wtp_status, cl_str)
+            flow_totals = wtp_live.get("flow_totals", {})
+            ro_total = flow_totals.get("ro_water", [{}])[-1].get("m3", 0) if flow_totals.get("ro_water") else 0
+            soft1_total = flow_totals.get("soft_water_1", [{}])[-1].get("m3", 0) if flow_totals.get("soft_water_1") else 0
+            soft2_total = flow_totals.get("soft_water_2", [{}])[-1].get("m3", 0) if flow_totals.get("soft_water_2") else 0
+            treated_total = ro_total + soft1_total + soft2_total
+            add_row("Water Treatment (WTP)", lnk_util, "NORMAL", f"{treated_total:,.0f} m3 Treated Water")
         except:
             add_row("Water Treatment (WTP)", lnk_util, "OFFLINE", "Data Error")
 
         # --- WWTP (live) ---
         try:
-            wwtp_live = get_wwtp_raw_data()
-            temp_val = safe_float(wwtp_live.get('raw_temp', None))
+            wwtp_live = get_wwtp_report_data()
+            temp_val = safe_float(wwtp_live.get('raw_temp', pd.DataFrame()))
+            effluent_latest = safe_float(wwtp_live.get('effluent', pd.DataFrame()))
+            raw_latest = safe_float(wwtp_live.get('raw_pump', pd.DataFrame()))
+            active_pumps = sum(1 for value in [effluent_latest, raw_latest] if value > 0)
             wwtp_status = "WARNING" if temp_val >= 35 else "NORMAL"
-            add_row("Wastewater (WWTP)", lnk_wwtp, wwtp_status, f"{temp_val:.1f} °C Inflow Temp")
+            add_row("Wastewater (WWTP)", lnk_wwtp, wwtp_status, f"{active_pumps} Active {'Pump' if active_pumps == 1 else 'Pumps'}")
         except:
             add_row("Wastewater (WWTP)", lnk_wwtp, "OFFLINE", "Data Error")
+
+        # --- Downtime (live) ---
+        try:
+            downtime_payload = load_downtime_overview_payload("ytd")
+            downtime_summary = downtime_payload.get("summary") or {}
+            downtime_hours = downtime_summary.get("total_hours")
+            downtime_events = downtime_summary.get("event_count", 0)
+            add_row(
+                "Downtime",
+                lnk_downtime,
+                "NORMAL",
+                f"{format_pdf_downtime_hours(downtime_hours)} | {downtime_events} Events Year-To-Date"
+            )
+        except:
+            add_row("Downtime", lnk_downtime, "OFFLINE", "Data Error")
 
         # --- SBF (live) ---
         try:
@@ -5294,6 +6100,7 @@ def export_report():
 
         # --- DOWNTIME & RELIABILITY PAGE ---
         pdf.add_page()
+        pdf.set_link(lnk_downtime, page=pdf.page_no())
         pdf.set_font('helvetica', 'B', 16)
         pdf.cell(0, 10, "10. Downtime & Reliability", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font('helvetica', '', 9)
@@ -5308,6 +6115,9 @@ def export_report():
 
         try:
             dt_data = generate_downtime_data()
+            downtime_payload = load_downtime_overview_payload("ytd")
+            downtime_summary = downtime_payload.get("summary", {})
+            downtime_meta = downtime_payload.get("meta", {})
 
             # KPI summary row
             total_down   = sum(d["total_down"] for d in dt_data)
@@ -5328,6 +6138,10 @@ def export_report():
                 pdf,
                 ["Metric", "Value"],
                 [
+                    ["Total Downtime Year-To-Date", format_pdf_downtime_hours(downtime_summary.get("total_hours"))],
+                    ["Downtime This Month", format_pdf_downtime_hours(downtime_summary.get("this_month_hours"))],
+                    ["Downtime Events Year-To-Date", str(downtime_summary.get("event_count", 0))],
+                    ["Highest Impact System", downtime_summary.get("highest_system") or "No downtime recorded"],
                     ["Total Downtime Today",     fmt_dur(total_down)],
                     ["Total Downtime Events",    str(total_events)],
                     ["Overall Uptime",           f"{all_uptime[0]:.1f}%"],
@@ -5401,19 +6215,16 @@ def export_report():
         # --- FINAL EXPORT (ONLY ONCE) ---
         pdf_raw = pdf.output() 
         pdf_bytes = pdf_raw.encode('latin-1') if isinstance(pdf_raw, str) else pdf_raw
-        pdf_stream = BytesIO(pdf_bytes)
-        pdf_stream.seek(0)
 
         for f in temp_files:
             if os.path.exists(f):
                 os.remove(f)
 
-        return send_file(
-            pdf_stream,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name="SFST_Master_Report.pdf"
-        )
+        _PDF_REPORT_CACHE["signature"] = report_signature
+        _PDF_REPORT_CACHE["generated_at"] = datetime.now()
+        _PDF_REPORT_CACHE["bytes"] = pdf_bytes
+
+        return make_pdf_report_response(pdf_bytes, "MISS")
 
     except Exception as e:
         print(f"EXPORT FAILED: {str(e)}")
@@ -5425,7 +6236,7 @@ def export_report():
 # =====================================================
 
 if __name__ == "__main__":
-    print("\n🚀 Server running at http://127.0.0.1:5001")
-    print(f"📂 Data directory: {DATA_DIR}\n")
+    print("\nServer running at http://127.0.0.1:5001")
+    print(f"Data directory: {DATA_DIR}\n")
     debug_enabled = os.environ.get("FLASK_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
     app.run(debug=debug_enabled, port=5001)

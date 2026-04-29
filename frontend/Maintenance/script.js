@@ -1,13 +1,96 @@
 document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     const initialView = (urlParams.get("view") || "overview").toLowerCase();
+    const UTILITY_INSPECTION_OVERRIDES = {
+        "UL-TN-01": [{ month: 1, week: "first" }],
+        "UL-TN-02": [{ month: 1, week: "first" }],
+        "UL-HB-01": [{ month: 10, week: "first" }],
+        "UL-BL-01": [{ month: 10, week: "first" }],
+        "UL-BL-02": [{ month: 10, week: "first" }],
+        "UL-AC-01": [{ month: 10, week: "first" }],
+        "UL-AC-02": [{ month: 10, week: "first" }],
+        "UL-AD-01": [{ month: 10, week: "second" }],
+        "UL-SF-01": [{ month: 10, week: "second" }],
+        "UL-SF-02": [{ month: 10, week: "second" }],
+        "UL-CF-01": [{ month: 10, week: "second" }],
+        "UL-CF-02": [{ month: 10, week: "second" }],
+        "UL-RS-01": [{ month: 10, week: "third" }],
+        "UL-RS-02": [{ month: 10, week: "third" }],
+        "UL-DP-01": [{ month: 10, week: "third" }],
+        "UL-DP-02": [{ month: 10, week: "third" }],
+        "UL-TP-01": [{ month: 10, week: "third" }],
+        "UL-TP-02": [{ month: 10, week: "fourth" }],
+        "UL-TP-03": [{ month: 10, week: "fourth" }],
+        "UL-TP-04": [{ month: 10, week: "fourth" }],
+        "UL-IN-01": [{ month: 10, week: "last" }],
+        "UL-IN-02": [{ month: 10, week: "last" }],
+        "UL-IN-03": [{ month: 11, week: "first" }],
+        "UL-IN-04": [{ month: 11, week: "first" }],
+        "UL-EX-01": [{ month: 11, week: "first" }],
+        "UL-EX-02": [{ month: 11, week: "first" }],
+        "UL-EX-03": [{ month: 11, week: "first" }],
+        "UL-EX-04": [{ month: 11, week: "second" }],
+        "UL-EX-05": [{ month: 11, week: "second" }],
+        "UL-EX-06": [{ month: 11, week: "second" }],
+        "UL-EX-07": [{ month: 11, week: "second" }],
+        "UL-EX-08": [{ month: 11, week: "second" }],
+        "UL-EX-09": [{ month: 11, week: "third" }],
+        "UL-MDB-01": [{ month: 12, week: "third" }],
+        "UL-MDB-02": [{ month: 12, week: "third" }],
+        "UL-MDB-03": [{ month: 12, week: "third" }],
+        "UL-MDB-04": [{ month: 12, week: "third" }],
+        "UL-MDB-05": [{ month: 12, week: "third" }],
+        "UL-TR-01": [{ month: 12, week: "second" }],
+        "UL-TR-02": [{ month: 12, week: "second" }],
+        "UL-TR-03": [{ month: 12, week: "second" }],
+        "UL-TR-04": [{ month: 12, week: "second" }],
+        "UL-TR-05": [{ month: 12, week: "second" }],
+        "UL-LPG-01": [{ month: 12, week: "last" }],
+        "UL-LPG-02": [{ month: 12, week: "last" }],
+        "UL-LPG-03": [{ month: 12, week: "last" }],
+        "UL-VP-01": [{ month: 12, week: "last" }],
+        "UL-VP-02": [{ month: 12, week: "last" }],
+        "UL-HD-01": [{ month: 11, week: "third" }],
+        "UL-HD-02": [{ month: 11, week: "third" }],
+        "UL-HD-03": [{ month: 11, week: "third" }],
+        "UL-HD-04": [{ month: 11, week: "third" }],
+        "UL-HD-05": [{ month: 11, week: "fourth" }],
+        "UL-AB-02": [{ month: 11, week: "fourth" }],
+        "UL-AB-03": [{ month: 11, week: "fourth" }],
+        "UL-AB-04": [{ month: 11, week: "fourth" }],
+        "UL-SP--01": [{ month: 11, week: "fourth" }],
+        "UL-SP--02": [{ month: 11, week: "fourth" }],
+        "UL-SP--03": [{ month: 11, week: "fourth" }],
+        "UL-SP--04": [{ month: 11, week: "fourth" }],
+        "UL-SP--05": [{ month: 11, week: "fourth" }],
+        "UL-SP--06": [{ month: 11, week: "fourth" }],
+        "UL-SP--07": [{ month: 12, week: "first" }],
+        "UL-SP--08": [{ month: 12, week: "first" }],
+        "UL-FP-01": [{ month: 5, week: "last" }, { month: 11, week: "last" }],
+        "UL-RO-01": [{ month: 5, week: "last" }, { month: 11, week: "last" }],
+        "UL-UV-01": [{ month: 5, week: "last" }, { month: 11, week: "last" }],
+        "UL-UV-02": [{ month: 5, week: "last" }, { month: 11, week: "last" }],
+        "UL-UV-03": [{ month: 5, week: "last" }, { month: 11, week: "last" }],
+        "UL-WH-01": [{ month: 12, week: "last" }],
+        "UL-WH-02": [{ month: 12, week: "last" }],
+        "UL-DR-01": [{ month: 12, week: "last" }],
+        "UL-DR-02": [{ month: 12, week: "last" }],
+        "UL-PP-01": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+        "UL-PP-02": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+        "UL-PP-03": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+        "UL-PP-04": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+        "UL-PP-05": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+        "UL-PP-06": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+        "UL-PP-07": [{ month: 3, week: "last" }, { month: 6, week: "last" }, { month: 9, week: "last" }, { month: 12, week: "last" }],
+    };
     const state = {
-        activeView: ["overview", "utility", "equipment", "non_scheduled"].includes(initialView) ? initialView : "overview",
+        activeView: ["overview", "utility", "equipment", "spare_parts"].includes(initialView) ? initialView : "overview",
         overviewMonth: "",
         overviewCategory: "all",
         overviewStatus: "all",
         overviewSearch: "",
         overviewSort: "date_asc",
+        maintenanceMixMonth: "",
         selectedMonth: "",
         listMonthFilter: "",
         statusFilter: "all",
@@ -20,17 +103,14 @@ document.addEventListener("DOMContentLoaded", () => {
         monthlyBreakdownMode: "category",
         search: "",
         sort: "due_date_asc",
-        year: new Date().getFullYear(),
+        year: null,
         monthStatusView: "pending",
         hasAppliedListFilters: false,
         equipmentPriorityFilter: "all",
         equipmentCriticalOnly: "all",
         equipmentWeekFilter: "all",
-        nonScheduledMonth: "",
-        nonScheduledStatus: "all",
-        nonScheduledPriority: "all",
-        nonScheduledArea: "all",
-        nonScheduledSearch: "",
+        sparePartsData: null,
+        sparePartsYearFilter: "all",
     };
 
     const charts = {};
@@ -69,12 +149,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateViewCopy() {
         const isOverview = state.activeView === "overview";
         const isEquipment = state.activeView === "equipment";
-        const isNonScheduled = state.activeView === "non_scheduled";
+        const isSpareParts = state.activeView === "spare_parts";
         document.body.classList.toggle("maintenance-equipment", isEquipment);
+        document.body.classList.toggle("maintenance-spare-parts", isSpareParts);
         document.body.dataset.maintenanceView = state.activeView;
+        const weeklyCompletionCard = document.getElementById("summary-card-3");
+        if (weeklyCompletionCard) {
+            weeklyCompletionCard.hidden = !isOverview && !isEquipment;
+        }
         document.getElementById("overview-view")?.classList.toggle("hidden", !isOverview);
-        document.getElementById("utility-view")?.classList.toggle("hidden", isOverview || isNonScheduled);
-        document.getElementById("non-scheduled-view")?.classList.toggle("hidden", !isNonScheduled);
+        document.getElementById("utility-view")?.classList.toggle("hidden", isOverview || isSpareParts);
+        document.getElementById("spare-parts-view")?.classList.toggle("hidden", !isSpareParts);
         document.querySelectorAll("[data-view-tab]").forEach((button) => {
             button.classList.toggle("active", (button.dataset.viewTab || "utility") === state.activeView);
         });
@@ -82,16 +167,16 @@ document.addEventListener("DOMContentLoaded", () => {
             "maintenance-page-title",
             isOverview
                 ? "Maintenance Overview"
-                : isNonScheduled
-                ? "Non-Scheduled Maintenance"
+                : isSpareParts
+                ? "Spare Parts"
                 : (isEquipment ? "Production Equipment Maintenance" : "Utility Maintenance")
         );
         setText(
             "maintenance-page-subtitle",
             isOverview
                 ? "Preventive maintenance summary across utility and equipment schedules from the current imported sources"
-                : isNonScheduled
-                ? "Reactive and corrective maintenance visibility, ready for future D365 work order integration"
+                : isSpareParts
+                ? "Inventory and external spare-parts management view linked to maintenance equipment where possible"
                 : isEquipment
                 ? "Production equipment preventive maintenance planning with risk-based schedule visibility"
                 : "Utility preventive maintenance planning and schedule visibility for management review"
@@ -114,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         setText("breakdown-category-chip", isEquipment ? "Risk" : "Category");
         setText("breakdown-location-chip", isEquipment ? "Area" : "Location");
-        setText("breakdown-inspection-chip", "Additional Steps");
+        setText("breakdown-inspection-chip", "Additional Checks");
         setText("timeline-title", isEquipment ? "Annual Equipment Timeline" : "Year Timeline");
         setText(
             "timeline-subtitle",
@@ -148,11 +233,13 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        if (state.activeView === "non_scheduled") {
+        if (state.activeView === "spare_parts") {
+            await loadSparePartsView();
             return;
         }
 
         const filtersPayload = await fetchJson(`${getApiBase()}/filters`);
+        state.year = filtersPayload?.meta?.year || state.year || new Date().getFullYear();
         hydrateFilterOptions(filtersPayload);
 
         const currentMonthValue = `${state.year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
@@ -184,8 +271,9 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        document.getElementById("overview-filter-month")?.addEventListener("change", (event) => {
+        document.getElementById("overview-filter-month")?.addEventListener("change", async (event) => {
             state.overviewMonth = event.target.value;
+            await loadOverviewView();
         });
         document.getElementById("overview-filter-category")?.addEventListener("change", (event) => {
             state.overviewCategory = event.target.value;
@@ -201,6 +289,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 250));
         document.getElementById("apply-overview-filters")?.addEventListener("click", async () => {
             await loadOverviewView();
+        });
+        document.getElementById("spare-source-year-filter")?.addEventListener("change", (event) => {
+            state.sparePartsYearFilter = event.target.value || "all";
+            renderSparePartsCharts(state.sparePartsData || {});
+        });
+        document.getElementById("maintenance-mix-month")?.addEventListener("change", async (event) => {
+            state.maintenanceMixMonth = event.target.value;
+            await loadOverviewMaintenanceMix();
         });
 
         document.getElementById("month-selector")?.addEventListener("change", async (event) => {
@@ -291,29 +387,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        document.getElementById("ns-month-selector")?.addEventListener("change", async (event) => {
-            state.nonScheduledMonth = event.target.value;
-            await loadNonScheduledMonthly();
-            await loadNonScheduledList();
-        });
-        document.getElementById("ns-filter-month")?.addEventListener("change", (event) => {
-            state.nonScheduledMonth = event.target.value;
-        });
-        document.getElementById("ns-filter-status")?.addEventListener("change", (event) => {
-            state.nonScheduledStatus = event.target.value;
-        });
-        document.getElementById("ns-filter-priority")?.addEventListener("change", (event) => {
-            state.nonScheduledPriority = event.target.value;
-        });
-        document.getElementById("ns-filter-area")?.addEventListener("change", (event) => {
-            state.nonScheduledArea = event.target.value;
-        });
-        document.getElementById("ns-filter-search")?.addEventListener("input", debounce((event) => {
-            state.nonScheduledSearch = event.target.value.trim();
-        }, 250));
-        document.getElementById("apply-ns-filters")?.addEventListener("click", async () => {
-            await loadNonScheduledList();
-        });
     }
 
     function hydrateFilterOptions(payload) {
@@ -335,6 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
         populateSelect("overview-filter-category", payload?.filter_options?.categories || [], true);
         populateSelect("overview-filter-status", payload?.filter_options?.status_options || [], true);
         populateSelect("overview-filter-sort", payload?.filter_options?.sort_options || [], true);
+        populateSelect("maintenance-mix-month", payload?.maintenance_mix_month_options || [], true);
     }
 
     function syncOverviewFilterInputs() {
@@ -343,12 +417,27 @@ document.addEventListener("DOMContentLoaded", () => {
         const status = document.getElementById("overview-filter-status");
         const sort = document.getElementById("overview-filter-sort");
         const search = document.getElementById("overview-filter-search");
+        const mixMonth = document.getElementById("maintenance-mix-month");
 
         if (month && state.overviewMonth) month.value = state.overviewMonth;
         if (category) category.value = state.overviewCategory;
         if (status) status.value = state.overviewStatus;
         if (sort) sort.value = state.overviewSort;
         if (search) search.value = state.overviewSearch;
+        if (mixMonth && state.maintenanceMixMonth) mixMonth.value = state.maintenanceMixMonth;
+    }
+
+    function buildOverviewParams() {
+        const params = new URLSearchParams({
+            category: state.overviewCategory,
+            status: state.overviewStatus,
+            search: state.overviewSearch,
+            sort: state.overviewSort,
+        });
+        if (state.overviewMonth) params.set("month", state.overviewMonth);
+        if (state.maintenanceMixMonth) params.set("mix_month", state.maintenanceMixMonth);
+        if (state.year) params.set("year", String(state.year));
+        return params;
     }
 
     async function loadOverviewView() {
@@ -364,28 +453,29 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sortInput?.value) state.overviewSort = sortInput.value;
         if (searchInput) state.overviewSearch = searchInput.value.trim();
 
-        if (!state.overviewMonth) {
-            state.overviewMonth = `${state.year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-        }
-
-        const params = new URLSearchParams({
-            month: state.overviewMonth,
-            year: String(state.year),
-            category: state.overviewCategory,
-            status: state.overviewStatus,
-            search: state.overviewSearch,
-            sort: state.overviewSort,
-        });
+        const params = buildOverviewParams();
         const payload = await fetchJson(`/api/maintenance/overview?${params.toString()}`);
+        state.year = payload?.meta?.year || state.year || new Date().getFullYear();
         hydrateOverviewFilterOptions(payload);
         state.overviewMonth = payload?.selected_month?.month_key || state.overviewMonth;
+        state.maintenanceMixMonth = payload?.maintenance_mix?.selected_month?.month_key || state.maintenanceMixMonth;
         syncOverviewFilterInputs();
         renderOverviewSummary(payload?.summary || {});
+        renderOverviewMaintenanceMix(payload?.maintenance_mix || {});
         renderOverviewTable(payload?.rows || []);
     }
 
+    async function loadOverviewMaintenanceMix() {
+        const params = buildOverviewParams();
+        const payload = await fetchJson(`/api/maintenance/overview?${params.toString()}`);
+        state.year = payload?.meta?.year || state.year || new Date().getFullYear();
+        state.maintenanceMixMonth = payload?.maintenance_mix?.selected_month?.month_key || state.maintenanceMixMonth;
+        hydrateOverviewFilterOptions(payload);
+        syncOverviewFilterInputs();
+        renderOverviewMaintenanceMix(payload?.maintenance_mix || {});
+    }
+
     function renderOverviewSummary(summary) {
-        setText("overview-preventive-required", formatInteger(summary.preventive_maintenance_required));
         setText("overview-scheduled-tasks", formatInteger(summary.scheduled_tasks));
         setText("overview-completed-tasks", formatInteger(summary.completed_tasks));
         setText("overview-pending-tasks", formatInteger(summary.pending_tasks));
@@ -394,85 +484,42 @@ document.addEventListener("DOMContentLoaded", () => {
         setText("overview-follow-up-tasks", formatInteger(summary.tasks_pending_follow_up));
     }
 
-    function renderOverviewTable(rows) {
-        const body = document.getElementById("overview-table-body");
-        if (!body) return;
+    function renderOverviewMaintenanceMix(mix) {
+        const preventive = Number(mix.preventive_scheduled_count ?? mix.preventive_scheduled ?? 0);
+        const corrective = Number(mix.corrective_work_order_count ?? mix.corrective_work_orders ?? 0);
+        const variance = Number(mix.variance_count ?? (corrective - preventive));
+        const total = Number(mix.total || (preventive + corrective));
+        const ratio = mix.preventive_to_corrective_ratio;
+        const performanceStatus = mix.performance_status || "Good";
+        const rejectedRows = Number(mix.corrective_source?.rejected_rows || 0);
+        const uncertainRows = Number(mix.corrective_source?.uncertain_rows || 0);
+        const hasData = total > 0;
+        const emptyState = document.getElementById("overview-maintenance-mix-empty");
+        if (emptyState) emptyState.hidden = hasData;
 
-        if (!rows.length) {
-            body.innerHTML = '<tr><td colspan="9" class="empty-row">No data available.</td></tr>';
-            return;
-        }
+        setText("mix-preventive-ratio", ratio === null || ratio === undefined ? "Ratio --" : `Corrective ${formatNumber(ratio, 1)}% of preventive`);
+        setText("mix-corrective-ratio", `Status ${performanceStatus}`);
+        setText("mix-preventive-count", formatInteger(preventive));
+        setText("mix-corrective-count", formatInteger(corrective));
+        setText("mix-variance-count", `${variance > 0 ? "+" : ""}${formatInteger(variance)}`);
+        setText("mix-performance-status", performanceStatus);
+        setText(
+            "mix-total-note",
+            hasData
+                ? `${formatInteger(total)} maintenance item(s) compared for the selected month; all work order statuses counted except rejected (${formatInteger(rejectedRows)} rejected excluded)`
+                : "No preventive or corrective maintenance records for the selected month"
+        );
 
-        body.innerHTML = rows.map((row) => `
-            <tr>
-                <td>${escapeHtml(row.date || "-")}</td>
-                <td>
-                    <div class="table-primary-cell">
-                        <strong>${escapeHtml(translateDisplayText(row.asset_name || "-"))}</strong>
-                        <span class="table-subtext">${escapeHtml(row.asset_code || "-")}</span>
-                    </div>
-                </td>
-                <td>${escapeHtml(row.category || "-")}</td>
-                <td>${escapeHtml(row.preventive_maintenance_required || "-")}</td>
-                <td><span class="status-pill ${overviewStatusClass(row.status)}">${escapeHtml(row.status || "-")}</span></td>
-                <td>${escapeHtml(row.date_provided || "-")}</td>
-                <td>${escapeHtml(row.person_in_charge || "-")}</td>
-                <td>${escapeHtml(row.inspection_required || "-")}</td>
-                <td>${escapeHtml(row.follow_up_status || "-")}</td>
-            </tr>
-        `).join("");
-    }
-
-    async function loadNonScheduledView() {
-        const filtersPayload = await fetchJson("/api/maintenance/non_scheduled/filters");
-        populateSelect("ns-month-selector", filtersPayload?.months || [], true);
-        populateSelect("ns-filter-month", filtersPayload?.months || [], true);
-        populateSelect("ns-filter-status", filtersPayload?.status_options || []);
-        populateSelect("ns-filter-priority", filtersPayload?.priority_options || []);
-        populateSelect("ns-filter-area", [{ value: "all", label: "All Areas" }, ...(filtersPayload?.areas || []).map((value) => ({ value, label: value }))]);
-
-        const currentMonthValue = `${state.year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-        state.nonScheduledMonth =
-            (filtersPayload?.months || []).find((month) => month.value === currentMonthValue)?.value
-            || filtersPayload?.months?.[1]?.value
-            || currentMonthValue;
-        document.getElementById("ns-month-selector").value = state.nonScheduledMonth;
-        document.getElementById("ns-filter-month").value = state.nonScheduledMonth;
-
-        await Promise.all([
-            loadNonScheduledSummary(),
-            loadNonScheduledMonthly(),
-            loadNonScheduledList(),
-        ]);
-    }
-
-    async function loadNonScheduledSummary() {
-        const payload = await fetchJson(`/api/maintenance/non_scheduled/summary?year=${state.year}`);
-        const summary = payload?.summary || {};
-        setText("ns-open", formatInteger(summary.open_work_orders));
-        setText("ns-closed", formatInteger(summary.closed_work_orders));
-        setText("ns-overdue", formatInteger(summary.overdue_work_orders));
-        setText("ns-high-priority", formatInteger(summary.high_priority_work_orders));
-        setText("ns-critical-open", formatInteger(summary.production_critical_open_work_orders));
-        setText("ns-week", formatInteger(summary.this_week_work_orders));
-        setText("ns-month", formatInteger(summary.this_month_work_orders));
-    }
-
-    async function loadNonScheduledMonthly() {
-        const payload = await fetchJson(`/api/maintenance/non_scheduled/monthly?month=${encodeURIComponent(state.nonScheduledMonth)}&year=${state.year}`);
-        const counts = payload?.counts || {};
-        setText("ns-month-open", formatInteger(counts.open));
-        setText("ns-month-closed", formatInteger(counts.closed));
-        setText("ns-month-overdue", formatInteger(counts.overdue));
-        setText("ns-month-priority", formatInteger(counts.high_priority));
-
-        createChart("ns-status-chart", {
-            type: "doughnut",
+        createChart("overview-maintenance-mix-chart", {
+            type: "bar",
             data: {
-                labels: payload?.chart?.labels || ["Open", "Closed", "Overdue"],
+                labels: ["Preventive (Scheduled)", "Corrective (Work Order)"],
                 datasets: [{
-                    data: payload?.chart?.values || [0, 0, 0],
-                    backgroundColor: ["#2563eb", "#10b981", "#ef4444"],
+                    label: "Maintenance Count",
+                    data: [preventive, corrective],
+                    backgroundColor: ["#0f766e", "#f59e0b"],
+                    borderRadius: 12,
+                    maxBarThickness: 96,
                     borderWidth: 0,
                 }],
             },
@@ -481,118 +528,56 @@ document.addEventListener("DOMContentLoaded", () => {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: "bottom",
-                        labels: { usePointStyle: true, boxWidth: 10, font: { family: "Inter", size: 11 } },
+                        display: false,
+                    },
+                    tooltip: {
+                        enabled: hasData,
+                        callbacks: {
+                            label: (context) => {
+                                const value = Number(context.parsed?.y || 0);
+                                return `${context.label}: ${formatInteger(value)}`;
+                            },
+                        },
                     },
                 },
-                cutout: "64%",
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: "#64748b", font: { family: "Inter", weight: "700" } },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: "rgba(148, 163, 184, 0.16)" },
+                        ticks: { color: "#64748b", precision: 0 },
+                    },
+                },
             },
         });
-
-        const areaTarget = document.getElementById("ns-area-breakdown");
-        if (areaTarget) {
-            const areas = payload?.area_groups || [];
-            areaTarget.innerHTML = areas.length
-                ? areas.map((group) => `
-                    <button type="button" class="stack-item stack-item-button" data-ns-area="${escapeHtml(group.area)}">
-                        <div>
-                            <strong>${escapeHtml(translateDisplayText(group.area))}</strong>
-                            <div class="insight-meta">${formatInteger(group.overdue)} overdue</div>
-                        </div>
-                        <strong>${formatInteger(group.count)}</strong>
-                    </button>
-                `).join("")
-                : '<div class="empty-state-block">No work order data available.</div>';
-            areaTarget.querySelectorAll("[data-ns-area]").forEach((button) => {
-                button.addEventListener("click", async () => {
-                    state.nonScheduledArea = button.dataset.nsArea || "all";
-                    const areaSelect = document.getElementById("ns-filter-area");
-                    if (areaSelect) areaSelect.value = state.nonScheduledArea;
-                    await loadNonScheduledList();
-                });
-            });
-        }
-
-        const priorityTarget = document.getElementById("ns-priority-breakdown");
-        if (priorityTarget) {
-            const rows = payload?.priority_groups || [];
-            priorityTarget.innerHTML = rows.length
-                ? rows.map((group) => `
-                    <button type="button" class="stack-item stack-item-button" data-ns-priority="${escapeHtml(group.priority)}">
-                        <div>
-                            <strong>${escapeHtml(group.priority)}</strong>
-                        </div>
-                        <strong>${formatInteger(group.count)}</strong>
-                    </button>
-                `).join("")
-                : '<div class="empty-state-block">No priority data available.</div>';
-            priorityTarget.querySelectorAll("[data-ns-priority]").forEach((button) => {
-                button.addEventListener("click", async () => {
-                    state.nonScheduledPriority = button.dataset.nsPriority?.toLowerCase() || "all";
-                    const select = document.getElementById("ns-filter-priority");
-                    if (select) select.value = state.nonScheduledPriority;
-                    await loadNonScheduledList();
-                });
-            });
-        }
-
-        const criticalTarget = document.getElementById("ns-critical-list");
-        if (criticalTarget) {
-            const rows = payload?.critical_attention || [];
-            criticalTarget.innerHTML = rows.length
-                ? rows.map((row) => `
-                    <button type="button" class="stack-item stack-item-button critical-item" data-ns-machine="${escapeHtml(row.machine_code)}">
-                        <div>
-                            <strong>${escapeHtml(translateDisplayText(row.machine_name))}</strong>
-                            <div class="insight-meta">${escapeHtml(translateDisplayText(row.area))} | ${escapeHtml(row.status)}</div>
-                        </div>
-                        <strong>${escapeHtml(formatShortDate(row.due_at))}</strong>
-                    </button>
-                `).join("")
-                : '<div class="empty-state-block">No production-critical open work orders.</div>';
-            criticalTarget.querySelectorAll("[data-ns-machine]").forEach((button) => {
-                button.addEventListener("click", async () => {
-                    state.nonScheduledSearch = button.dataset.nsMachine || "";
-                    const input = document.getElementById("ns-filter-search");
-                    if (input) input.value = state.nonScheduledSearch;
-                    await loadNonScheduledList();
-                });
-            });
-        }
     }
 
-    async function loadNonScheduledList() {
-        const body = document.getElementById("ns-table-body");
+    function renderOverviewTable(rows) {
+        const body = document.getElementById("overview-table-body");
         if (!body) return;
-        const params = new URLSearchParams({
-            month: state.nonScheduledMonth,
-            status: state.nonScheduledStatus,
-            priority: state.nonScheduledPriority,
-            area: state.nonScheduledArea,
-            search: state.nonScheduledSearch,
-            year: String(state.year),
-        });
-        const payload = await fetchJson(`/api/maintenance/non_scheduled/list?${params.toString()}`);
-        const rows = payload?.rows || [];
+
         if (!rows.length) {
-            body.innerHTML = '<tr><td colspan="13" class="empty-row">No work orders match the current filters.</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" class="empty-row">No data available.</td></tr>';
             return;
         }
+
         body.innerHTML = rows.map((row) => `
-            <tr class="${row.status === "Overdue" ? "row-overdue" : ""} ${row.is_production_critical ? "row-critical" : ""}">
-                <td>${escapeHtml(row.work_order_id)}</td>
-                <td>${escapeHtml(row.maintenance_order_id || "--")}</td>
-                <td>${escapeHtml(row.machine_code || "--")}</td>
-                <td><div class="table-primary-cell"><strong>${escapeHtml(translateDisplayText(row.machine_name || "--"))}</strong>${row.is_production_critical ? '<span class="table-subtext">Production Critical</span>' : ""}</div></td>
-                <td>${escapeHtml(translateDisplayText(row.area || "--"))}</td>
-                <td>${escapeHtml(row.description || "--")}</td>
-                <td>${escapeHtml(formatShortDate(row.created_at))}</td>
-                <td>${escapeHtml(formatShortDate(row.due_at))}</td>
-                <td>${escapeHtml(row.status)}</td>
-                <td>${escapeHtml(row.priority)}</td>
-                <td>${escapeHtml(row.technician || "--")}</td>
-                <td>${escapeHtml(`${formatNumber(row.downtime_hours || 0, 1)} hrs`)}</td>
-                <td>${escapeHtml(row.remarks || "--")}</td>
+            <tr>
+                <td>${escapeHtml(row.date_of_maintenance || "-")}</td>
+                <td>
+                    <div class="table-primary-cell">
+                        <strong>${escapeHtml(translateDisplayText(row.asset_name || "-"))}</strong>
+                        <span class="table-subtext">${escapeHtml(row.machine_type || "-")} | ${escapeHtml(row.asset_code || "-")}</span>
+                    </div>
+                </td>
+                <td>${escapeHtml(row.pm_type || "-")}</td>
+                <td><span class="status-pill ${overviewStatusClass(row.status)}">${escapeHtml(row.status || "-")}</span></td>
+                <td>${escapeHtml(row.person_in_charge || "-")}</td>
+                <td>${escapeHtml(row.additional_inspection || "-")}</td>
+                <td>${escapeHtml(row.follow_up_status || "-")}</td>
             </tr>
         `).join("");
     }
@@ -651,6 +636,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = await fetchJson(`${getApiBase()}/monthly?month=${encodeURIComponent(state.selectedMonth)}&year=${state.year}`);
         const counts = payload?.counts || {};
         const isEquipment = state.activeView === "equipment";
+        if (!isEquipment) {
+            const utilityRowsPayload = await fetchJson(`${getApiBase()}/list?month=${encodeURIComponent(state.selectedMonth)}&year=${state.year}&status=all&category=all&location=all&inspection=all&search=&sort=due_date_asc&aggregate=occurrence`);
+            payload.inspection_groups = buildUtilityInspectionGroups(utilityRowsPayload?.rows || []);
+        }
 
         setText("monthly-done", formatInteger(counts.done));
         setText("monthly-pending", formatInteger(counts.pending));
@@ -677,7 +666,6 @@ document.addEventListener("DOMContentLoaded", () => {
             setText("summary-quarter", formatInteger(counts.total));
             setText("summary-next-month", `Production-critical open: ${formatInteger(counts.production_critical_open)}`);
             renderCriticalAttention(payload?.critical_attention || []);
-            renderTopRiskyEquipment(payload?.top_risky_equipment || []);
         } else {
             document.getElementById("summary-card-1")?.setAttribute("data-summary-filter", "due_this_week");
             document.getElementById("summary-card-2")?.setAttribute("data-summary-filter", "due_this_month");
@@ -742,7 +730,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isLocationMode = state.monthlyBreakdownMode === "location";
         const isInspectionMode = state.monthlyBreakdownMode === "inspection";
         const groups = isInspectionMode
-            ? (payload?.inspection_groups || [])
+            ? ensureInspectionBreakdownGroups(payload?.inspection_groups || [])
             : isLocationMode
             ? (payload?.location_groups || [])
             : (payload?.category_groups || []);
@@ -825,6 +813,276 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    async function loadSparePartsView() {
+        const payload = await fetchJson("/api/maintenance/spare_parts");
+        state.sparePartsData = payload;
+        populateSparePartsYearFilter(payload);
+        renderSparePartsSummary(payload?.summary || {}, payload?.source_split || {}, payload?.planned_vs_urgent || {});
+        renderSparePartsCharts(payload);
+    }
+
+    function populateSparePartsYearFilter(payload) {
+        const select = document.getElementById("spare-source-year-filter");
+        if (!select) return;
+        const years = [...new Set(
+            (payload?.records || [])
+                .filter((row) => row?.source_type === "External Purchase" && row?.date)
+                .map((row) => String(row.date).slice(0, 4))
+                .filter((year) => /^\d{4}$/.test(year))
+        )].sort((a, b) => Number(b) - Number(a));
+
+        const nextValue = years.includes(state.sparePartsYearFilter) ? state.sparePartsYearFilter : "all";
+        state.sparePartsYearFilter = nextValue;
+        select.innerHTML = [
+            `<option value="all">All Years</option>`,
+            ...years.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`),
+        ].join("");
+        select.value = nextValue;
+    }
+
+    function formatCurrency(value) {
+        const numeric = Number(value || 0);
+        return numeric.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        });
+    }
+
+    function renderSparePartsSummary(summary, sourceSplit, urgencySplit) {
+        setText("spare-total-records", formatInteger(summary.total_records));
+        setText("spare-linked-equipment", formatInteger(summary.linked_equipment_count));
+        setText("spare-unlinked-count", formatInteger(summary.unlinked_count));
+        setText("spare-top-equipment", summary.top_equipment_name ? `${translateDisplayText(summary.top_equipment_name)} (${formatInteger(summary.top_equipment_usage_count)})` : "--");
+        setText("spare-external-value", `THB ${formatCurrency(summary.total_external_purchase_value)}`);
+        setText(
+            "spare-urgency-count",
+            `${formatInteger(summary.planned_count)} vs ${formatInteger(summary.urgent_count)}`
+        );
+        setText(
+            "spare-urgency-count-meta",
+            "Planned parts vs urgent parts"
+        );
+        setText(
+            "spare-source-quantity",
+            `${formatNumber((sourceSplit?.inventory?.part_count ?? sourceSplit?.inventory?.count ?? 0), 0)} vs ${formatNumber((sourceSplit?.external_purchase?.part_count ?? sourceSplit?.external_purchase?.count ?? 0), 0)}`
+        );
+        setText(
+            "spare-source-quantity-meta",
+            "On-hand part count from Dynamics export vs Gen PO parts bought externally"
+        );
+        setText(
+            "spare-source-count",
+            `${formatInteger(summary.inventory_count)} vs ${formatInteger(summary.external_count)}`
+        );
+        setText(
+            "spare-source-count-meta",
+            "Inventory part lines vs urgent external part lines"
+        );
+        setText(
+            "spare-urgency-split",
+            `${formatNumber(urgencySplit?.planned_pct || 0, 1)}% / ${formatNumber(urgencySplit?.urgent_pct || 0, 1)}%`
+        );
+        setText(
+            "spare-urgency-split-meta",
+            `Planned vs urgent split`
+        );
+    }
+
+    function renderSparePartsCharts(payload) {
+        const plannedVsUrgent = payload?.planned_vs_urgent || {};
+        const externalRecords = (payload?.records || []).filter((row) => row?.source_type === "External Purchase");
+        const filteredExternalRecords = state.sparePartsYearFilter === "all"
+            ? externalRecords
+            : externalRecords.filter((row) => String(row?.date || "").startsWith(`${state.sparePartsYearFilter}-`));
+        const inventoryCount = payload?.source_split?.inventory?.part_count ?? payload?.source_split?.inventory?.count ?? 0;
+        const externalCount = filteredExternalRecords.length;
+
+        createChart("spare-urgency-chart", {
+            type: "bar",
+            data: {
+                labels: ["Planned", "Urgent"],
+                datasets: [{
+                    label: "Spare Part Count",
+                    data: [plannedVsUrgent.planned_count || 0, plannedVsUrgent.urgent_count || 0],
+                    backgroundColor: ["#10b981", "#ef4444"],
+                    borderRadius: 12,
+                    maxBarThickness: 84,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.16)" } },
+                },
+            },
+        });
+
+        createChart("spare-source-chart", {
+            type: "bar",
+            data: {
+                labels: ["Inventory / On-hand", "Parts Bought Externally"],
+                datasets: [
+                    {
+                        label: "Part Count",
+                        data: [inventoryCount, externalCount],
+                        backgroundColor: ["#2563eb", "#8b5cf6"],
+                        borderRadius: 12,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.16)" } },
+                },
+            },
+        });
+
+        createChart("spare-trend-chart", {
+            type: "line",
+            data: {
+                labels: payload?.planned_vs_urgent?.trend?.labels || [],
+                datasets: [
+                    {
+                        label: "Planned",
+                        data: payload?.planned_vs_urgent?.trend?.planned_counts || [],
+                        borderColor: "#10b981",
+                        backgroundColor: "rgba(16, 185, 129, 0.12)",
+                        fill: false,
+                        tension: 0.25,
+                    },
+                    {
+                        label: "Urgent",
+                        data: payload?.planned_vs_urgent?.trend?.urgent_counts || [],
+                        borderColor: "#ef4444",
+                        backgroundColor: "rgba(239, 68, 68, 0.12)",
+                        fill: false,
+                        tension: 0.25,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: "bottom" } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.16)" } },
+                },
+            },
+        });
+    }
+
+    function ensureInspectionBreakdownGroups(groups) {
+        const baseGroups = [
+            { inspection: "inspection", label: "Normal Checklist with Additional Checks", count: 0, done: 0, pending: 0, overdue: 0 },
+            { inspection: "standard", label: "Normal Checklist", count: 0, done: 0, pending: 0, overdue: 0 },
+        ];
+        const groupMap = new Map(baseGroups.map((group) => [group.inspection, { ...group }]));
+
+        (groups || []).forEach((group) => {
+            const key = group?.inspection || "";
+            if (!groupMap.has(key)) {
+                groupMap.set(key, { ...group });
+                return;
+            }
+
+            groupMap.set(key, {
+                ...groupMap.get(key),
+                ...group,
+            });
+        });
+
+        return [...groupMap.values()];
+    }
+
+    function buildUtilityInspectionGroups(rows) {
+        const inspectedRows = filterUtilityInspectionRows(rows, "inspection");
+        const standardRows = filterUtilityInspectionRows(rows, "standard");
+        return [
+            {
+                inspection: "inspection",
+                label: "Normal Checklist with Additional Checks",
+                count: inspectedRows.length,
+                done: inspectedRows.filter((row) => row.status === "Done").length,
+                pending: inspectedRows.filter((row) => row.status === "Pending").length,
+                overdue: inspectedRows.filter((row) => row.status === "Overdue").length,
+            },
+            {
+                inspection: "standard",
+                label: "Normal Checklist",
+                count: standardRows.length,
+                done: standardRows.filter((row) => row.status === "Done").length,
+                pending: standardRows.filter((row) => row.status === "Pending").length,
+                overdue: standardRows.filter((row) => row.status === "Overdue").length,
+            },
+        ];
+    }
+
+    function filterUtilityInspectionRows(rows, inspectionFilter) {
+        if (!Array.isArray(rows) || inspectionFilter === "all") return rows || [];
+        return (rows || []).filter((row) => {
+            const requiresAdditionalChecks = utilityRowRequiresAdditionalChecks(row);
+            return inspectionFilter === "inspection" ? requiresAdditionalChecks : !requiresAdditionalChecks;
+        });
+    }
+
+    function utilityRowRequiresAdditionalChecks(row) {
+        if (row?.inspection_required) return true;
+        const assetCode = String(row?.asset_code || "").trim().toUpperCase();
+        const overrides = UTILITY_INSPECTION_OVERRIDES[assetCode] || [];
+        if (!overrides.length) return false;
+        const scheduledDate = row?.scheduled_date
+            ? new Date(row.scheduled_date)
+            : row?.next_due_date
+            ? new Date(row.next_due_date)
+            : null;
+        if (!scheduledDate || Number.isNaN(scheduledDate.getTime())) return false;
+        const month = scheduledDate.getMonth() + 1;
+        const week = getUtilityWeekKey(scheduledDate);
+        const isEveryWeek = String(row?.planned_week || row?.frequency_label_primary || "").toLowerCase().includes("every week");
+        return overrides.some((override) => override.month === month && (isEveryWeek ? override.week === week : true));
+    }
+
+    function getUtilityWeekKey(dateValue) {
+        const dt = new Date(dateValue);
+        if (Number.isNaN(dt.getTime())) return "";
+        const year = dt.getFullYear();
+        const month = dt.getMonth();
+        const mondayDates = [];
+        for (let day = 1; day <= 31; day += 1) {
+            const current = new Date(year, month, day);
+            if (current.getMonth() !== month) break;
+            if (current.getDay() === 1) mondayDates.push(day);
+        }
+        const referenceDates = mondayDates.length
+            ? mondayDates
+            : (() => {
+                const tuesdayDates = [];
+                for (let day = 1; day <= 31; day += 1) {
+                    const current = new Date(year, month, day);
+                    if (current.getMonth() !== month) break;
+                    if (current.getDay() === 2) tuesdayDates.push(day);
+                }
+                return tuesdayDates;
+            })();
+
+        const dayOfMonth = dt.getDate();
+        const position = referenceDates.indexOf(dayOfMonth);
+        if (position === -1) return "";
+        if (position === referenceDates.length - 1) return "last";
+        if (position === 0) return "first";
+        if (position === 1) return "second";
+        if (position === 2) return "third";
+        return "fourth";
+    }
+
     function renderCriticalAttention(rows) {
         const target = document.getElementById("critical-attention-list");
         if (!target) return;
@@ -851,31 +1109,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function renderTopRiskyEquipment(rows) {
-        const target = document.getElementById("top-risky-equipment-list");
-        if (!target) return;
-        target.innerHTML = rows.length
-            ? rows.map((row) => `
-                <button type="button" class="stack-item stack-item-button ${row.is_production_critical ? "critical-item" : ""}" data-risky-asset="${escapeHtml(row.asset_code)}">
-                    <div>
-                        <strong>${escapeHtml(translateDisplayText(row.asset_name))}</strong>
-                        <div class="insight-meta">${escapeHtml(row.priority)} | ${escapeHtml(row.status)}</div>
-                    </div>
-                    <strong>${escapeHtml(translateDisplayText(row.category || "--"))}</strong>
-                </button>
-            `).join("")
-            : '<div class="empty-state-block">No open high-risk equipment items.</div>';
-        target.querySelectorAll("[data-risky-asset]").forEach((button) => {
-            button.addEventListener("click", async () => {
-                state.hasAppliedListFilters = true;
-                state.search = button.dataset.riskyAsset || "";
-                const input = document.getElementById("filter-search");
-                if (input) input.value = state.search;
-                await loadList();
-            });
-        });
-    }
-
     async function loadMonthlyDetail() {
         const target = document.getElementById("monthly-detail-list");
         const title = document.getElementById("monthly-detail-title");
@@ -883,19 +1116,22 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!target) return;
 
         const status = state.monthStatusView || "all";
+        const isUtilityWithInspectionOverride = state.activeView !== "equipment" && state.monthlyInspectionFilter !== "all";
         const params = new URLSearchParams({
             month: state.selectedMonth,
             year: String(state.year),
             status,
             category: state.monthlyCategoryFilter,
             location: state.monthlyLocationFilter,
-            inspection: state.monthlyInspectionFilter,
+            inspection: isUtilityWithInspectionOverride ? "all" : state.monthlyInspectionFilter,
             search: "",
             sort: "due_date_asc",
         });
 
         const payload = await fetchJson(`${getApiBase()}/list?${params.toString()}`);
-        const rows = payload?.rows || [];
+        const rows = isUtilityWithInspectionOverride
+            ? filterUtilityInspectionRows(payload?.rows || [], state.monthlyInspectionFilter)
+            : (payload?.rows || []);
 
         const statusLabelMap = {
             all: "All",
@@ -908,7 +1144,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const categoryLabel = state.monthlyCategoryFilter !== "all" ? translateDisplayText(state.monthlyCategoryFilter) : null;
         const locationLabel = state.monthlyLocationFilter !== "all" ? translateDisplayText(state.monthlyLocationFilter) : null;
         const inspectionLabel = state.monthlyInspectionFilter === "inspection"
-            ? "With Additional Steps"
+            ? "Normal Checklist with Additional Checks"
             : state.monthlyInspectionFilter === "standard"
             ? "Normal Checklist"
             : null;
@@ -973,13 +1209,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        const isUtilityWithInspectionOverride = state.activeView !== "equipment" && state.inspectionFilter !== "all";
         const params = new URLSearchParams({
             month: state.listMonthFilter || state.selectedMonth,
             year: String(state.year),
             status: state.statusFilter,
             category: state.categoryFilter,
             location: state.locationFilter,
-            inspection: state.inspectionFilter,
+            inspection: isUtilityWithInspectionOverride ? "all" : state.inspectionFilter,
             search: state.search,
             sort: state.sort,
             aggregate: "asset",
@@ -989,7 +1226,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         const payload = await fetchJson(`${getApiBase()}/list?${params.toString()}`);
-        const rows = payload?.rows || [];
+        const rows = isUtilityWithInspectionOverride
+            ? filterUtilityInspectionRows(payload?.rows || [], state.inspectionFilter)
+            : (payload?.rows || []);
 
         if (!rows.length) {
             body.innerHTML = `<tr><td colspan="${maintenanceColumnCount}" class="empty-row">No maintenance records match the current filters.</td></tr>`;
@@ -1160,7 +1399,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const node = document.getElementById(id);
         if (!node) return;
         const label = state.activeView === "equipment" ? "No. of machine" : "No. of utilities";
-        node.innerHTML = `${escapeHtml(formatInteger(value))}<span class="summary-subtext">${escapeHtml(label)}</span>`;
+        node.innerHTML = `<span class="summary-metric-number">${escapeHtml(formatInteger(value))}</span><span class="summary-subtext">${escapeHtml(label)}</span>`;
     }
 
     function formatInteger(value) {
@@ -1236,7 +1475,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderInspectionSubtext(row) {
         if (!row?.inspection_required) return "";
-        return `<span class="table-subtext">${escapeHtml(row.inspection_label || "Additional steps required beyond the normal checklist")}</span>`;
+        return `<span class="table-subtext">${escapeHtml(row.inspection_label || "Additional checks required beyond the normal checklist")}</span>`;
     }
 
     function formatScheduledWeek(row) {

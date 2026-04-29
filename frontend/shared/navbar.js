@@ -1,3 +1,25 @@
+/* ===== PAGE POSITION ===== */
+function resetDashboardScrollPosition() {
+    if (window.location.hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+}
+
+if ('scrollRestoration' in window.history) {
+    window.history.scrollRestoration = 'manual';
+}
+
+resetDashboardScrollPosition();
+document.addEventListener('DOMContentLoaded', () => {
+    resetDashboardScrollPosition();
+    window.setTimeout(resetDashboardScrollPosition, 100);
+    window.setTimeout(resetDashboardScrollPosition, 500);
+});
+window.addEventListener('pageshow', resetDashboardScrollPosition);
+window.addEventListener('load', () => {
+    resetDashboardScrollPosition();
+    window.setTimeout(resetDashboardScrollPosition, 0);
+});
+
 /* ===== REAL-TIME CLOCK ===== */
 function updateClock() {
     const clock = document.getElementById('clock');

@@ -26,6 +26,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchJson(url) { return (await fetch(url)).json(); }
 
+    function classifyIndividualChlorine(value) {
+        const val = Number(value);
+        if (!Number.isFinite(val)) return "UNAVAILABLE";
+        if (val < 0.2 || val > 1.2) return "WARNING";
+        if (val < 0.5 || val > 1.0) return "ATTENTION";
+        return "NORMAL";
+    }
+
+    function classifyPressureDeviation(data) {
+        if (!Array.isArray(data) || data.length === 0) return "UNAVAILABLE";
+        const values = data.map(d => Number(d.bar)).filter(Number.isFinite);
+        if (values.length < 6) return "NORMAL";
+        const latest = values[values.length - 1];
+        const baselineValues = values.slice(0, -1);
+        const baseline = baselineValues.reduce((sum, value) => sum + value, 0) / baselineValues.length;
+        if (!Number.isFinite(baseline) || baseline <= 0) return "NORMAL";
+        const deviation = Math.abs(latest - baseline) / baseline;
+        if (deviation > 0.30) return "WARNING";
+        if (deviation > 0.20) return "ATTENTION";
+        return "NORMAL";
+    }
+
+    function applyKpiStatus(el, status, baseClass = "kpi-status") {
+        if (!el) return;
+        el.textContent = status;
+        el.className = status === "NORMAL" ? `${baseClass} pos` : status === "UNAVAILABLE" ? `${baseClass} unavailable` : `${baseClass} neg`;
+    }
+
     // ── DATA LOADERS ─────────────────────────────────────────────────────────
 
     async function loadWTPData() {
@@ -47,14 +75,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const clStatusEl = document.getElementById("kpi-chlorine-status");
             if (data.length > 0) {
                 const val = data[data.length - 1].mg;
-                const isAttention = val < 0.5 || val > 1.0;
+                const status = classifyIndividualChlorine(val);
                 if (statusEl) {
-                    statusEl.textContent = isAttention ? "ATTENTION" : "NORMAL";
-                    statusEl.className   = isAttention ? "kpi-value neg" : "kpi-value pos";
+                    applyKpiStatus(statusEl, status, "kpi-value");
                 }
                 if (clStatusEl) {
-                    clStatusEl.textContent = isAttention ? "ATTENTION" : "NORMAL";
-                    clStatusEl.className   = isAttention ? "kpi-status neg" : "kpi-status pos";
+                    applyKpiStatus(clStatusEl, status);
                 }
             } else {
                 if (statusEl)   { statusEl.textContent = "UNAVAILABLE";   statusEl.className   = "kpi-value unavailable"; }
@@ -69,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const statusEl = document.getElementById("kpi-pressure-status");
             if (data.length > 0) {
                 document.getElementById("kpi-ro-pres").textContent = data[data.length - 1].bar.toFixed(1);
-                if (statusEl) { statusEl.textContent = "NORMAL"; statusEl.className = "kpi-status pos"; }
+                applyKpiStatus(statusEl, classifyPressureDeviation(data));
             } else {
                 document.getElementById("kpi-ro-pres").textContent = "--";
                 if (statusEl) { statusEl.textContent = "UNAVAILABLE"; statusEl.className = "kpi-status unavailable"; }

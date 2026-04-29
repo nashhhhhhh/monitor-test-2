@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="/shared/navbar.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260427-spare-parts-onhand-2">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -30,8 +30,8 @@
             <button type="button" class="toggle-btn active" data-view-tab="overview">Overview</button>
             <button type="button" class="toggle-btn" data-view-tab="utility">Utility</button>
             <button type="button" class="toggle-btn" data-view-tab="equipment">Equipment</button>
+            <button type="button" class="toggle-btn" data-view-tab="spare_parts">Spare Parts</button>
             <button type="button" class="toggle-btn" data-view-tab="downtime">Downtime</button>
-            <button type="button" class="toggle-btn toggle-btn-wip" data-view-tab="non_scheduled">Non-Scheduled <span class="toggle-badge">WIP</span></button>
         </section>
 
         <section id="overview-view" class="maintenance-view">
@@ -60,6 +60,50 @@
                     <span class="summary-label">Tasks Pending Follow-Up</span>
                     <strong id="overview-follow-up-tasks">--</strong>
                 </article>
+            </section>
+
+            <section class="card-shell overview-mix-card">
+                <div class="section-head">
+                    <div>
+                        <h2>Preventive vs Corrective Maintenance</h2>
+                        <p class="section-subtitle">Scheduled preventive maintenance baseline compared with corrective work orders for the selected month</p>
+                    </div>
+                    <div class="mix-card-actions">
+                        <label class="control-field compact-field maintenance-mix-month-field">
+                            <span>Chart Month</span>
+                            <select id="maintenance-mix-month"></select>
+                        </label>
+                        <div class="mix-ratio-summary">
+                            <span id="mix-preventive-ratio">Ratio --</span>
+                            <span id="mix-corrective-ratio">Status --</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="overview-mix-layout">
+                    <div class="overview-chart-wrap">
+                        <canvas id="overview-maintenance-mix-chart"></canvas>
+                        <div id="overview-maintenance-mix-empty" class="chart-empty-state" hidden>No preventive or corrective maintenance records available for this month.</div>
+                    </div>
+                    <div class="mix-breakdown">
+                        <article>
+                            <span>Preventive Scheduled</span>
+                            <strong id="mix-preventive-count">0</strong>
+                        </article>
+                        <article>
+                            <span>Corrective Work Orders</span>
+                            <strong id="mix-corrective-count">0</strong>
+                        </article>
+                        <article>
+                            <span>Variance</span>
+                            <strong id="mix-variance-count">0</strong>
+                        </article>
+                        <article>
+                            <span>Performance</span>
+                            <strong id="mix-performance-status">--</strong>
+                        </article>
+                        <p id="mix-total-note" class="mix-total-note">No preventive or corrective maintenance records available for comparison</p>
+                    </div>
+                </div>
             </section>
 
             <section class="card-shell filter-card">
@@ -102,22 +146,68 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Equipment / Utility Name</th>
-                                <th>Category</th>
-                                <th>Preventive Maintenance Required</th>
+                                <th>Date of Maintenance</th>
+                                <th>Machine</th>
+                                <th>PM Type</th>
                                 <th>Status</th>
-                                <th>Date Provided</th>
                                 <th>Person In Charge</th>
-                                <th>Inspection Required</th>
-                                <th>Follow-Up Status</th>
+                                <th>Additional Inspection</th>
+                                <th>Follow Up on Inspection</th>
                             </tr>
                         </thead>
                         <tbody id="overview-table-body">
-                            <tr><td colspan="9" class="empty-row">Loading maintenance overview.</td></tr>
+                            <tr><td colspan="7" class="empty-row">Loading maintenance overview.</td></tr>
                         </tbody>
                     </table>
                 </div>
+            </section>
+        </section>
+
+        <section id="spare-parts-view" class="maintenance-view hidden">
+            <section class="summary-grid spare-summary-grid">
+                <article class="summary-card summary-card-kpi summary-card-blue"><span class="summary-label">Tracked Spare Parts</span><strong id="spare-total-records">--</strong></article>
+            </section>
+
+            <section class="secondary-grid spare-source-grid">
+                <article class="card-shell insight-card">
+                    <span class="insight-label">Planned vs Urgent</span>
+                    <strong id="spare-urgency-count">--</strong>
+                </article>
+                <article class="card-shell insight-card">
+                    <span class="insight-label">Inventory / On-hand vs Parts Bought Externally</span>
+                    <strong id="spare-source-quantity">--</strong>
+                </article>
+            </section>
+
+            <section class="spare-chart-grid">
+                <article class="card-shell timeline-card">
+                    <div class="section-head">
+                        <div>
+                            <h2>Planned vs Urgent Spare Parts</h2>
+                            <p class="section-subtitle">Planned inventory parts compared with urgent parts on critical machines</p>
+                        </div>
+                    </div>
+                    <div class="timeline-chart-wrap spare-chart-wrap">
+                        <canvas id="spare-urgency-chart"></canvas>
+                    </div>
+                </article>
+                <article class="card-shell timeline-card">
+                    <div class="section-head">
+                        <div>
+                            <h2>Inventory / On-hand vs Parts Bought Externally</h2>
+                            <p class="section-subtitle">Dynamics export on-hand part count compared with Gen PO parts-bought-externally count</p>
+                        </div>
+                        <label class="control-field compact-field">
+                            <span>Year</span>
+                            <select id="spare-source-year-filter">
+                                <option value="all">All Years</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="timeline-chart-wrap spare-chart-wrap">
+                        <canvas id="spare-source-chart"></canvas>
+                    </div>
+                </article>
             </section>
         </section>
 
@@ -213,14 +303,6 @@
                         <button type="button" class="status-chip" data-breakdown-mode="inspection" id="breakdown-inspection-chip">Additional Steps</button>
                     </div>
                     <div id="monthly-breakdown-list" class="stack-list empty-state-block">No maintenance data available.</div>
-                    <div class="equipment-only compact-top-space">
-                        <div class="section-head">
-                            <div>
-                                <h2 class="compact-title">Top Risky Equipment</h2>
-                            </div>
-                        </div>
-                        <div id="top-risky-equipment-list" class="stack-list empty-state-block">No open high-risk equipment items.</div>
-                    </div>
                 </article>
             </section>
 
@@ -292,14 +374,6 @@
             </section>
         </section>
 
-        <section id="non-scheduled-view" class="maintenance-view hidden">
-            <section class="card-shell placeholder-card wip-placeholder-card">
-                <span class="status-pill wip-pill">Coming Soon</span>
-                <p>Non-Scheduled Maintenance</p>
-                <span class="placeholder-note">This tab is reserved for future reactive maintenance integration. No live maintenance overview data is shown here yet.</span>
-            </section>
-        </section>
-
     </main>
 
     <script src="/shared/navbar.js"></script>
@@ -314,6 +388,6 @@
             })
             .catch(err => console.error(err));
     </script>
-    <script src="script.js" defer></script>
+    <script src="script.js?v=20260427-spare-parts-onhand-2" defer></script>
 </body>
 </html>

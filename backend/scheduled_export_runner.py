@@ -11,8 +11,8 @@ from export_live_dashboard_data import export_dashboard_sheets
 
 # Daily export time in 24-hour local time.
 # Edit these values if you want the built-in scheduler to run at a different time.
-SCHEDULE_HOUR = 0
-SCHEDULE_MINUTE = 5
+SCHEDULE_HOUR = 8
+SCHEDULE_MINUTE = 0
 
 # How often the runner wakes up to check whether it is time to export.
 CHECK_INTERVAL_SECONDS = 30

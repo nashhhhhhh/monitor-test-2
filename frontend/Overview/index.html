@@ -40,25 +40,26 @@
 
         <section class="downtime-strip" id="downtime-kpis">
             <div class="dt-card dt-red">
-                <div class="dt-label">Total Downtime Today</div>
+                <div class="dt-label" id="dt-total-label">Downtime This Month</div>
                 <div class="dt-value" id="dt-total">--</div>
-                <div class="dt-sub">All systems combined</div>
+                <div class="dt-sub" id="dt-total-sub">From latest imported month</div>
+                <div class="dt-sub" id="dt-total-trend">No previous month comparison</div>
             </div>
             <div class="dt-card dt-amber">
-                <div class="dt-label">Downtime Events</div>
+                <div class="dt-label" id="dt-events-label">Average MTTR</div>
                 <div class="dt-value" id="dt-events">--</div>
-                <div class="dt-sub">Incidents recorded today</div>
+                <div class="dt-sub" id="dt-events-sub">From work order TTR</div>
             </div>
             <div class="dt-card dt-green">
-                <div class="dt-label">Overall Uptime</div>
-                <div class="dt-value" id="dt-uptime">--%</div>
-                <div class="dt-sub">All systems today</div>
+                <div class="dt-label" id="dt-period-label">Preventive vs Corrective</div>
+                <div class="dt-value" id="dt-period">--</div>
+                <div class="dt-sub" id="dt-period-sub">Current month</div>
             </div>
-            <a class="dt-card dt-link" href="/Downtime/index.html">
-                <div class="dt-label">Reliability Details</div>
-                <div class="dt-value dt-value-sm">View Report</div>
-                <div class="dt-sub">→ Downtime page</div>
-            </a>
+            <div class="dt-card dt-purple" id="dt-critical-card">
+                <div class="dt-label" id="dt-critical-label">Active Critical Issues</div>
+                <div class="dt-value" id="dt-critical">--</div>
+                <div class="dt-sub" id="dt-critical-sub">Checking active system status</div>
+            </div>
         </section>
 
         <section class="health-grid" id="health-tiles">
@@ -83,7 +84,7 @@
     </script>
 
     <script src="/Lighting/utils.js"></script>
-    <script src="script.js" defer></script>
+    <script src="script.js?v=20260428-fe-overview-1" defer></script>
 
 </body>
 </html>

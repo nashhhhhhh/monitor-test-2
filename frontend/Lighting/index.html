@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <link rel="stylesheet" href="/shared/navbar.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260428-lighting-map-11">
 </head>
 <body data-sync-page="lighting">
     <div id="navbar"></div>
@@ -64,19 +64,33 @@
             </article>
         </section>
 
+        <section class="panel lighting-floorplan-panel">
+            <div class="lighting-energy-head">
+                <div>
+                    <p class="panel-kicker">Floorplan Coverage</p>
+                    <h2>Lighting Area Availability Map</h2>
+                </div>
+                <div class="lighting-scope-badge">Map + Availability</div>
+            </div>
+            <div class="lighting-floorplan-grid">
+                <div class="lighting-floorplan-stage">
+                    <img src="/Lighting/assets/lighting-floorplan-zones.png" alt="Lighting area floorplan with highlighted zones">
+                    <div class="lighting-floorplan-markers" id="lighting-floorplan-markers"></div>
+                </div>
+                <aside class="lighting-zone-sidecard">
+                    <div class="lighting-zone-sidehead">
+                        <h3>Zone Register</h3>
+                        <span class="lighting-zone-meta" id="lighting-zone-meta">0 configured zones</span>
+                    </div>
+                    <div class="lighting-zone-list" id="lighting-zone-list"></div>
+                </aside>
+            </div>
+        </section>
+
         <section class="control-panel">
             <div class="control-group control-search">
                 <label for="lighting-search">Search Fixtures</label>
                 <input id="lighting-search" type="text" placeholder="Search fixture, area, or circuit">
-            </div>
-            <div class="control-group">
-                <label for="status-filter">Status</label>
-                <select id="status-filter">
-                    <option value="all">All Statuses</option>
-                    <option value="healthy">Healthy</option>
-                    <option value="warning">Warning</option>
-                    <option value="critical">Critical</option>
-                </select>
             </div>
             <div class="control-group">
                 <label>Areas</label>
@@ -92,60 +106,6 @@
             </div>
         </section>
 
-        <section class="panel lighting-energy-panel">
-            <div class="lighting-energy-head">
-                <div>
-                    <p class="panel-kicker">Lighting Consumption Only</p>
-                    <h2>Lighting Notional Energy Overview</h2>
-                    <p class="lighting-energy-caption">This module reflects lighting fixtures only and excludes other electrical loads on the MDB network.</p>
-                </div>
-                <div class="lighting-scope-badge">Lighting Only</div>
-            </div>
-            <div class="lighting-energy-grid">
-                <div class="lighting-energy-overview">
-                    <div class="lighting-energy-copy">
-                        <div class="lighting-energy-value" id="lighting-energy-total">-- kWh</div>
-                        <div class="lighting-energy-meta" id="lighting-energy-health-meta">--</div>
-                        <div class="lighting-energy-note" id="lighting-energy-top-area">--</div>
-                    </div>
-                    <div class="chart-wrap compact">
-                        <canvas id="lighting-area-energy-chart"></canvas>
-                    </div>
-                </div>
-                <div class="lighting-energy-breakdowns">
-                    <article class="lighting-breakdown-card">
-                        <div class="lighting-breakdown-title">Area-wise Lighting Energy</div>
-                        <div class="lighting-breakdown-list" id="lighting-energy-breakdown"></div>
-                    </article>
-                    <article class="lighting-breakdown-card">
-                        <div class="lighting-breakdown-title">Circuit-wise Lighting Energy</div>
-                        <div class="lighting-breakdown-list" id="lighting-circuit-breakdown"></div>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section class="chart-grid">
-            <article class="panel">
-                <div class="panel-head">
-                    <div>
-                        <p class="panel-kicker">Area Health</p>
-                        <h2>Average fixture health by area</h2>
-                    </div>
-                </div>
-                <div class="chart-wrap"><canvas id="area-health-chart"></canvas></div>
-            </article>
-            <article class="panel">
-                <div class="panel-head">
-                    <div>
-                        <p class="panel-kicker">Lowest Health Fixtures</p>
-                        <h2>Priority replacement candidates</h2>
-                    </div>
-                </div>
-                <div class="chart-wrap"><canvas id="lowest-health-chart"></canvas></div>
-            </article>
-        </section>
-
         <section class="area-list-section">
             <div class="area-sections" id="area-sections"></div>
         </section>
@@ -158,6 +118,6 @@
             .then(html => document.getElementById('navbar').innerHTML = html);
     </script>
     <script src="utils.js"></script>
-    <script src="script.js" defer></script>
+    <script src="script.js?v=20260428-lighting-map-11" defer></script>
 </body>
 </html>

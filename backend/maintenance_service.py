@@ -11,6 +11,7 @@ from pathlib import Path
 
 import openpyxl
 import pandas as pd
+from openpyxl.styles.colors import COLOR_INDEX
 
 
 MAINTENANCE_WORKBOOK_PATH = Path(
@@ -28,8 +29,168 @@ EQUIPMENT_MAINTENANCE_WORKBOOK_PATH = Path(
 )
 EQUIPMENT_MAINTENANCE_COPY_PATH = Path(__file__).resolve().parent.parent / "data" / "equipment_maintenance_source_copy.xlsx"
 EQUIPMENT_MAINTENANCE_CACHE_PATH = Path(__file__).resolve().parent.parent / "data" / "equipment_maintenance_cache.json"
+MONTHLY_WORK_ORDER_FILES = {
+    "2026-01": Path(__file__).resolve().parent.parent / "data" / "work_orders_january.csv",
+    "2026-02": Path(__file__).resolve().parent.parent / "data" / "work_orders_february.csv",
+    "2026-03": Path(__file__).resolve().parent.parent / "data" / "work_orders_march.csv",
+}
+UTILITY_MAINTENANCE_CACHE_VERSION = 2
 EQUIPMENT_MAINTENANCE_CACHE_VERSION = 4
-ADDITIONAL_STEPS_LABEL = "Additional steps required beyond the normal checklist"
+ADDITIONAL_STEPS_LABEL = "Additional checks required beyond the normal checklist"
+INSPECTION_GROUP_LABEL = "Normal Checklist with Additional Checks"
+STANDARD_GROUP_LABEL = "Normal Checklist"
+CORRECTIVE_TYPE_KEYWORDS = (
+    "corrective",
+    "reactive",
+    "breakdown",
+    "repair",
+    "unscheduled",
+)
+CORRECTIVE_DESCRIPTION_KEYWORDS = (
+    "breakdown",
+    "fault",
+    "repair",
+    "failure",
+    "urgent",
+    "unscheduled",
+    "corrective",
+    "leak",
+    "broken",
+    "damage",
+    "abnormal",
+    "not working",
+    "error",
+    "alarm",
+    "trip",
+    "jam",
+    "stuck",
+    "clog",
+    "block",
+    "pressure drop",
+    "emergency",
+    "emergencia",
+)
+WORK_ORDER_DATE_COLUMNS = (
+    "work_order_date",
+    "Work Order Date",
+    "wo_date",
+    "WO Date",
+    "request_date",
+    "Request Date",
+    "created_at",
+    "Created At",
+    "created_date",
+    "Created Date",
+    "date",
+    "Date",
+    "start_date",
+    "Start Date",
+    "end_date",
+    "End Date",
+    "start_time",
+    "Start Time",
+    "end_time",
+    "End Time",
+    "Start",
+    "End",
+    "maintenance_start_time",
+    "Maintenance Start Time",
+    "Maintenance Start Date",
+    "maintenance_end_time",
+    "Maintenance End Time",
+    "Maintenance End Date",
+)
+
+# Screenshot-derived fallback markers for utility schedules.
+# These are used when the workbook formatting is unreliable but the red PM cells
+# are clearly visible in the source schedule images.
+UTILITY_INSPECTION_TEMPLATE_OVERRIDES = {
+    "UL-TN-01": [(1, "first")],
+    "UL-TN-02": [(1, "first")],
+    "UL-HB-01": [(10, "first")],
+    "UL-BL-01": [(10, "first")],
+    "UL-BL-02": [(10, "first")],
+    "UL-AC-01": [(10, "first")],
+    "UL-AC-02": [(10, "first")],
+    "UL-AD-01": [(10, "second")],
+    "UL-SF-01": [(10, "second")],
+    "UL-SF-02": [(10, "second")],
+    "UL-CF-01": [(10, "second")],
+    "UL-CF-02": [(10, "second")],
+    "UL-RS-01": [(10, "third")],
+    "UL-RS-02": [(10, "third")],
+    "UL-DP-01": [(10, "third")],
+    "UL-DP-02": [(10, "third")],
+    "UL-TP-01": [(10, "third")],
+    "UL-TP-02": [(10, "fourth")],
+    "UL-TP-03": [(10, "fourth")],
+    "UL-TP-04": [(10, "fourth")],
+    "UL-IN-01": [(10, "last")],
+    "UL-IN-02": [(10, "last")],
+    "UL-IN-03": [(11, "first")],
+    "UL-IN-04": [(11, "first")],
+    "UL-EX-01": [(11, "first")],
+    "UL-EX-02": [(11, "first")],
+    "UL-EX-03": [(11, "first")],
+    "UL-EX-04": [(11, "second")],
+    "UL-EX-05": [(11, "second")],
+    "UL-EX-06": [(11, "second")],
+    "UL-EX-07": [(11, "second")],
+    "UL-EX-08": [(11, "second")],
+    "UL-EX-09": [(11, "third")],
+    "UL-MDB-01": [(12, "third")],
+    "UL-MDB-02": [(12, "third")],
+    "UL-MDB-03": [(12, "third")],
+    "UL-MDB-04": [(12, "third")],
+    "UL-MDB-05": [(12, "third")],
+    "UL-TR-01": [(12, "second")],
+    "UL-TR-02": [(12, "second")],
+    "UL-TR-03": [(12, "second")],
+    "UL-TR-04": [(12, "second")],
+    "UL-TR-05": [(12, "second")],
+    "UL-LPG-01": [(12, "last")],
+    "UL-LPG-02": [(12, "last")],
+    "UL-LPG-03": [(12, "last")],
+    "UL-VP-01": [(12, "last")],
+    "UL-VP-02": [(12, "last")],
+    "UL-HD-01": [(11, "third")],
+    "UL-HD-02": [(11, "third")],
+    "UL-HD-03": [(11, "third")],
+    "UL-HD-04": [(11, "third")],
+    "UL-HD-05": [(11, "fourth")],
+    "UL-AB-02": [(11, "fourth")],
+    "UL-AB-03": [(11, "fourth")],
+    "UL-AB-04": [(11, "fourth")],
+    "UL-SP--01": [(11, "fourth")],
+    "UL-SP--02": [(11, "fourth")],
+    "UL-SP--03": [(11, "fourth")],
+    "UL-SP--04": [(11, "fourth")],
+    "UL-SP--05": [(11, "fourth")],
+    "UL-SP--06": [(11, "fourth")],
+    "UL-SP--07": [(12, "first")],
+    "UL-SP--08": [(12, "first")],
+    "UL-TR-01": [(12, "first"), (12, "second")],
+    "UL-TR-02": [(12, "first"), (12, "second")],
+    "UL-TR-03": [(12, "first"), (12, "second")],
+    "UL-TR-04": [(12, "first"), (12, "second")],
+    "UL-TR-05": [(12, "first"), (12, "second")],
+    "UL-FP-01": [(5, "last"), (11, "last")],
+    "UL-RO-01": [(5, "last"), (11, "last")],
+    "UL-UV-01": [(5, "last"), (11, "last")],
+    "UL-UV-02": [(5, "last"), (11, "last")],
+    "UL-UV-03": [(5, "last"), (11, "last")],
+    "UL-WH-01": [(12, "last")],
+    "UL-WH-02": [(12, "last")],
+    "UL-DR-01": [(12, "last")],
+    "UL-DR-02": [(12, "last")],
+    "UL-PP-01": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+    "UL-PP-02": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+    "UL-PP-03": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+    "UL-PP-04": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+    "UL-PP-05": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+    "UL-PP-06": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+    "UL-PP-07": [(3, "last"), (6, "last"), (9, "last"), (12, "last")],
+}
 
 _MAINTENANCE_CACHE = {}
 
@@ -378,6 +539,14 @@ def get_cell_color_rgb(color) -> str | None:
             return rgb.upper()
     except Exception:
         pass
+    try:
+        indexed = color.indexed
+        if indexed is not None and 0 <= int(indexed) < len(COLOR_INDEX):
+            indexed_color = COLOR_INDEX[int(indexed)]
+            if isinstance(indexed_color, str):
+                return indexed_color.upper()
+    except Exception:
+        pass
     return None
 
 
@@ -404,33 +573,60 @@ def iso_week_start(year: int, week_number: int) -> date:
 
 
 def build_schedule_column_templates(frame: pd.DataFrame, header_row: int, skip_columns: set[int]) -> list[dict]:
-    templates = []
+    def has_week_marker(value) -> bool:
+        parsed = parse_week_token(value)
+        if parsed:
+            return True
+
+        text = clean_text(value)
+        if not text:
+            return False
+
+        return bool(re.fullmatch(r"\d{1,2}", text))
+
+    month_columns: dict[int, list[int]] = {}
     current_month = None
+    header_scan_rows = min(frame.shape[0], header_row + 2)
 
     for column_index in range(frame.shape[1]):
         if column_index in skip_columns:
             continue
 
         month_number = None
-        week_key = None
-        for row_index in range(header_row + 1):
+        column_has_week_marker = False
+        for row_index in range(header_scan_rows):
             cell_value = frame.iat[row_index, column_index]
             parsed_month = parse_month_token(cell_value)
             if parsed_month:
                 month_number = parsed_month
-
-            parsed_week = parse_week_token(cell_value)
-            if parsed_week:
-                week_key = parsed_week
+            if has_week_marker(cell_value):
+                column_has_week_marker = True
 
         if month_number:
             current_month = month_number
 
-        if current_month and week_key:
+        if current_month and column_has_week_marker:
+            month_columns.setdefault(current_month, []).append(column_index)
+
+    templates = []
+    for month_number, columns in month_columns.items():
+        total_columns = len(columns)
+        for position, column_index in enumerate(columns, start=1):
+            if position == total_columns:
+                week_key = "last"
+            elif position == 1:
+                week_key = "first"
+            elif position == 2:
+                week_key = "second"
+            elif position == 3:
+                week_key = "third"
+            else:
+                week_key = "fourth"
+
             templates.append(
                 {
                     "column_index": column_index,
-                    "month": current_month,
+                    "month": month_number,
                     "target_week": week_key,
                 }
             )
@@ -448,10 +644,10 @@ def extract_utility_inspection_templates(worksheet, frame: pd.DataFrame, sheet_n
         return {}
 
     inspection_map = {}
-    data_start_row = header_row + 2
-    for row_offset, row in enumerate(frame.iloc[header_row + 1 :].itertuples(index=False), start=data_start_row):
-        asset_code = normalize_asset_code(row[1] if len(row) > 1 else None)
-        asset_name_raw = clean_text(row[2] if len(row) > 2 else None)
+    for frame_row_index, row in frame.iloc[4:].iterrows():
+        worksheet_row = int(frame_row_index) + 1
+        asset_code = normalize_asset_code(row.iloc[1] if len(row) > 1 else None)
+        asset_name_raw = clean_text(row.iloc[2] if len(row) > 2 else None)
 
         if not asset_code or not asset_name_raw or not asset_code.startswith("UL-"):
             continue
@@ -459,7 +655,7 @@ def extract_utility_inspection_templates(worksheet, frame: pd.DataFrame, sheet_n
         templates_for_asset = []
         for template in templates:
             column_number = int(template["column_index"]) + 1
-            cell = worksheet.cell(row_offset, column_number)
+            cell = worksheet.cell(worksheet_row, column_number)
             if not has_red_indicator(cell):
                 continue
             templates_for_asset.append(
@@ -475,6 +671,40 @@ def extract_utility_inspection_templates(worksheet, frame: pd.DataFrame, sheet_n
             inspection_map[asset_code] = templates_for_asset
 
     return inspection_map
+
+
+def apply_utility_inspection_overrides(asset_code: str, inspection_templates: list[dict] | None):
+    templates = list(inspection_templates or [])
+    existing_keys = {(item.get("month"), item.get("target_week")) for item in templates}
+    for month_value, week_value in UTILITY_INSPECTION_TEMPLATE_OVERRIDES.get(asset_code, []):
+        key = (month_value, week_value)
+        if key in existing_keys:
+            continue
+        templates.append(
+            {
+                "month": month_value,
+                "target_week": week_value,
+                "inspection_required": True,
+                "inspection_label": ADDITIONAL_STEPS_LABEL,
+            }
+        )
+        existing_keys.add(key)
+    return templates
+
+
+def utility_override_requires_inspection(asset_code: str, scheduled_date: date, target_week: str | None = None) -> bool:
+    code = clean_text(asset_code)
+    if not code:
+        return False
+    month_value = scheduled_date.month
+    week_value = get_scheduled_week_key(scheduled_date)
+    return any(
+        override_month == month_value and (
+            (target_week == "every_week" and override_week == week_value)
+            or target_week != "every_week"
+        )
+        for override_month, override_week in UTILITY_INSPECTION_TEMPLATE_OVERRIDES.get(code.upper(), [])
+    )
 
 
 def extract_equipment_assets(worksheet, sheet_name: str, year: int):
@@ -1121,6 +1351,21 @@ def get_sheet_due_dates(year: int, month: int, target_week: str):
     return [date(year, month, monday_days[week_index - 1])]
 
 
+def get_scheduled_week_key(target_date: date) -> str:
+    due_dates = get_sheet_due_dates(target_date.year, target_date.month, "every_week")
+    if not due_dates:
+        return ""
+    if target_date == due_dates[-1]:
+        return "last"
+    if target_date == due_dates[0]:
+        return "first"
+    if len(due_dates) > 1 and target_date == due_dates[1]:
+        return "second"
+    if len(due_dates) > 2 and target_date == due_dates[2]:
+        return "third"
+    return "fourth"
+
+
 def get_month_key(year: int, month: int) -> str:
     return f"{year:04d}-{month:02d}"
 
@@ -1165,7 +1410,7 @@ def copy_asset(asset):
 
 
 def load_utility_asset_source():
-    signature = get_file_signature(MAINTENANCE_WORKBOOK_PATH)
+    signature = (UTILITY_MAINTENANCE_CACHE_VERSION, get_file_signature(MAINTENANCE_WORKBOOK_PATH))
     cached = _MAINTENANCE_CACHE.get("asset_source")
     if cached and cached["signature"] == signature:
         return cached["data"]
@@ -1198,7 +1443,10 @@ def load_utility_asset_source():
             inspection_map = extract_utility_inspection_templates(worksheet, frame, sheet_name) if worksheet is not None else {}
 
             for asset in extract_schedule_assets(frame, sheet_name):
-                asset["inspection_templates"] = inspection_map.get(asset["asset_code"], [])
+                asset["inspection_templates"] = apply_utility_inspection_overrides(
+                    asset["asset_code"],
+                    inspection_map.get(asset["asset_code"], []),
+                )
                 code = asset["asset_code"]
                 if code not in merged_assets:
                     merged_assets[code] = asset
@@ -1278,6 +1526,12 @@ def build_occurrence(asset, scheduled_date: date, today: date):
         None,
     )
     inspection_required = bool(inspection_template and inspection_template.get("inspection_required"))
+    if not inspection_required:
+        inspection_required = utility_override_requires_inspection(
+            asset.get("asset_code"),
+            scheduled_date,
+            asset.get("target_week"),
+        )
     inspection_label = ADDITIONAL_STEPS_LABEL if inspection_required else None
 
     return {
@@ -1332,7 +1586,7 @@ def build_utility_dataset(year: int | None = None):
     active_year = int(year or today.year)
     cache_key = f"utility_dataset:{active_year}"
     source_data = load_utility_asset_source()
-    signature = (get_file_signature(MAINTENANCE_WORKBOOK_PATH), active_year)
+    signature = (UTILITY_MAINTENANCE_CACHE_VERSION, get_file_signature(MAINTENANCE_WORKBOOK_PATH), active_year)
     cached = _MAINTENANCE_CACHE.get(cache_key)
     if cached and cached["signature"] == signature:
         return cached["data"]
@@ -1780,12 +2034,10 @@ def build_monthly_payload(month_value: str | None = None, year: int | None = Non
 
     inspection_groups = []
     inspection_group_configs = [
-        ("inspection", "With Additional Steps", [item for item in month_items if item.get("inspection_required")]),
-        ("standard", "Normal Checklist", [item for item in month_items if not item.get("inspection_required")]),
+        ("inspection", INSPECTION_GROUP_LABEL, [item for item in month_items if item.get("inspection_required")]),
+        ("standard", STANDARD_GROUP_LABEL, [item for item in month_items if not item.get("inspection_required")]),
     ]
     for inspection_value, inspection_label, items in inspection_group_configs:
-        if not items:
-            continue
         inspection_groups.append(
             {
                 "inspection": inspection_value,
@@ -1950,8 +2202,8 @@ def build_filter_payload(year: int | None = None):
         "locations": sorted({asset.get("location_display") or "Unknown" for asset in dataset["assets"]}),
         "inspection_options": [
             {"value": "all", "label": "All Maintenance"},
-            {"value": "inspection", "label": "With Additional Steps"},
-            {"value": "standard", "label": "Normal Checklist"},
+            {"value": "inspection", "label": INSPECTION_GROUP_LABEL},
+            {"value": "standard", "label": STANDARD_GROUP_LABEL},
         ],
         "asset_codes": sorted({asset["asset_code"] for asset in dataset["assets"]}),
         "status_options": [
@@ -2242,12 +2494,10 @@ def _build_monthly_payload_from_dataset(dataset, month_value: str | None = None)
 
     inspection_groups = []
     inspection_group_configs = [
-        ("inspection", "With Additional Steps", [item for item in month_items if item.get("inspection_required")]),
-        ("standard", "Normal Checklist", [item for item in month_items if not item.get("inspection_required")]),
+        ("inspection", INSPECTION_GROUP_LABEL, [item for item in month_items if item.get("inspection_required")]),
+        ("standard", STANDARD_GROUP_LABEL, [item for item in month_items if not item.get("inspection_required")]),
     ]
     for inspection_value, inspection_label, items in inspection_group_configs:
-        if not items:
-            continue
         inspection_groups.append(
             {
                 "inspection": inspection_value,
@@ -2438,8 +2688,8 @@ def _build_filter_payload_from_dataset(dataset):
         "locations": sorted({asset.get("location_display") or "Unknown" for asset in dataset["assets"]}),
         "inspection_options": [
             {"value": "all", "label": "All Maintenance"},
-            {"value": "inspection", "label": "With Additional Steps"},
-            {"value": "standard", "label": "Normal Checklist"},
+            {"value": "inspection", "label": INSPECTION_GROUP_LABEL},
+            {"value": "standard", "label": STANDARD_GROUP_LABEL},
         ],
         "asset_codes": sorted({asset["asset_code"] for asset in dataset["assets"]}),
         "status_options": [
@@ -2529,7 +2779,6 @@ OVERVIEW_STATUS_OPTIONS = [
     {"value": "all", "label": "All"},
     {"value": "scheduled", "label": "Scheduled"},
     {"value": "completed", "label": "Completed"},
-    {"value": "pending", "label": "Pending"},
 ]
 
 OVERVIEW_SORT_OPTIONS = [
@@ -2568,6 +2817,21 @@ def _build_overview_month_payloads(year_value: int):
         {"value": get_month_key(year_value, month), "label": f"{MONTH_LABELS[month - 1]} {year_value}"}
         for month in range(1, 13)
     ]
+
+
+def _build_maintenance_mix_month_payloads(year_value: int, available_months):
+    month_keys = available_months or [get_month_key(year_value, month) for month in range(1, 13)]
+    options = []
+    for month_key in month_keys:
+        try:
+            option_year, option_month = parse_month_param(month_key, year_value)
+        except Exception:
+            continue
+        options.append({
+            "value": get_month_key(option_year, option_month),
+            "label": f"{MONTH_LABELS[option_month - 1]} {option_year}",
+        })
+    return options
 
 
 def _normalize_overview_status(item, today: date | None = None):
@@ -2631,14 +2895,14 @@ def _build_maintenance_overview_dataset(year: int | None = None):
             occurrence = copy.deepcopy(item)
             occurrence["maintenance_category"] = maintenance_category
             occurrence["normalized_status"] = _normalize_overview_status(occurrence, today)
-            occurrence["overview_inspection_required"] = False
-            occurrence["overview_follow_up_status"] = "-"
-            occurrence["preventive_maintenance_required"] = "Yes" if occurrence.get("scheduled_date") else "No"
-            occurrence["date_provided_label"] = (
-                occurrence.get("completed_date_label")
-                or occurrence.get("scheduled_date_label")
-                or "-"
+            occurrence["overview_status"] = "Completed" if occurrence.get("is_done") else "Scheduled"
+            occurrence["overview_pm_type"] = INSPECTION_GROUP_LABEL if occurrence.get("inspection_required") else STANDARD_GROUP_LABEL
+            occurrence["overview_inspection_required"] = bool(occurrence.get("inspection_required"))
+            occurrence["overview_additional_inspection"] = occurrence.get("inspection_label") or "-"
+            occurrence["overview_follow_up_status"] = _derive_follow_up_status(
+                {**occurrence, "normalized_status": occurrence["overview_status"]}
             )
+            occurrence["date_of_maintenance_label"] = occurrence.get("scheduled_date_label") or "-"
             occurrences.append(occurrence)
 
     occurrences.sort(
@@ -2690,8 +2954,10 @@ def _filter_maintenance_overview_occurrences(
             continue
         if category and category.lower() != "all" and item.get("maintenance_category") != category:
             continue
-        if status and status.lower() != "all" and clean_text(item.get("normalized_status")) != clean_text(status):
-            continue
+        if status and status.lower() != "all":
+            item_status = clean_text(item.get("overview_status") or item.get("normalized_status"))
+            if (item_status or "").lower() != status.lower():
+                continue
         if search_value:
             haystack = " ".join(
                 [
@@ -2718,10 +2984,10 @@ def _sort_maintenance_overview_rows(rows, sort="date_asc"):
     elif cleaned_sort.startswith("category"):
         rows.sort(key=lambda item: ((item.get("maintenance_category") or "").lower(), (item.get("asset_name") or "").lower(), item.get("scheduled_date") or "9999-12-31"), reverse=reverse)
     elif cleaned_sort.startswith("status"):
-        status_order = {"Scheduled": 0, "Pending": 1, "Completed": 2}
+        status_order = {"Scheduled": 0, "Completed": 1}
         rows.sort(
             key=lambda item: (
-                status_order.get(item.get("normalized_status"), 99),
+                status_order.get(item.get("overview_status") or item.get("normalized_status"), 99),
                 item.get("scheduled_date") or "9999-12-31",
                 (item.get("asset_name") or "").lower(),
             ),
@@ -2732,6 +2998,153 @@ def _sort_maintenance_overview_rows(rows, sort="date_asc"):
     return rows
 
 
+def normalize_work_order_text(value) -> str:
+    return (clean_text(value) or "").lower()
+
+
+def work_order_contains_any(value, keywords) -> bool:
+    text = normalize_work_order_text(value)
+    return any(keyword in text for keyword in keywords)
+
+
+def classify_corrective_work_order(row) -> bool:
+    type_values = [
+        row.get("maintenance_type"),
+        row.get("Maintenance Type"),
+        row.get("type"),
+        row.get("Type"),
+        row.get("category"),
+        row.get("Category"),
+        row.get("JobTypeId"),
+        row.get("Job Type"),
+    ]
+    if any(work_order_contains_any(value, CORRECTIVE_TYPE_KEYWORDS) for value in type_values):
+        return True
+
+    description_text = " ".join(
+        filter(
+            None,
+            [
+                clean_text(row.get("Description")),
+                clean_text(row.get("description")),
+                clean_text(row.get("Title")),
+                clean_text(row.get("title")),
+                clean_text(row.get("Remarks")),
+                clean_text(row.get("remarks")),
+            ],
+        )
+    )
+    return work_order_contains_any(description_text, CORRECTIVE_DESCRIPTION_KEYWORDS)
+
+
+def parse_month_name_or_number(value):
+    cleaned = clean_text(value)
+    if not cleaned:
+        return None
+    try:
+        numeric_month = int(float(cleaned))
+        if 1 <= numeric_month <= 12:
+            return numeric_month
+    except Exception:
+        pass
+    return MONTH_NAME_TO_NUMBER.get(cleaned[:3].lower())
+
+
+def parse_work_order_month_key(row, fallback_month_key=None, fallback_year=None):
+    if clean_text(row.get("Year")) and clean_text(row.get("Month")):
+        try:
+            return get_month_key(int(float(clean_text(row.get("Year")))), int(float(clean_text(row.get("Month")))))
+        except Exception:
+            pass
+
+    month_number = parse_month_name_or_number(row.get("Month"))
+    if month_number:
+        return get_month_key(int(fallback_year or datetime.now().year), month_number)
+
+    for column in WORK_ORDER_DATE_COLUMNS:
+        if column not in row:
+            continue
+        raw_value = clean_text(row.get(column))
+        if not raw_value:
+            continue
+        parsed = pd.to_datetime(raw_value, errors="coerce", dayfirst=False)
+        if pd.notna(parsed):
+            return get_month_key(int(parsed.year), int(parsed.month))
+
+    month_number = parse_month_name_or_number(row.get("Month.1"))
+    if month_number:
+        return get_month_key(int(fallback_year or datetime.now().year), month_number)
+
+    return fallback_month_key
+
+
+def build_performance_flag(preventive_count, corrective_count):
+    if corrective_count <= preventive_count:
+        return "Good"
+    if preventive_count <= 0:
+        return "Critical"
+    if corrective_count <= preventive_count * 1.2:
+        return "Watch"
+    return "Critical"
+
+
+def load_corrective_work_order_summary(month_key=None, fallback_year=None):
+    monthly_counts = Counter()
+    rejected_count = 0
+    total_rows = 0
+    available_months = []
+    source_files = []
+
+    for file_month_key, file_path in MONTHLY_WORK_ORDER_FILES.items():
+        if not file_path.exists():
+            continue
+        source_files.append(str(file_path))
+        available_months.append(file_month_key)
+        try:
+            frame = pd.read_csv(file_path, encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            frame = pd.read_csv(file_path, encoding="cp874")
+        except Exception:
+            continue
+
+        rows = frame.where(pd.notna(frame), None).to_dict("records")
+        total_rows += len(rows)
+        for row in rows:
+            state = normalize_work_order_text(row.get("Request State") or row.get("status") or row.get("Status"))
+            if "reject" in state:
+                rejected_count += 1
+                continue
+            monthly_counts[file_month_key] += 1
+
+    if not source_files:
+        return {
+            "count": 0,
+            "monthly_counts": {},
+            "available_months": [],
+            "total_rows": 0,
+            "rejected_rows": 0,
+            "uncertain_rows": 0,
+            "source": "Monthly work-order CSV files",
+            "available": False,
+            "date_source": "missing",
+        }
+
+    selected_count = sum(monthly_counts.values()) if month_key in (None, "all") else monthly_counts.get(month_key, 0)
+
+    return {
+        "count": selected_count,
+        "monthly_counts": dict(monthly_counts),
+        "available_months": sorted(available_months),
+        "total_rows": total_rows,
+        "rejected_rows": rejected_count,
+        "uncertain_rows": 0,
+        "source": "Monthly work-order CSV files",
+        "source_files": source_files,
+        "available": True,
+        "date_source": "monthly_file_name",
+    }
+
+
 def build_maintenance_overview_payload(
     month_value=None,
     status="all",
@@ -2739,8 +3152,10 @@ def build_maintenance_overview_payload(
     search="",
     sort="date_asc",
     year: int | None = None,
+    mix_month_value=None,
 ):
     dataset = _build_maintenance_overview_dataset(year)
+    initial_corrective_summary = load_corrective_work_order_summary(fallback_year=dataset["meta"]["year"])
     cleaned_month_value = clean_text(month_value)
     if cleaned_month_value and cleaned_month_value.lower() == "all":
         selected_month = {
@@ -2751,7 +3166,11 @@ def build_maintenance_overview_payload(
         }
         month_key = None
     else:
-        selected_year, selected_month_number = parse_month_param(month_value, dataset["meta"]["year"])
+        default_month_value = month_value
+        if not clean_text(default_month_value):
+            available_work_order_months = initial_corrective_summary.get("available_months") or []
+            default_month_value = available_work_order_months[-1] if available_work_order_months else None
+        selected_year, selected_month_number = parse_month_param(default_month_value, dataset["meta"]["year"])
         month_key = get_month_key(selected_year, selected_month_number)
         selected_month = {
             "month_key": month_key,
@@ -2760,36 +3179,73 @@ def build_maintenance_overview_payload(
             "label": f"{MONTH_LABELS[selected_month_number - 1]} {selected_year}",
         }
 
-    filtered_rows = _filter_maintenance_overview_occurrences(
+    cleaned_mix_month_value = clean_text(mix_month_value)
+    available_work_order_months = initial_corrective_summary.get("available_months") or []
+    if cleaned_mix_month_value and cleaned_mix_month_value.lower() == "all":
+        mix_month_key = "all"
+        selected_mix_month = {
+            "month_key": "all",
+            "year": dataset["meta"]["year"],
+            "month": None,
+            "label": f"All Months {dataset['meta']['year']}",
+        }
+    else:
+        default_mix_month_value = cleaned_mix_month_value or (available_work_order_months[-1] if available_work_order_months else selected_month["month_key"])
+        mix_year, mix_month_number = parse_month_param(default_mix_month_value, dataset["meta"]["year"])
+        mix_month_key = get_month_key(mix_year, mix_month_number)
+        selected_mix_month = {
+            "month_key": mix_month_key,
+            "year": mix_year,
+            "month": mix_month_number,
+            "label": f"{MONTH_LABELS[mix_month_number - 1]} {mix_year}",
+        }
+
+    summary_rows = _filter_maintenance_overview_occurrences(
         dataset["occurrences"],
         month_key=month_key,
         category=category,
-        status=status,
         search=search,
+    )
+    preventive_mix_rows = _filter_maintenance_overview_occurrences(
+        dataset["occurrences"],
+        month_key=None if mix_month_key == "all" else mix_month_key,
+        category="all",
+        search="",
+    )
+    filtered_rows = _filter_maintenance_overview_occurrences(
+        summary_rows,
+        month_key=None,
+        category="all",
+        status=status,
+        search="",
     )
     sorted_rows = _sort_maintenance_overview_rows(filtered_rows[:], sort=sort)
 
-    scheduled_tasks = len(sorted_rows)
-    completed_tasks = sum(1 for row in sorted_rows if row.get("normalized_status") == "Completed")
-    preventive_required = sum(1 for row in sorted_rows if row.get("normalized_status") == "Scheduled")
+    scheduled_tasks = len(summary_rows)
+    completed_tasks = sum(1 for row in summary_rows if row.get("overview_status") == "Completed")
+    preventive_required = sum(1 for row in summary_rows if row.get("overview_status") == "Scheduled")
     pending_tasks = max(scheduled_tasks - completed_tasks, 0)
-    inspection_required = sum(1 for row in sorted_rows if row.get("overview_inspection_required"))
-    pending_follow_up = sum(1 for row in sorted_rows if row.get("overview_follow_up_status") == "Pending Follow-Up")
+    inspection_required = sum(1 for row in summary_rows if row.get("overview_inspection_required"))
+    pending_follow_up = sum(1 for row in summary_rows if row.get("overview_follow_up_status") == "Pending Follow-Up")
+    preventive_mix_tasks = len(preventive_mix_rows)
+    corrective_summary = load_corrective_work_order_summary(mix_month_key, dataset["meta"]["year"])
+    corrective_tasks = corrective_summary["count"]
+    maintenance_mix_total = preventive_mix_tasks + corrective_tasks
+    variance_count = corrective_tasks - preventive_mix_tasks
+    preventive_to_corrective_ratio = round((corrective_tasks / preventive_mix_tasks) * 100.0, 1) if preventive_mix_tasks else None
 
     rows = []
     for item in sorted_rows:
         rows.append(
             {
-                "date": item.get("scheduled_date_label") or "-",
-                "scheduled_date": item.get("scheduled_date"),
+                "date_of_maintenance": item.get("date_of_maintenance_label") or "-",
                 "asset_code": item.get("asset_code") or "-",
                 "asset_name": item.get("asset_name") or "-",
-                "category": item.get("maintenance_category") or "-",
-                "preventive_maintenance_required": item.get("preventive_maintenance_required") or "No",
-                "status": item.get("normalized_status") or "Pending",
-                "date_provided": item.get("date_provided_label") or "-",
+                "machine_type": item.get("maintenance_category") or "-",
+                "pm_type": item.get("overview_pm_type") or STANDARD_GROUP_LABEL,
+                "status": item.get("overview_status") or "Scheduled",
                 "person_in_charge": item.get("assigned_technician") or "-",
-                "inspection_required": "-" if not item.get("overview_inspection_required") else "Yes",
+                "additional_inspection": item.get("overview_additional_inspection") or "-",
                 "follow_up_status": item.get("overview_follow_up_status") or "-",
             }
         )
@@ -2814,6 +3270,10 @@ def build_maintenance_overview_payload(
             "status_options": OVERVIEW_STATUS_OPTIONS,
             "sort_options": OVERVIEW_SORT_OPTIONS,
         },
+        "maintenance_mix_month_options": _build_maintenance_mix_month_payloads(
+            dataset["meta"]["year"],
+            initial_corrective_summary.get("available_months") or [],
+        ),
         "summary": {
             "preventive_maintenance_required": preventive_required,
             "scheduled_tasks": scheduled_tasks,
@@ -2822,6 +3282,21 @@ def build_maintenance_overview_payload(
             "completion_rate": round((completed_tasks / scheduled_tasks) * 100.0, 1) if scheduled_tasks else 0.0,
             "tasks_requiring_inspection": inspection_required,
             "tasks_pending_follow_up": pending_follow_up,
+        },
+        "maintenance_mix": {
+            "month": selected_mix_month["month_key"],
+            "selected_month": selected_mix_month,
+            "preventive_scheduled": preventive_mix_tasks,
+            "preventive_scheduled_count": preventive_mix_tasks,
+            "corrective_work_orders": corrective_tasks,
+            "corrective_work_order_count": corrective_tasks,
+            "variance_count": variance_count,
+            "preventive_to_corrective_ratio": preventive_to_corrective_ratio,
+            "performance_status": build_performance_flag(preventive_mix_tasks, corrective_tasks),
+            "total": maintenance_mix_total,
+            "preventive_ratio": round((preventive_mix_tasks / maintenance_mix_total) * 100.0, 1) if maintenance_mix_total else 0.0,
+            "corrective_ratio": round((corrective_tasks / maintenance_mix_total) * 100.0, 1) if maintenance_mix_total else 0.0,
+            "corrective_source": corrective_summary,
         },
         "rows": rows,
     }

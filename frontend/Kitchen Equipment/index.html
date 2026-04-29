@@ -73,6 +73,7 @@
         .status-card.normal  { border-left-color: var(--status-ok); }
         .status-card.warning { border-left-color: var(--status-warn); }
         .status-card.offline { border-left-color: var(--status-off); opacity: 0.7; }
+        .status-card.draft   { border-left-color: #64748b; background: linear-gradient(180deg, #ffffff, #f8fafc); }
         .card-header {
             display: flex;
             justify-content: space-between;
@@ -95,6 +96,7 @@
         .normal  .badge { background: #d1fae5; color: #065f46; }
         .warning .badge { background: #fef3c7; color: #92400e; }
         .offline .badge { background: #f1f5f9; color: #475569; }
+        .draft   .badge { background: #e2e8f0; color: #334155; }
         .status-msg {
             font-size: 0.95rem;
             font-weight: 600;
@@ -151,12 +153,18 @@
             { name: 'Hobart Sanitizer', api: '/api/hobart',      path: '/Kitchen%20Equipment/Hobart/index.html',     metricFn: d => `${d.summary?.cycles_today ?? '--'} cycles today` },
             { name: 'Steambox',         api: '/api/steambox',     path: '/Kitchen%20Equipment/Steambox/index.html',   metricFn: d => { const r = d.readings?.at(-1); return `${r?.avg_chamber_temp?.toFixed(1) ?? '--'} °C`; } },
             { name: 'X-Ray Inspection', api: '/api/xray',         path: '/Kitchen%20Equipment/X-Ray/index.html',      metricFn: d => `${d.summary?.reject_rate_pct?.toFixed(2) ?? '--'}% reject rate` },
-            { name: 'Checkweigher',     api: '/api/checkweigher', path: '/Kitchen%20Equipment/Checkweigh/index.html', metricFn: d => `${d.summary?.pass_rate_pct?.toFixed(1) ?? '--'}% pass rate` }
+            { name: 'Checkweigher',     api: '/api/checkweigher', path: '/Kitchen%20Equipment/Checkweigh/index.html', metricFn: d => `${d.summary?.pass_rate_pct?.toFixed(1) ?? '--'}% pass rate` },
+            { name: 'Combi Oven',       draft: true,              path: '/Kitchen%20Equipment/Combi%20Oven/index.html' },
+            { name: 'Bratt Pan',        draft: true,              path: '/Kitchen%20Equipment/Bratt%20Pan/index.html' }
         ];
 
         async function loadTiles() {
             const container = document.getElementById('equipment-tiles');
             const results = await Promise.all(equipment.map(async (eq) => {
+                if (eq.draft) {
+                    return { ...eq, data: null, error: false };
+                }
+
                 try {
                     const res = await fetch(eq.api);
                     const text = await res.text();
@@ -169,11 +177,11 @@
 
             container.innerHTML = '';
             results.forEach(eq => {
-                const status  = eq.error ? 'offline' : 'normal';
-                const badge   = eq.error ? 'OFFLINE' : 'ONLINE';
-                const msg     = eq.error ? 'Unit Unreachable' : 'Unit Operational';
-                let metric    = '--';
-                if (!eq.error) {
+                const status  = eq.draft ? 'draft' : (eq.error ? 'offline' : 'normal');
+                const badge   = eq.draft ? 'DRAFT' : (eq.error ? 'OFFLINE' : 'ONLINE');
+                const msg     = eq.draft ? 'Reserved for future dashboard work' : (eq.error ? 'Unit Unreachable' : 'Unit Operational');
+                let metric    = eq.draft ? 'No data connected yet' : '--';
+                if (!eq.error && !eq.draft) {
                     try { metric = eq.metricFn(eq.data); } catch (e) { metric = 'Online'; }
                 }
 

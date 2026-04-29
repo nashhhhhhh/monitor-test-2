@@ -1,63 +1,113 @@
 let downtimePayload = null;
 let downtimeCachePayload = null;
 const chartRefs = {};
-const EXCLUDED_SOURCE_LABEL = 'Energy-derived';
 
-function normalizeEventSource(event) {
-    const detectionType = String(event?.detection_type || '').trim().toLowerCase();
-    if (detectionType === 'fault / down status') {
-        return 'Status-derived';
-    }
-    return event?.source || '--';
-}
-
-function normalizeEvent(event) {
-    if (!event) return event;
-    return {
-        ...event,
-        source: normalizeEventSource(event),
-    };
-}
-
-function ensureCanvas(id) {
-    const existing = document.getElementById(id);
-    if (existing) return existing;
-
-    const container = document.querySelector(`[data-chart-slot="${id}"]`);
-    if (!container) return null;
-    container.innerHTML = `<canvas id="${id}"></canvas>`;
-    return document.getElementById(id);
-}
+const CRITICALITY_ORDER = ["Critical", "Semi-Critical", "Support Systems", "Facility / Non-Critical"];
+const CRITICALITY_COLORS = {
+    "Critical": "#ef4444",
+    "Semi-Critical": "#f59e0b",
+    "Support Systems": "#0f766e",
+    "Facility / Non-Critical": "#64748b",
+};
 
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
 }
 
-function fmtHours(hours) {
-    if (hours === null || hours === undefined || Number.isNaN(Number(hours))) return '--';
-    const numeric = Number(hours);
-    if (numeric <= 0) return '0 min';
-    if (numeric < 1) return `${Math.round(numeric * 60)} min`;
-    return `${numeric.toFixed(2)} h`;
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (match) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+    }[match]));
 }
 
-function fmtPercent(value) {
-    if (value === null || value === undefined || Number.isNaN(Number(value))) return '--';
-    return `${Number(value).toFixed(1)}%`;
+function fmtHours(hours) {
+    if (hours === null || hours === undefined || Number.isNaN(Number(hours))) return "--";
+    const numeric = Number(hours);
+    if (numeric <= 0) return "0 min";
+    if (numeric < 1) return `${Math.round(numeric * 60)} min`;
+    const wholeHours = Math.floor(numeric);
+    const minutes = Math.round((numeric - wholeHours) * 60);
+    if (minutes === 60) return `${wholeHours + 1} hr`;
+    if (minutes > 0) return `${wholeHours} hr ${minutes} min`;
+    return `${wholeHours} hr`;
+}
+
+function fmtAxisHours(hours) {
+    if (hours === null || hours === undefined || Number.isNaN(Number(hours))) return "--";
+    return `${Number(hours).toLocaleString(undefined, { maximumFractionDigits: 1 })} hrs`;
+}
+
+function fmtDaysHours(hours) {
+    if (hours === null || hours === undefined || Number.isNaN(Number(hours))) return "--";
+    const numeric = Number(hours);
+    if (numeric <= 0) return "0 hr";
+    if (numeric < 24) return fmtHours(numeric);
+    const days = numeric / 24;
+    if (days >= 10) return `${days.toLocaleString(undefined, { maximumFractionDigits: 0 })} days`;
+    return `${days.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} days`;
+}
+
+function fmtMtbfDays(hours) {
+    if (hours === null || hours === undefined || Number.isNaN(Number(hours))) return "";
+    return fmtDaysHours(hours);
+}
+
+function fmtNumber(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+    return Number(value).toLocaleString();
 }
 
 function fmtDateTime(value) {
-    if (!value) return '--';
+    if (!value) return "--";
     const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return '--';
-    return dt.toLocaleString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+    if (Number.isNaN(dt.getTime())) return "--";
+    return dt.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
     });
+}
+
+function fmtDateOnly(value) {
+    if (!value) return "";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    return dt.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+}
+
+function getIsoDate(value) {
+    if (!value) return "";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    return dt.toISOString().slice(0, 10);
+}
+
+function buildStatusPill(status, label) {
+    const normalized = String(status || "ok").toLowerCase();
+    return `<span class="status-pill ${escapeHtml(normalized)}">${escapeHtml(label || normalized)}</span>`;
+}
+
+function populateSelect(id, values, defaultLabel) {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = `<option value="">${escapeHtml(defaultLabel)}</option>` + values.map((value) => (
+        `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
+    )).join("");
+    if (values.includes(current)) {
+        select.value = current;
+    }
 }
 
 function destroyChart(id) {
@@ -67,15 +117,27 @@ function destroyChart(id) {
     }
 }
 
-function renderAlertBanner(alerts) {
-    void alerts;
+function renderEmptyChart(canvasId, message) {
+    const canvas = document.getElementById(canvasId);
+    const container = canvas?.parentElement || document.querySelector(`.chart-container[data-chart-id="${canvasId}"]`);
+    if (!container) return;
+    destroyChart(canvasId);
+    container.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+function ensureCanvas(canvasId) {
+    const existing = document.getElementById(canvasId);
+    if (existing) return existing;
+    const target = document.querySelector(`.chart-container[data-chart-id="${canvasId}"]`);
+    if (!target) return null;
+    target.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    return document.getElementById(canvasId);
 }
 
 async function loadDowntimeCacheFile() {
-    if (downtimeCachePayload !== null) return downtimeCachePayload;
     try {
-        const response = await fetch(`./downtime-cache.json?v=20260408a&_=${Date.now()}`, {
-            cache: 'no-store',
+        const response = await fetch(`./downtime-cache.json?v=20260424-criticality&_=${Date.now()}`, {
+            cache: "no-store",
         });
         if (!response.ok) {
             downtimeCachePayload = false;
@@ -84,7 +146,7 @@ async function loadDowntimeCacheFile() {
         downtimeCachePayload = await response.json();
         return downtimeCachePayload;
     } catch (error) {
-        console.warn('Downtime cache load failed:', error);
+        console.warn("Downtime cache load failed:", error);
         downtimeCachePayload = false;
         return null;
     }
@@ -92,548 +154,697 @@ async function loadDowntimeCacheFile() {
 
 function getCachedDowntimePayload(period, month) {
     const payloads = downtimeCachePayload?.payloads || {};
-    const key = period === 'mtd' && month ? `mtd:${month}` : period;
+    const key = period === "mtd" && month ? `mtd:${month}` : period;
     return payloads[key] || null;
 }
 
-function getChartEvents() {
-    return (downtimePayload?.events || [])
-        .map(normalizeEvent)
-        .filter(event => event.source !== EXCLUDED_SOURCE_LABEL);
+async function loadDowntimeData(period, month) {
+    if (downtimeCachePayload === null) {
+        await loadDowntimeCacheFile();
+    }
+
+    let payload = getCachedDowntimePayload(period, month);
+    if (!payload || !payload.management) {
+        const url = month
+            ? `/api/downtime?period=${encodeURIComponent(period)}&month=${encodeURIComponent(month)}&_=${Date.now()}`
+            : `/api/downtime?period=${encodeURIComponent(period)}&_=${Date.now()}`;
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        payload = await response.json();
+    }
+
+    downtimePayload = payload;
+    populateMonthOptions(payload?.months || buildMonthOptions(payload?.meta?.reference_end), payload?.meta?.month || month || payload?.months?.[0]?.value || "");
+    renderDowntimePage();
 }
 
-function sumEventHours(events) {
-    return events.reduce((sum, event) => sum + Number(event.duration_hours || 0), 0);
-}
-
-function getReferenceEnd() {
-    const metaEnd = downtimePayload?.meta?.reference_end ? new Date(downtimePayload.meta.reference_end) : null;
-    if (metaEnd && !Number.isNaN(metaEnd.getTime())) return metaEnd;
-
-    const latestEvent = getChartEvents()
-        .map(event => new Date(event.end_time || event.start_time))
-        .filter(dt => !Number.isNaN(dt.getTime()))
-        .sort((a, b) => b - a)[0];
-
-    return latestEvent || new Date();
-}
-
-function buildSummaryFromEvents(events) {
-    const referenceEnd = getReferenceEnd();
-    const weekStart = new Date(referenceEnd);
-    weekStart.setDate(referenceEnd.getDate() - 6);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const monthStart = new Date(referenceEnd.getFullYear(), referenceEnd.getMonth(), 1);
-    const normalizedEvents = events
-        .map(event => ({ ...event, _start: new Date(event.start_time || event.end_time) }))
-        .filter(event => !Number.isNaN(event._start.getTime()));
-
-    const totalHours = sumEventHours(normalizedEvents);
-    const weekHours = sumEventHours(normalizedEvents.filter(event => event._start >= weekStart && event._start <= referenceEnd));
-    const monthHours = sumEventHours(normalizedEvents.filter(event => event._start >= monthStart && event._start <= referenceEnd));
-    const longestEventHours = normalizedEvents.reduce((max, event) => Math.max(max, Number(event.duration_hours || 0)), 0);
-
-    return {
-        total_hours: totalHours,
-        this_week_hours: weekHours,
-        this_month_hours: monthHours,
-        event_count: normalizedEvents.length,
-        avg_event_hours: normalizedEvents.length ? totalHours / normalizedEvents.length : null,
-        longest_event_hours: normalizedEvents.length ? longestEventHours : null,
+function getManagement() {
+    return downtimePayload?.management || {
+        summary: {},
+        mtbf: {
+            summary: {},
+            criticality_rows: [],
+            machine_group_rows: [],
+            asset_rows: [],
+            trend: { labels: [], mtbf_hours: [], pair_counts: [] },
+        },
+        criticality_rows: [],
+        machine_group_rows: [],
+        location_rows: [],
+        trend: { labels: [], downtime_hours: [], work_order_counts: [] },
+        work_orders: [],
+        filters: { criticalities: [], machine_groups: [], locations: [], asset_ids: [], statuses: [] },
+        alerts: [],
+        mapping_meta: {},
     };
 }
 
-function buildTrendFromEvents(events) {
-    const referenceEnd = getReferenceEnd();
-    const period = downtimePayload?.meta?.period || 'ytd';
-    const startDate = new Date(referenceEnd);
-    startDate.setHours(0, 0, 0, 0);
+function getMtbfData() {
+    return getManagement().mtbf || {
+        summary: {},
+        criticality_rows: [],
+        machine_group_rows: [],
+        asset_rows: [],
+        trend: { labels: [], mtbf_hours: [], pair_counts: [] },
+    };
+}
 
-    if (period === '7d') {
-        startDate.setDate(referenceEnd.getDate() - 6);
-    } else if (period === '30d') {
-        startDate.setDate(referenceEnd.getDate() - 29);
-    } else if (period === '90d') {
-        startDate.setDate(referenceEnd.getDate() - 89);
-    } else if (period === 'mtd') {
-        startDate.setDate(1);
-    } else if (period === 'ytd') {
-        startDate.setMonth(0, 1);
-    } else {
-        startDate.setDate(referenceEnd.getDate() - 29);
-    }
-
-    const totalDays = Math.max(1, Math.floor((referenceEnd - startDate) / 86400000) + 1);
-
-    const labels = [];
-    const downtime_hours = [];
-    const event_counts = [];
-
-    for (let index = 0; index < totalDays; index += 1) {
-        const dayStart = new Date(startDate);
-        dayStart.setDate(startDate.getDate() + index);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayStart.getDate() + 1);
-
-        const dayEvents = events.filter(event => {
-            const dt = new Date(event.start_time || event.end_time);
-            return !Number.isNaN(dt.getTime()) && dt >= dayStart && dt < dayEnd;
+function buildMonthOptions(referenceEnd) {
+    const dt = referenceEnd ? new Date(referenceEnd) : new Date();
+    if (Number.isNaN(dt.getTime())) return [];
+    const options = [];
+    for (let month = 1; month <= dt.getMonth() + 1; month += 1) {
+        const value = `${dt.getFullYear()}-${String(month).padStart(2, "0")}`;
+        const label = new Date(dt.getFullYear(), month - 1, 1).toLocaleDateString("en-GB", {
+            month: "short",
+            year: "numeric",
         });
-
-        labels.push(dayStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
-        downtime_hours.push(Number(sumEventHours(dayEvents).toFixed(3)));
-        event_counts.push(dayEvents.length);
+        options.push({ value, label });
     }
-
-    return { labels, downtime_hours, event_counts };
+    return options.reverse();
 }
 
-function buildGroupedRows(events, keyName) {
-    const grouped = new Map();
-    events.forEach((event) => {
-        const label = event[keyName] || 'Unassigned';
-        const existing = grouped.get(label) || { label, downtime_hours: 0, event_count: 0 };
-        existing.downtime_hours += Number(event.duration_hours || 0);
-        existing.event_count += 1;
-        grouped.set(label, existing);
-    });
-    return [...grouped.values()]
-        .map(row => ({ ...row, downtime_hours: Number(row.downtime_hours.toFixed(3)) }))
-        .sort((a, b) => (b.downtime_hours - a.downtime_hours) || (b.event_count - a.event_count) || a.label.localeCompare(b.label));
+function populateMonthOptions(options, selectedValue) {
+    const select = document.getElementById("month-select");
+    if (!select) return;
+    select.innerHTML = options.map((option) => (
+        `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
+    )).join("");
+    select.value = selectedValue || options[0]?.value || "";
 }
 
-function buildAssetRows(events) {
-    const grouped = new Map();
-    events.forEach((event) => {
-        const key = event.machine_code || event.machine_name || 'Unknown';
-        const existing = grouped.get(key) || {
-            machine_code: event.machine_code || '--',
-            machine_name: event.machine_name || '--',
-            system: event.system || '--',
-            area: event.area || '--',
-            downtime_hours: 0,
-            event_count: 0,
-        };
-        existing.downtime_hours += Number(event.duration_hours || 0);
-        existing.event_count += 1;
-        grouped.set(key, existing);
-    });
-    return [...grouped.values()]
-        .map(row => ({ ...row, downtime_hours: Number(row.downtime_hours.toFixed(3)) }))
-        .sort((a, b) => (b.downtime_hours - a.downtime_hours) || (b.event_count - a.event_count) || a.machine_name.localeCompare(b.machine_name))
-        .slice(0, 8);
+function toggleMonthFilter(period) {
+    const wrap = document.getElementById("month-filter-wrap");
+    if (!wrap) return;
+    wrap.style.display = period === "mtd" ? "flex" : "none";
 }
 
-function buildSourceRows(events) {
-    const grouped = new Map();
-    events.forEach((event) => {
-        const label = event.source || 'Unknown';
-        const existing = grouped.get(label) || { label, downtime_hours: 0, available: true, message: '' };
-        existing.downtime_hours += Number(event.duration_hours || 0);
-        grouped.set(label, existing);
-    });
+function renderAlerts(alerts) {
+    const banner = document.getElementById("alert-banner");
+    const items = document.getElementById("alert-items");
+    if (!banner || !items) return;
 
-    const rows = [...grouped.values()].map(row => ({ ...row, downtime_hours: Number(row.downtime_hours.toFixed(3)) }));
-    if (downtimePayload?.work_order_source && !rows.some(row => row.label === 'Work Order')) {
-        rows.push({
-            label: 'Work Order',
-            downtime_hours: downtimePayload.work_order_source.available ? 0 : null,
-            available: downtimePayload.work_order_source.available,
-            message: downtimePayload.work_order_source.message || '',
-        });
-    }
-    return rows;
-}
-
-function renderKPIs(summary) {
-    setText('kpi-total-downtime', fmtHours(summary.total_hours));
-    setText('kpi-week-downtime', fmtHours(summary.this_week_hours));
-    setText('kpi-month-downtime', fmtHours(summary.this_month_hours));
-    setText('kpi-event-count', summary.event_count ?? '--');
-    setText('kpi-avg-event', fmtHours(summary.avg_event_hours));
-    setText('kpi-longest-event', fmtHours(summary.longest_event_hours));
-}
-
-function renderTrendChart(trend) {
-    const canvas = ensureCanvas('trendChart');
-    if (!canvas) return;
-    destroyChart('trendChart');
-
-    if (!trend?.labels?.length) {
-        canvas.closest('.chart-container').innerHTML = '<div class="empty-state">No data available</div>';
+    if (!alerts || !alerts.length) {
+        banner.classList.add("hidden");
+        items.innerHTML = "";
         return;
     }
 
-    chartRefs.trendChart = new Chart(canvas.getContext('2d'), {
-        data: {
-            labels: trend.labels,
-            datasets: [
-                {
-                    type: 'bar',
-                    label: 'Downtime Duration',
-                    data: trend.downtime_hours,
-                    backgroundColor: 'rgba(239, 68, 68, 0.65)',
-                    borderColor: '#ef4444',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    yAxisID: 'y',
-                },
-                {
-                    type: 'line',
-                    label: 'Event Count',
-                    data: trend.event_counts,
-                    borderColor: '#3b82f6',
-                    backgroundColor: '#3b82f6',
-                    tension: 0.35,
-                    fill: false,
-                    pointRadius: 3,
-                    yAxisID: 'y1',
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { position: 'top', labels: { usePointStyle: true } },
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } },
-                },
-                y: {
-                    beginAtZero: true,
-                    grid: { color: '#f1f5f9' },
-                    title: { display: true, text: 'Hours' },
-                },
-                y1: {
-                    beginAtZero: true,
-                    position: 'right',
-                    grid: { display: false },
-                    title: { display: true, text: 'Events' },
-                },
-            },
-        },
-    });
+    items.innerHTML = alerts.map((alert) => (
+        `<div class="alert-item ${escapeHtml(alert.level || "warning")}">${escapeHtml(alert.message)}</div>`
+    )).join("");
+    banner.classList.remove("hidden");
 }
 
-function renderSimpleBarChart(id, rows, labelKey, valueKey, color) {
+function renderSummary(summary, downtimeSummary = {}) {
+    const workOrderRecordCount = downtimeSummary.work_order_record_count ?? summary.total_work_orders;
+    setText("kpi-total-downtime", fmtHours(summary.total_downtime_hours));
+    setText("kpi-total-downtime-sub", `${fmtNumber(workOrderRecordCount)} work orders using imported TTR as downtime`);
+    setText("kpi-total-work-orders", fmtNumber(workOrderRecordCount));
+    setText("kpi-total-work-orders-sub", "Imported work order records in the selected period");
+    setText("kpi-status-events", fmtNumber(downtimeSummary.energy_event_count));
+    setText(
+        "kpi-status-events-sub",
+        downtimeSummary.energy_event_count !== null && downtimeSummary.energy_event_count !== undefined
+            ? "Fault / down machine-status events in the selected period"
+            : "No status-derived events"
+    );
+    setText("kpi-overall-mttr", fmtHours(summary.overall_mttr_hours));
+    setText("kpi-overall-mttr-sub", "Average downtime per grouped work order");
+    setText("kpi-highest-mttr-group", fmtHours(downtimeSummary.energy_hours));
+    setText(
+        "kpi-highest-mttr-group-sub",
+        downtimeSummary.energy_hours !== null && downtimeSummary.energy_hours !== undefined
+            ? "Fault / down machine-status hours in the selected period"
+            : "No status-derived downtime data"
+    );
+}
+
+function renderCriticalityCards(rows) {
+    const container = document.getElementById("criticality-cards");
+    if (!container) return;
+
+    if (!rows || !rows.length) {
+        container.innerHTML = `<div class="empty-state compact">No criticality data available</div>`;
+        return;
+    }
+
+    container.innerHTML = rows.map((row) => {
+        const color = CRITICALITY_COLORS[row.criticality] || "#64748b";
+        return `
+            <div class="criticality-card" style="border-top-color:${escapeHtml(color)};">
+                <div class="criticality-header">
+                    <span class="criticality-name">${escapeHtml(row.criticality)}</span>
+                    <span class="criticality-share">${escapeHtml((row.share_of_total_pct || 0).toFixed(1))}% of total</span>
+                </div>
+                <div class="criticality-metric">${escapeHtml(fmtHours(row.average_mttr_hours))}</div>
+                <div class="criticality-meta">${escapeHtml(fmtNumber(row.work_order_count))} work orders</div>
+                <div class="criticality-meta criticality-meta-mttr"><strong>Total Downtime</strong><span>${escapeHtml(fmtHours(row.total_downtime_hours))}</span></div>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderMtbfSummary(summary) {
+    setText("mtbf-overall-average", fmtMtbfDays(summary.overall_average_mtbf_hours));
+    setText(
+        "mtbf-overall-average-sub",
+        summary.assets_with_valid_mtbf
+            ? `${fmtNumber(summary.assets_with_valid_mtbf)} asset(s) with valid repeat failure gaps`
+            : ""
+    );
+
+    const lowestAsset = summary.lowest_mtbf_asset_name || summary.lowest_mtbf_asset_id || "No data";
+    setText("mtbf-lowest-asset", lowestAsset);
+    setText(
+        "mtbf-lowest-asset-sub",
+        summary.lowest_mtbf_hours
+            ? `${fmtDaysHours(summary.lowest_mtbf_hours)} average run time${summary.lowest_mtbf_asset_id ? ` | ${summary.lowest_mtbf_asset_id}` : ""}`
+            : ""
+    );
+
+    setText("mtbf-repeated-assets", fmtNumber(summary.repeated_failure_assets || 0));
+    setText(
+        "mtbf-repeated-assets-sub",
+        summary.repeated_failure_assets
+            ? "Assets showing repeated repair cycles"
+            : "No repeated failure pattern detected"
+    );
+
+    setText("mtbf-valid-assets", fmtNumber(summary.assets_with_valid_mtbf || 0));
+    setText(
+        "mtbf-valid-assets-sub",
+        summary.assets_with_valid_mtbf
+            ? "Assets with at least one valid failure gap"
+            : ""
+    );
+}
+
+function renderMtbfCriticalityCards(rows) {
+    const container = document.getElementById("mtbf-criticality-cards");
+    if (!container) return;
+
+    const normalizedRows = CRITICALITY_ORDER.map((criticality) => (
+        rows.find((row) => row.criticality === criticality) || {
+            criticality,
+            asset_count: 0,
+            work_order_count: 0,
+            average_mtbf_hours: null,
+            valid_mtbf_asset_count: 0,
+        }
+    ));
+
+    if (!normalizedRows.length) {
+        container.innerHTML = `<div class="empty-state compact">No MTBF data available for the selected period</div>`;
+        return;
+    }
+
+    container.innerHTML = normalizedRows.map((row) => {
+        const color = CRITICALITY_COLORS[row.criticality] || "#64748b";
+        return `
+            <div class="criticality-card" style="border-top-color:${escapeHtml(color)};">
+                <div class="criticality-header">
+                    <span class="criticality-name">${escapeHtml(row.criticality)}</span>
+                    <span class="criticality-share">${escapeHtml(fmtNumber(row.asset_count || 0))} assets</span>
+                </div>
+                <div class="criticality-metric">${escapeHtml(fmtMtbfDays(row.average_mtbf_hours))}</div>
+                <div class="criticality-meta">${escapeHtml(fmtNumber(row.work_order_count || 0))} work orders</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderLowestMtbfList(rows) {
+    const container = document.getElementById("mtbf-lowest-list");
+    if (!container) return;
+
+    if (!rows.length) {
+        container.innerHTML = `<div class="empty-state">No MTBF data available</div>`;
+        return;
+    }
+
+    destroyChart("mtbfLowestChart");
+
+    container.innerHTML = rows.map((row) => `
+        <div class="mtbf-mini-item">
+            <div>
+                <div class="mtbf-mini-name">${escapeHtml(row.asset_name || row.asset_display_name || row.asset_id || "--")}</div>
+                <div class="mtbf-mini-sub">${escapeHtml(row.asset_id || "--")}${row.machine_group ? ` | ${escapeHtml(row.machine_group)}` : ""}</div>
+            </div>
+            <div class="mtbf-mini-value">${escapeHtml(fmtMtbfDays(row.average_mtbf_hours))}</div>
+        </div>
+    `).join("");
+}
+
+function renderBarChart(id, labels, data, color, axisTitle) {
     const canvas = ensureCanvas(id);
     if (!canvas) return;
     destroyChart(id);
-
-    if (!rows || !rows.length) {
-        canvas.closest('.chart-container').innerHTML = '<div class="empty-state">No data available</div>';
+    if (!labels.length) {
+        renderEmptyChart(id, "No data available");
         return;
     }
-
-    chartRefs[id] = new Chart(canvas.getContext('2d'), {
-        type: 'bar',
+    chartRefs[id] = new Chart(canvas.getContext("2d"), {
+        type: "bar",
         data: {
-            labels: rows.map(row => row[labelKey]),
-            datasets: [
-                {
-                    label: 'Downtime Duration',
-                    data: rows.map(row => row[valueKey]),
-                    backgroundColor: color,
-                    borderRadius: 4,
-                },
-            ],
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: color,
+                borderRadius: 8,
+            }],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-                legend: { display: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "#e2e8f0" },
+                    title: { display: true, text: axisTitle },
+                    ticks: { callback: (value) => fmtAxisHours(value) },
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11, weight: "600" } },
+                },
             },
+        },
+    });
+}
+
+function renderHorizontalBarChart(id, labels, data, color, axisTitle) {
+    const canvas = ensureCanvas(id);
+    if (!canvas) return;
+    destroyChart(id);
+    if (!labels.length) {
+        renderEmptyChart(id, "No data available");
+        return;
+    }
+    chartRefs[id] = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: color,
+                borderRadius: 8,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
+            plugins: { legend: { display: false } },
             scales: {
                 x: {
                     beginAtZero: true,
-                    grid: { color: '#f1f5f9' },
-                    title: { display: true, text: 'Hours' },
+                    grid: { color: "#e2e8f0" },
+                    title: { display: true, text: axisTitle },
+                    ticks: { callback: (value) => fmtAxisHours(value) },
                 },
                 y: {
                     grid: { display: false },
-                    ticks: { font: { size: 10 } },
+                    ticks: { font: { size: 11, weight: "600" } },
                 },
             },
         },
     });
 }
 
-function renderSourceChart(rows) {
-    const canvas = ensureCanvas('sourceChart');
-    const note = document.getElementById('source-note');
-    if (!canvas || !note) return;
-    destroyChart('sourceChart');
-
-    const availableRows = (rows || []).filter(row => row.available && row.downtime_hours !== null && row.downtime_hours !== undefined);
-    note.textContent = rows?.find(row => row.label === 'Work Order')?.message || '';
-
-    const totalAvailableHours = availableRows.reduce((sum, row) => sum + Number(row.downtime_hours || 0), 0);
-    if (!availableRows.length || totalAvailableHours <= 0) {
-        canvas.closest('.chart-container').innerHTML = '<div class="empty-state">No source downtime data available</div>';
+function renderTrendChart(trend) {
+    const canvas = ensureCanvas("trendChart");
+    if (!canvas) return;
+    destroyChart("trendChart");
+    if (!trend?.labels?.length) {
+        renderEmptyChart("trendChart", "No dated work order history available");
         return;
     }
-
-    chartRefs.sourceChart = new Chart(canvas.getContext('2d'), {
-        type: 'doughnut',
+    chartRefs.trendChart = new Chart(canvas.getContext("2d"), {
+        type: "line",
         data: {
-            labels: availableRows.map(row => row.label),
-            datasets: [
-                {
-                    data: availableRows.map(row => row.downtime_hours),
-                    backgroundColor: ['#ef4444', '#3b82f6'],
-                    borderWidth: 0,
-                },
-            ],
+            labels: trend.labels,
+            datasets: [{
+                label: "Downtime Hours",
+                data: trend.downtime_hours,
+                borderColor: "#ef4444",
+                backgroundColor: "rgba(239, 68, 68, 0.14)",
+                fill: true,
+                tension: 0.28,
+                borderWidth: 3,
+                pointRadius: 3,
+            }],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom', labels: { usePointStyle: true } },
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `Downtime: ${fmtHours(context.raw)}`,
+                        afterLabel: (context) => {
+                            const count = trend.work_order_counts?.[context.dataIndex] || 0;
+                            return `${fmtNumber(count)} work orders`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "#e2e8f0" },
+                    ticks: { callback: (value) => fmtAxisHours(value) },
+                },
+                x: {
+                    grid: { display: false },
+                },
             },
         },
     });
 }
 
-function renderAreaBreakdown(rows, workOrderSource) {
-    const container = document.getElementById('area-breakdown');
-    const note = document.getElementById('work-order-note');
-    if (!container || !note) return;
-
-    if (!rows || !rows.length) {
-        container.innerHTML = '<div class="empty-state compact">No area breakdown available</div>';
-    } else {
-        container.innerHTML = rows.map(row => `
-            <div class="reliability-item">
-                <span class="rel-name" title="${row.label}">${row.label}</span>
-                <div class="rel-bar-wrap">
-                    <div class="rel-bar-fill" style="width:${Math.min(row.downtime_hours * 12, 100)}%; background:#3b82f6;"></div>
-                </div>
-                <span class="rel-score">${fmtHours(row.downtime_hours)}</span>
-            </div>
-        `).join('');
+function renderMtbfTrendChart(trend) {
+    const canvas = ensureCanvas("mtbfTrendChart");
+    if (!canvas) return;
+    destroyChart("mtbfTrendChart");
+    if (!trend?.labels?.length) {
+        renderEmptyChart("mtbfTrendChart", "No repeat failure history available");
+        return;
     }
-
-    note.textContent = workOrderSource?.message || 'Status-derived timing uses imported fault/down tags when available.';
+    chartRefs.mtbfTrendChart = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+            labels: trend.labels,
+            datasets: [{
+                label: "Average MTBF",
+                data: trend.mtbf_hours,
+                borderColor: "#0f766e",
+                backgroundColor: "rgba(15, 118, 110, 0.12)",
+                fill: true,
+                tension: 0.28,
+                borderWidth: 3,
+                pointRadius: 3,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `Average MTBF: ${fmtDaysHours(context.raw)}`,
+                        afterLabel: (context) => {
+                            const count = trend.pair_counts?.[context.dataIndex] || 0;
+                            return `${fmtNumber(count)} failure gap pair(s)`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "#e2e8f0" },
+                    ticks: { callback: (value) => fmtAxisHours(value) },
+                },
+                x: {
+                    grid: { display: false },
+                },
+            },
+        },
+    });
 }
 
-function populateFilterOptions(filters) {
-    const normalizedSources = [...new Set(getChartEvents().map(event => event.source).filter(Boolean))];
-    const map = [
-        { id: 'system-filter', values: filters.systems, defaultLabel: 'All Systems' },
-        { id: 'area-filter', values: filters.areas, defaultLabel: 'All Areas' },
-        { id: 'source-filter', values: normalizedSources.length ? normalizedSources : (filters.sources || []).filter(value => value !== EXCLUDED_SOURCE_LABEL), defaultLabel: 'All Sources' },
-    ];
+function renderCharts(management) {
+    const criticalityRows = (management.criticality_rows || []).filter((row) => Number(row.work_order_count || 0) > 0);
+    renderBarChart(
+        "criticalityChart",
+        criticalityRows.map((row) => row.criticality),
+        criticalityRows.map((row) => Number(row.total_downtime_hours || 0)),
+        criticalityRows.map((row) => CRITICALITY_COLORS[row.criticality] || "#64748b"),
+        "Downtime Hours"
+    );
 
-    map.forEach(({ id, values, defaultLabel }) => {
-        const select = document.getElementById(id);
-        if (!select) return;
-        const currentValue = select.value;
-        select.innerHTML = `<option value="">${defaultLabel}</option>${(values || []).map(value => `<option value="${value}">${value}</option>`).join('')}`;
-        if ([...select.options].some(option => option.value === currentValue)) {
-            select.value = currentValue;
+    const mttrRows = [...(management.machine_group_rows || [])]
+        .filter((row) => Number(row.mttr_hours || 0) > 0)
+        .sort((a, b) => Number(b.mttr_hours || 0) - Number(a.mttr_hours || 0))
+        .slice(0, 12);
+    renderHorizontalBarChart(
+        "mttrChart",
+        mttrRows.map((row) => row.machine_group),
+        mttrRows.map((row) => Number(row.mttr_hours || 0)),
+        "#8b5cf6",
+        "MTTR (hrs)"
+    );
+
+    const locationRows = [...(management.location_rows || [])].slice(0, 12);
+    renderHorizontalBarChart(
+        "locationChart",
+        locationRows.map((row) => row.location),
+        locationRows.map((row) => Number(row.total_downtime_hours || 0)),
+        "#0f766e",
+        "Downtime Hours"
+    );
+
+    renderTrendChart(management.trend || {});
+
+    const mtbf = management.mtbf || {};
+    const lowestMtbfAssets = [...(mtbf.asset_rows || [])]
+        .filter((row) => Number(row.average_mtbf_hours || 0) > 0)
+        .sort((a, b) => Number(a.average_mtbf_hours || 0) - Number(b.average_mtbf_hours || 0))
+        .slice(0, 10);
+    renderLowestMtbfList(lowestMtbfAssets);
+
+    const mtbfCriticalityLookup = new Map((mtbf.criticality_rows || []).map((row) => [row.criticality, row]));
+    const mtbfCriticalityRows = CRITICALITY_ORDER.map((criticality) => (
+        mtbfCriticalityLookup.get(criticality) || {
+            criticality,
+            average_mtbf_hours: 0,
+            valid_mtbf_asset_count: 0,
         }
-    });
+    ));
+    renderBarChart(
+        "mtbfCriticalityChart",
+        mtbfCriticalityRows.map((row) => row.criticality),
+        mtbfCriticalityRows.map((row) => Number(row.average_mtbf_hours || 0)),
+        mtbfCriticalityRows.map((row) => CRITICALITY_COLORS[row.criticality] || "#64748b"),
+        "MTBF (hrs)"
+    );
+
+    renderMtbfTrendChart(mtbf.trend || {});
 }
 
-function populateMonthOptions(months, selectedValue) {
-    const select = document.getElementById('month-select');
-    if (!select) return;
-    const availableMonths = months || [];
-    const currentValue = selectedValue || select.value || availableMonths[0]?.value || '';
-    select.innerHTML = availableMonths.map(month => `<option value="${month.value}">${month.label}</option>`).join('');
-    if ([...select.options].some(option => option.value === currentValue)) {
-        select.value = currentValue;
-    } else if (select.options.length) {
-        select.value = select.options[0].value;
-    }
-}
+function getFilteredMachineGroups() {
+    const management = getManagement();
+    const criticality = document.getElementById("group-criticality-filter")?.value || "";
+    const location = document.getElementById("group-location-filter")?.value || "";
+    const search = (document.getElementById("group-search")?.value || "").trim().toLowerCase();
 
-function toggleMonthFilter(periodValue) {
-    const wrap = document.getElementById('month-filter-wrap');
-    if (!wrap) return;
-    wrap.style.display = periodValue === 'mtd' ? 'flex' : 'none';
-}
-
-function buildMonthOptionsFromDataYear(referenceEndValue) {
-    const referenceEnd = referenceEndValue ? new Date(referenceEndValue) : new Date();
-    if (Number.isNaN(referenceEnd.getTime())) return [];
-    const year = referenceEnd.getFullYear();
-    const currentMonth = referenceEnd.getMonth() + 1;
-    const values = [];
-    for (let month = currentMonth; month >= 1; month -= 1) {
-        values.push(`${year}-${String(month).padStart(2, '0')}`);
-    }
-
-    return values.map((value) => {
-        const dt = new Date(`${value}-01T00:00:00`);
-        return {
-            value,
-            label: dt.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
-        };
-    });
-}
-
-function getFilteredEvents() {
-    const events = getChartEvents();
-    const systemValue = document.getElementById('system-filter')?.value || '';
-    const areaValue = document.getElementById('area-filter')?.value || '';
-    const sourceValue = document.getElementById('source-filter')?.value || '';
-    const searchValue = (document.getElementById('search-filter')?.value || '').trim().toLowerCase();
-
-    return events.filter(event => {
-        if (systemValue && event.system !== systemValue) return false;
-        if (areaValue && event.area !== areaValue) return false;
-        if (sourceValue && event.source !== sourceValue) return false;
-        if (searchValue) {
-            const haystack = `${event.machine_code} ${event.machine_name}`.toLowerCase();
-            if (!haystack.includes(searchValue)) return false;
+    return (management.machine_group_rows || []).filter((row) => {
+        if (row.mapping_source === "status_derived_downtime" || row.machine_group === "Utilities") return false;
+        if (criticality && row.criticality !== criticality) return false;
+        if (location && row.location !== location) return false;
+        if (search) {
+            const haystack = [
+                row.machine_group,
+                row.location,
+                ...(row.asset_ids || []),
+            ].join(" ").toLowerCase();
+            if (!haystack.includes(search)) return false;
         }
         return true;
     });
 }
 
-function renderTable() {
-    const tbody = document.getElementById('downtime-tbody');
-    if (!tbody) return;
+function getMtbfMachineGroupLookup() {
+    const rows = getMtbfData().machine_group_rows || [];
+    const lookup = new Map();
+    rows.forEach((row) => {
+        const key = [
+            row.machine_group || "",
+            row.location || row.building || "",
+            row.criticality || "",
+        ].join("||");
+        lookup.set(key, row);
+    });
+    return lookup;
+}
 
-    const rows = getFilteredEvents();
+function renderMachineGroupTable() {
+    const tbody = document.getElementById("machine-group-tbody");
+    if (!tbody) return;
+    const rows = getFilteredMachineGroups();
+    const mtbfLookup = getMtbfMachineGroupLookup();
     if (!rows.length) {
-        const message = 'No status-derived or work-order downtime events match the current filters.';
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">No machine group rows match the selected filters.</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = rows.map(event => {
-        const rowClass = event.is_critical ? 'critical-row' : '';
-        return `
-            <tr class="${rowClass}">
-                <td>${event.system || '--'}</td>
-                <td>${event.machine_name || '--'}</td>
-                <td>${event.area || '--'}</td>
-                <td>${fmtDateTime(event.start_time)}</td>
-                <td>${fmtDateTime(event.end_time)}</td>
-                <td>${fmtHours(event.duration_hours)}</td>
-                <td>${event.source || '--'}</td>
-                <td><span class="status-pill ${event.source === 'Work Order' ? 'warning' : 'offline'}">${event.detection_type || '--'}</span></td>
-            </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = rows.map((row) => `
+        <tr class="${escapeHtml(row.status_flag || "ok")}-row">
+            <td>${escapeHtml(row.criticality)}</td>
+            <td>
+                <div class="cell-title">${escapeHtml(row.machine_group)}</div>
+            </td>
+            <td class="asset-id-cell">
+                ${row.asset_ttr_rows?.length ? row.asset_ttr_rows.map((assetRow) => `
+                    <div class="asset-breakdown-item">
+                        <div class="cell-title">${escapeHtml(assetRow.asset_display_name || assetRow.asset_id)}</div>
+                        <div class="cell-sub">${escapeHtml(assetRow.asset_id)} | TTR ${escapeHtml(fmtHours(assetRow.total_ttr_hours))} | MTTR ${escapeHtml(fmtHours(assetRow.mttr_hours))}</div>
+                    </div>
+                `).join("") : escapeHtml((row.asset_ids || []).join(", ") || "--")}
+            </td>
+            <td>${escapeHtml(row.location || "--")}</td>
+            <td>${escapeHtml(fmtNumber(row.work_order_count))}</td>
+            <td>${escapeHtml(fmtHours(row.total_downtime_hours))}</td>
+            <td>${escapeHtml(fmtHours(row.mttr_hours))}</td>
+            <td>${escapeHtml((() => {
+                const mtbfRow = mtbfLookup.get([
+                    row.machine_group || "",
+                    row.location || row.building || "",
+                    row.criticality || "",
+                ].join("||"));
+                return mtbfRow?.average_mtbf_hours ? fmtDaysHours(mtbfRow.average_mtbf_hours) : "";
+            })())}</td>
+            <td>${escapeHtml(fmtDateTime(row.latest_work_order_time))}</td>
+            <td>
+                ${buildStatusPill(row.status_flag, row.status_flag || "ok")}
+                <div class="cell-sub">${escapeHtml((row.alert_flags || []).join(" | ") || "No active flags")}</div>
+            </td>
+        </tr>
+    `).join("");
+}
+
+function getUtilitiesRows() {
+    return (downtimePayload?.events || [])
+        .filter((row) => row?.source === "Status-derived")
+        .sort((a, b) => String(b?.start_time || "").localeCompare(String(a?.start_time || "")));
+}
+
+function renderUtilitiesTable() {
+    const tbody = document.getElementById("utilities-tbody");
+    if (!tbody) return;
+    const rows = getUtilitiesRows();
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">No status-derived downtime rows are available for the selected period.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map((row) => `
+        <tr>
+            <td>${escapeHtml(row.system || "--")}</td>
+            <td>${escapeHtml(row.machine_name || "--")}</td>
+            <td>${escapeHtml(row.machine_code || "--")}</td>
+            <td>${escapeHtml(row.area || row.location || "--")}</td>
+            <td>${escapeHtml(fmtHours(row.duration_hours))}</td>
+            <td>${escapeHtml(fmtDateTime(row.start_time))}</td>
+            <td>${escapeHtml(fmtDateTime(row.end_time))}</td>
+            <td>${escapeHtml(row.detection_type || row.source || "--")}</td>
+        </tr>
+    `).join("");
+}
+
+function populateFilters(management) {
+    const rows = (management.machine_group_rows || []).filter((row) => row.mapping_source !== "status_derived_downtime" && row.machine_group !== "Utilities");
+    populateSelect("group-criticality-filter", [...new Set(rows.map((row) => row.criticality).filter(Boolean))], "All Criticalities");
+    populateSelect("group-location-filter", [...new Set(rows.map((row) => row.location).filter(Boolean))], "All Locations");
+}
+
+function renderDowntimePage() {
+    const management = getManagement();
+    const meta = downtimePayload?.meta || {};
+    const downtimeSummary = downtimePayload?.summary || {};
+
+    setText("last-synced", meta.last_synced ? `Last synced ${fmtDateTime(meta.last_synced)}` : "Last synced unavailable");
+    renderAlerts(management.alerts || []);
+    renderSummary(management.summary || {}, downtimeSummary);
+    renderMtbfSummary(management.mtbf?.summary || {});
+    renderCriticalityCards(management.criticality_rows || []);
+    renderMtbfCriticalityCards(management.mtbf?.criticality_rows || []);
+    renderCharts(management);
+    populateFilters(management);
+    renderMachineGroupTable();
+    renderUtilitiesTable();
+}
+
+function handlePeriodChange() {
+    const period = document.getElementById("period-select")?.value || "ytd";
+    toggleMonthFilter(period);
+    const month = period === "mtd" ? (document.getElementById("month-select")?.value || "") : "";
+    loadDowntimeData(period, month).catch((error) => {
+        console.error("Downtime period change failed:", error);
+    });
+}
+
+function setSummaryView(view) {
+    document.querySelectorAll("[data-summary-view]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.summaryView === view);
+    });
+    document.getElementById("criticality-summary-panel")?.classList.toggle("active", view === "criticality");
+    document.getElementById("mtbf-summary-panel")?.classList.toggle("active", view === "mtbf");
+}
+
+function setPerformanceView(view) {
+    document.querySelectorAll("[data-performance-view]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.performanceView === view);
+    });
+    document.getElementById("machine-groups-panel")?.classList.toggle("active", view === "machine-groups");
+    document.getElementById("utilities-panel")?.classList.toggle("active", view === "utilities");
 }
 
 function wireFilters() {
-    ['system-filter', 'area-filter', 'source-filter', 'search-filter'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el || el.dataset.bound === 'true') return;
-        el.addEventListener(id === 'search-filter' ? 'input' : 'change', renderTable);
-        el.dataset.bound = 'true';
+    [
+        "group-criticality-filter",
+        "group-location-filter",
+        "group-search",
+    ].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) element.addEventListener("input", renderMachineGroupTable);
+        if (element && element.tagName === "SELECT") element.addEventListener("change", renderMachineGroupTable);
     });
 
-    const periodSelect = document.getElementById('period-select');
-    if (periodSelect && periodSelect.dataset.bound !== 'true') {
-        periodSelect.addEventListener('change', () => {
-            toggleMonthFilter(periodSelect.value);
-            const monthValue = periodSelect.value === 'mtd' ? (document.getElementById('month-select')?.value || '') : '';
-            loadDowntimeData(periodSelect.value, monthValue);
-        });
-        periodSelect.dataset.bound = 'true';
-    }
-
-    const monthSelect = document.getElementById('month-select');
-    if (monthSelect && monthSelect.dataset.bound !== 'true') {
-        monthSelect.addEventListener('change', () => loadDowntimeData(document.getElementById('period-select')?.value || 'ytd', monthSelect.value));
-        monthSelect.dataset.bound = 'true';
-    }
-}
-
-async function loadDowntimeData(period = 'ytd', month = '') {
-    renderAlertBanner([]);
-    setText('last-synced', 'Loading downtime data...');
-    const requestedMonth = month || '';
-    toggleMonthFilter(period);
-
-    await loadDowntimeCacheFile();
-
-    const cachedPayload = getCachedDowntimePayload(period, requestedMonth);
-    if (cachedPayload) {
-        downtimePayload = cachedPayload;
-    } else {
-        const query = new URLSearchParams({
-            period,
-            _: String(Date.now()),
-        });
-        if (period === 'mtd' && month) query.set('month', month);
-
-        const response = await fetch(`/api/downtime?${query.toString()}`, {
-            cache: 'no-store',
-        });
-        if (!response.ok) throw new Error(`Downtime API failed: ${response.status}`);
-        downtimePayload = await response.json();
-    }
-
-    const meta = downtimePayload.meta || {};
-    const monthOptions = (downtimePayload.months && downtimePayload.months.length)
-        ? downtimePayload.months
-        : buildMonthOptionsFromDataYear(meta.reference_end || meta.last_synced);
-    const fallbackMonth = monthOptions[0]?.value || '';
-    const effectiveMonth = meta.month || requestedMonth || fallbackMonth;
-
-    if (period === 'mtd' && !requestedMonth && fallbackMonth) {
-        populateMonthOptions(monthOptions, fallbackMonth);
-        await loadDowntimeData(period, fallbackMonth);
-        return;
-    }
-
-    const selectedMonthOption = monthOptions.find(option => option.value === effectiveMonth);
-    const periodLabel = selectedMonthOption?.label || (meta.period_label || 'Selected period');
-    setText('last-synced', meta.last_synced ? `Last synced ${fmtDateTime(meta.last_synced)}` : 'Last synced unavailable');
-
-    const chartEvents = getChartEvents();
-    const summary = buildSummaryFromEvents(chartEvents);
-    const trend = buildTrendFromEvents(chartEvents);
-    const systemBreakdown = buildGroupedRows(chartEvents, 'system');
-    const sourceBreakdown = buildSourceRows(chartEvents).filter(row => row.label !== EXCLUDED_SOURCE_LABEL);
-    const assetBreakdown = buildAssetRows(chartEvents);
-    const areaBreakdown = buildGroupedRows(chartEvents, 'area');
-    const filters = {
-        systems: [...new Set(chartEvents.map(event => event.system).filter(Boolean))].sort(),
-        areas: [...new Set(chartEvents.map(event => event.area).filter(Boolean))].sort(),
-        sources: [...new Set(chartEvents.map(event => event.source).filter(Boolean))].sort(),
-    };
-
-    renderAlertBanner(downtimePayload.alerts || []);
-    renderKPIs(summary || {});
-    setText('kpi-downtime-sub', periodLabel);
-    renderTrendChart(trend || {});
-    renderSimpleBarChart('systemChart', systemBreakdown || [], 'label', 'downtime_hours', 'rgba(59, 130, 246, 0.75)');
-    renderSourceChart(sourceBreakdown || []);
-    renderSimpleBarChart('assetChart', assetBreakdown || [], 'machine_name', 'downtime_hours', 'rgba(245, 158, 11, 0.75)');
-    renderAreaBreakdown(areaBreakdown || [], downtimePayload.work_order_source || {});
-    populateFilterOptions(filters);
-    populateMonthOptions(monthOptions, effectiveMonth);
-    renderTable();
+    document.getElementById("period-select")?.addEventListener("change", handlePeriodChange);
+    document.getElementById("month-select")?.addEventListener("change", handlePeriodChange);
+    document.querySelectorAll("[data-summary-view]").forEach((button) => {
+        button.addEventListener("click", () => setSummaryView(button.dataset.summaryView || "criticality"));
+    });
+    document.querySelectorAll("[data-performance-view]").forEach((button) => {
+        button.addEventListener("click", () => setPerformanceView(button.dataset.performanceView || "machine-groups"));
+    });
 }
 
 async function init() {
     wireFilters();
-    const period = document.getElementById('period-select')?.value || 'ytd';
+    setSummaryView("criticality");
+    setPerformanceView("machine-groups");
+    const period = document.getElementById("period-select")?.value || "ytd";
     toggleMonthFilter(period);
-    const month = period === 'mtd' ? (document.getElementById('month-select')?.value || '') : '';
+
     try {
+        await loadDowntimeCacheFile();
+        const cachedDefault = getCachedDowntimePayload(period, "");
+        const monthOptions = cachedDefault?.months || buildMonthOptions(cachedDefault?.meta?.reference_end);
+        populateMonthOptions(monthOptions, cachedDefault?.meta?.month || monthOptions[0]?.value || "");
+        const month = period === "mtd" ? (document.getElementById("month-select")?.value || "") : "";
         await loadDowntimeData(period, month);
     } catch (error) {
-        console.error('Downtime page load error:', error);
-        setText('last-synced', 'Unable to load downtime data');
-        renderAlertBanner([{ level: 'critical', message: 'Downtime data could not be loaded from the current imported sources.' }]);
-        renderKPIs({});
+        console.error("Downtime page load error:", error);
+        renderAlerts([{ level: "critical", message: "Downtime data could not be loaded from the current imported work order source." }]);
     }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+function refreshCurrentView() {
+    const period = document.getElementById("period-select")?.value || "ytd";
+    const month = period === "mtd" ? (document.getElementById("month-select")?.value || "") : "";
+    loadDowntimeData(period, month).catch((error) => {
+        console.error("Downtime refresh failed:", error);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", init);
+window.addEventListener("focus", refreshCurrentView);
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshCurrentView();
+});
+setInterval(refreshCurrentView, 60000);

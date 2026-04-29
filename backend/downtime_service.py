@@ -1,8 +1,11 @@
 import json
 import os
+import re
 from datetime import datetime, timedelta
 
 import pandas as pd
+
+from downtime_management import build_management_downtime_payload, enrich_work_order_records, get_grouped_machine_mapping_meta
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,8 +15,9 @@ DOWNTIME_CACHE_OUTPUT_FILE = os.path.abspath(
 )
 
 _DOWNTIME_CACHE = {}
-DOWNTIME_CACHE_VERSION = "2026-04-08-status-derived-source-fix"
+DOWNTIME_CACHE_VERSION = "2026-04-24-criticality-management"
 STATUS_DERIVED_SOURCE = "Status-derived"
+DOWNTIME_EXPORT_YEAR = 2026
 
 
 ASSET_CONFIGS = [
@@ -186,7 +190,8 @@ ASSET_CONFIGS = [
     },
 ]
 
-WORK_ORDER_DOWNTIME_FILE = os.path.join(DATA_DIR, "work_order_downtime.csv")
+PRIMARY_WORK_ORDER_DOWNTIME_FILE = os.path.join(DATA_DIR, "data downtime.csv")
+FALLBACK_WORK_ORDER_DOWNTIME_FILE = os.path.abspath(os.path.join(os.path.expanduser("~"), "Downloads", "data downtime.csv"))
 SUPPORTED_EVENT_SERIES_KINDS = {"freezer_activity", "status"}
 
 
@@ -208,7 +213,7 @@ def get_period_days(period):
 
 
 def get_period_label(period):
-    return {"7d": "Last 7 Days", "30d": "Last 30 Days", "mtd": "Month to Date", "90d": "Quarter", "ytd": "Year to Date"}.get(period, "Last 30 Days")
+    return {"7d": "Last 7 Days", "30d": "Last 30 Days", "mtd": "Month to Date", "90d": "Quarter", "ytd": "Year-To-Date"}.get(period, "Last 30 Days")
 
 
 def normalize_month_filter(value):
@@ -238,6 +243,135 @@ def build_year_month_options(reference_dt):
 
 def normalize_key(value):
     return "".join(ch for ch in str(value).strip().lower() if ch.isalnum())
+
+
+def has_thai_text(value):
+    return bool(re.search(r"[\u0E00-\u0E7F]", str(value or "")))
+
+
+def clean_ascii_text(value, fallback=""):
+    text = str(value or "").replace("\ufeff", "").strip()
+    text = text.replace("Producton", "Production").replace("producton", "Production")
+    text = text.replace("Buiding", "Building").replace("buiding", "Building")
+    text = re.sub(r"[^\x20-\x7E]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" -_/")
+    return text or fallback
+
+
+def clean_job_trade(value):
+    cleaned = clean_ascii_text(value, "Work Order")
+    normalized = normalize_key(cleaned)
+    mapping = {
+        "building": "Building",
+        "aircondition": "Air Condition",
+        "electricalsystem": "Electrical System",
+        "coolingmachine": "Cooling Machine",
+        "productionmachine": "Production Machine",
+        "toolandequipment": "Tool and Equipment",
+        "watersystem": "Water System",
+        "utilitymachine": "Utility Machine",
+    }
+    return mapping.get(normalized, cleaned.title() if cleaned.islower() else cleaned)
+
+
+def parse_ttr_hours(value):
+    if value is None or pd.isna(value):
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+
+    numeric = pd.to_numeric(text, errors="coerce")
+    if pd.notna(numeric):
+        return float(numeric)
+
+    hours = 0.0
+    minutes = 0.0
+    hour_match = re.search(r"([\d.]+)\s*(?:hr|hour|hours|h)\b", text)
+    minute_match = re.search(r"([\d.]+)\s*(?:min|minute|minutes|m)\b", text)
+    if hour_match:
+        hours = float(hour_match.group(1))
+    if minute_match:
+        minutes = float(minute_match.group(1))
+    if not hour_match and not minute_match:
+        compact = re.findall(r"[\d.]+", text)
+        if compact:
+            hours = float(compact[0])
+
+    total = hours + (minutes / 60)
+    return total if total > 0 else None
+
+
+def parse_work_order_date_parts(row, suffix="", default_year=None):
+    year_value = row.get(f"Year{suffix}")
+    month_value = row.get(f"Month{suffix}")
+    day_value = row.get(f"Day{suffix}")
+
+    year = pd.to_numeric(year_value, errors="coerce")
+    day = pd.to_numeric(day_value, errors="coerce")
+    if pd.isna(month_value) or pd.isna(day):
+        return None
+    if pd.isna(year):
+        if default_year is None:
+            return None
+        year = default_year
+
+    parsed = pd.to_datetime(
+        f"{int(day)} {str(month_value).strip()} {int(year)}",
+        errors="coerce",
+        dayfirst=True,
+    )
+    if pd.isna(parsed):
+        return None
+    return parsed.to_pydatetime().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def infer_risk_area(*values):
+    haystack = " ".join(str(value or "") for value in values).lower()
+    if "high risk" in haystack:
+        return "High Risk"
+    if "medium risk" in haystack or "มีเดียม" in haystack:
+        return "Medium Risk"
+    if "low risk" in haystack:
+        return "Low Risk"
+    return None
+
+
+def extract_english_description_name(description):
+    cleaned = clean_ascii_text(description)
+    if not cleaned:
+        return ""
+
+    stop_words = {
+        "fix", "repair", "install", "replace", "change", "check", "broken", "leak",
+        "abnormal", "not", "working", "work", "area", "side", "room",
+    }
+    tokens = re.findall(r"[A-Za-z][A-Za-z0-9-]*|\d+", cleaned)
+    useful = [token for token in tokens if token.lower() not in stop_words]
+    if not useful:
+        return ""
+    return " ".join(useful[:5])
+
+
+def match_known_asset(*values):
+    haystack = normalize_key(" ".join(str(value or "") for value in values))
+    if not haystack:
+        return None
+
+    best_match = None
+    best_score = 0
+    for asset in ASSET_CONFIGS:
+        candidates = [asset.get("machine_code"), asset.get("machine_name")]
+        for candidate in candidates:
+            key = normalize_key(candidate)
+            if not key:
+                continue
+            if key in haystack or haystack in key:
+                score = len(key)
+                if score > best_score:
+                    best_score = score
+                    best_match = asset
+    return best_match
 
 
 def parse_dashboard_timestamp(value):
@@ -272,7 +406,17 @@ def format_hours(hours):
         return None
     if hours < 1:
         return f"{round(hours * 60)} min"
-    return f"{hours:.2f} h"
+    if hours >= 24:
+        days = max(1, round(hours / 24))
+        return f"{days} {'day' if days == 1 else 'days'}"
+
+    whole_hours = int(hours)
+    minutes = round((hours - whole_hours) * 60)
+    if minutes == 60:
+        return f"{whole_hours + 1} hr"
+    if minutes > 0:
+        return f"{whole_hours} hr {minutes} min"
+    return f"{whole_hours} hr"
 
 
 def load_numeric_timeseries(file_name, preferred_value_names=None):
@@ -764,7 +908,102 @@ def detect_asset_downtime_events(asset_config):
 
 
 def load_work_order_downtime():
-    if not os.path.exists(WORK_ORDER_DOWNTIME_FILE):
+    records = []
+    source_paths = []
+    read_errors = []
+
+    work_order_sources = (
+        [PRIMARY_WORK_ORDER_DOWNTIME_FILE]
+        if os.path.exists(PRIMARY_WORK_ORDER_DOWNTIME_FILE)
+        else [FALLBACK_WORK_ORDER_DOWNTIME_FILE]
+    )
+
+    for exported_path in (path for path in work_order_sources if os.path.exists(path)):
+        source_paths.append(exported_path)
+        try:
+            df = pd.read_csv(exported_path, encoding="utf-8-sig")
+            df.columns = [str(col).strip() for col in df.columns]
+            file_end_time = datetime.fromtimestamp(os.path.getmtime(exported_path))
+            has_start_date = {"Month", "Day"}.issubset(set(df.columns))
+            has_end_date = {"Month.1", "Day.1"}.issubset(set(df.columns))
+
+            for _, row in df.iterrows():
+                downtime_hours = parse_ttr_hours(row.get("TTR(hr)") or row.get("TTR") or row.get("downtime_hours"))
+                if not downtime_hours:
+                    continue
+
+                maintenance_start_time = parse_work_order_date_parts(row, "", default_year=DOWNTIME_EXPORT_YEAR) if has_start_date else None
+                if has_end_date:
+                    downtime_end_time = parse_work_order_date_parts(row, ".1", default_year=DOWNTIME_EXPORT_YEAR)
+                    if downtime_end_time is None or downtime_end_time.year != DOWNTIME_EXPORT_YEAR:
+                        continue
+                    downtime_end_time = downtime_end_time.replace(hour=23, minute=59, second=59)
+                else:
+                    if file_end_time.year != DOWNTIME_EXPORT_YEAR:
+                        continue
+                    downtime_end_time = file_end_time
+                if maintenance_start_time:
+                    downtime_start_time = maintenance_start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+                else:
+                    downtime_start_time = downtime_end_time - timedelta(hours=float(downtime_hours))
+                if downtime_start_time.year != DOWNTIME_EXPORT_YEAR:
+                    continue
+                if maintenance_start_time and downtime_end_time < maintenance_start_time:
+                    continue
+
+                maintenance_end_time = downtime_end_time
+
+                raw_machine_id = row.get("Machine ID") or row.get("machine_code") or ""
+                raw_machine_name = row.get("Machine Name") or row.get("machine_name") or ""
+                description = row.get("Description") or ""
+                matched_asset = match_known_asset(raw_machine_id, raw_machine_name, description)
+                risk_area = infer_risk_area(raw_machine_name, description)
+                job_trade = clean_job_trade(row.get("JobTrade") or row.get("Job Trade") or row.get("system"))
+
+                if matched_asset:
+                    machine_code = matched_asset["machine_code"]
+                    machine_name = matched_asset["machine_name"]
+                    default_area = matched_asset["area"]
+                else:
+                    machine_code = clean_ascii_text(raw_machine_id, "WO-Asset")
+                    clean_machine_name = clean_ascii_text(raw_machine_name)
+                    if risk_area:
+                        machine_name = f"{risk_area} Production Area"
+                    elif clean_machine_name and not has_thai_text(raw_machine_name):
+                        machine_name = clean_machine_name
+                    else:
+                        machine_name = extract_english_description_name(description) or machine_code or "Work Order Asset"
+                    default_area = clean_ascii_text(row.get("Location"), "Work Area")
+
+                area = risk_area or default_area or "Unassigned"
+                status = clean_ascii_text(row.get("Request State"), "Finished")
+
+                records.append(
+                    {
+                        "system": job_trade,
+                        "machine_code": machine_code,
+                        "machine_name": machine_name,
+                        "area": area,
+                        "source": "Work Order",
+                        "status": status,
+                        "detection_type": "Work Order",
+                        "start_time": downtime_start_time.isoformat(),
+                        "end_time": downtime_end_time.isoformat(),
+                        "maintenance_start_time": maintenance_start_time.isoformat() if maintenance_start_time else None,
+                        "maintenance_end_time": maintenance_end_time.isoformat() if maintenance_end_time else None,
+                        "timing_context": "Downtime window derived from work-order end date and TTR",
+                        "duration_context": "Downtime hours from work-order TTR",
+                        "duration_hours": round(float(downtime_hours), 3),
+                        "is_critical": is_production_critical(machine_name) or area == "High Risk",
+                        "work_order_id": clean_ascii_text(row.get("WO ID") or row.get("work_order_id")),
+                        "maintenance_order_id": clean_ascii_text(row.get("Request ID") or row.get("maintenance_order_id")),
+                        "remarks": clean_ascii_text(description),
+                    }
+                )
+        except Exception as exc:
+            read_errors.append(str(exc))
+
+    if not source_paths:
         return {
             "available": False,
             "records": [],
@@ -772,58 +1011,22 @@ def load_work_order_downtime():
             "last_synced": None,
         }
 
-    try:
-        df = pd.read_csv(WORK_ORDER_DOWNTIME_FILE, encoding="utf-8-sig")
-    except Exception:
+    latest_synced = max(datetime.fromtimestamp(os.path.getmtime(path)) for path in source_paths)
+    if not records and read_errors:
         return {
             "available": False,
             "records": [],
             "message": "Work order downtime source could not be read.",
-            "last_synced": None,
+            "last_synced": latest_synced.isoformat(),
         }
 
-    df.columns = [str(col).strip() for col in df.columns]
-    if df.empty:
-        return {
-            "available": True,
-            "records": [],
-            "message": "Work order downtime source is connected but empty.",
-            "last_synced": datetime.fromtimestamp(os.path.getmtime(WORK_ORDER_DOWNTIME_FILE)).isoformat(),
-        }
-
-    records = []
-    for _, row in df.iterrows():
-        start_time = pd.to_datetime(row.get("start_time"), errors="coerce")
-        end_time = pd.to_datetime(row.get("end_time"), errors="coerce")
-        downtime_hours = pd.to_numeric(row.get("downtime_hours"), errors="coerce")
-
-        if pd.isna(downtime_hours) and pd.notna(start_time) and pd.notna(end_time) and end_time > start_time:
-            downtime_hours = (end_time - start_time).total_seconds() / 3600
-
-        records.append(
-            {
-                "system": row.get("system") or "Work Order",
-                "machine_code": row.get("machine_code") or "",
-                "machine_name": row.get("machine_name") or "",
-                "area": row.get("area") or "",
-                "source": row.get("source") or "Work Order",
-                "status": row.get("status") or "Open",
-                "detection_type": "Work Order",
-                "start_time": start_time.isoformat() if pd.notna(start_time) else None,
-                "end_time": end_time.isoformat() if pd.notna(end_time) else None,
-                "duration_hours": round(float(downtime_hours), 3) if pd.notna(downtime_hours) else None,
-                "is_critical": is_production_critical(row.get("machine_name")),
-                "work_order_id": row.get("work_order_id"),
-                "maintenance_order_id": row.get("maintenance_order_id"),
-                "remarks": row.get("remarks"),
-            }
-        )
+    records = enrich_work_order_records(records, DATA_DIR)
 
     return {
         "available": True,
         "records": records,
         "message": "Work order downtime source loaded.",
-        "last_synced": datetime.fromtimestamp(os.path.getmtime(WORK_ORDER_DOWNTIME_FILE)).isoformat(),
+        "last_synced": latest_synced.isoformat(),
     }
 
 
@@ -834,6 +1037,18 @@ def within_period(iso_string, start_dt, end_dt):
     if pd.isna(dt):
         return False
     return start_dt <= dt <= end_dt
+
+
+def overlaps_period(start_iso, end_iso, start_dt, end_dt):
+    start_value = pd.to_datetime(start_iso, errors="coerce") if start_iso else pd.NaT
+    end_value = pd.to_datetime(end_iso, errors="coerce") if end_iso else pd.NaT
+    if pd.isna(start_value) and pd.isna(end_value):
+        return False
+    if pd.isna(start_value):
+        start_value = end_value
+    if pd.isna(end_value):
+        end_value = start_value
+    return start_value <= end_dt and end_value >= start_dt
 
 
 def summarize_downtime_metrics(events, candidate_rows, reference_dt):
@@ -928,7 +1143,8 @@ def build_cache_signature(period, month_filter=None):
     signatures = [DOWNTIME_CACHE_VERSION, period, month_filter]
     for config in ASSET_CONFIGS:
         signatures.append(get_path_signature(os.path.join(DATA_DIR, config["file_name"])))
-    signatures.append(get_path_signature(WORK_ORDER_DOWNTIME_FILE))
+    signatures.append(get_path_signature(PRIMARY_WORK_ORDER_DOWNTIME_FILE))
+    signatures.append(get_path_signature(FALLBACK_WORK_ORDER_DOWNTIME_FILE))
     return tuple(signatures)
 
 
@@ -989,6 +1205,13 @@ def build_downtime_payload(period=None, month=None):
                 "within_operating_pct": None,
                 "energy_hours": None,
                 "work_order_hours": None,
+                "work_order_record_count": 0,
+                "energy_status": "UNAVAILABLE",
+                "energy_downtime_pct": None,
+                "expected_active_hours": None,
+                "energy_event_status": "UNAVAILABLE",
+                "energy_event_count": 0,
+                "baseline_energy_event_count": 0,
             },
             "alerts": [],
             "trend": {"labels": [], "downtime_hours": [], "event_counts": []},
@@ -1009,6 +1232,29 @@ def build_downtime_payload(period=None, month=None):
             "months": [],
             "work_order_source": work_order_payload,
             "operating_windows": [],
+            "management": {
+                "summary": {
+                    "total_downtime_hours": 0.0,
+                    "total_work_orders": 0,
+                    "overall_mttr_hours": None,
+                    "critical_downtime_hours": 0.0,
+                    "semi_critical_downtime_hours": 0.0,
+                    "open_work_orders": 0,
+                    "highest_mttr_machine_group": None,
+                    "highest_mttr_hours": None,
+                    "most_affected_location": None,
+                    "most_affected_location_hours": None,
+                    "critical_machine_groups_with_repeats": 0,
+                },
+                "criticality_rows": [],
+                "machine_group_rows": [],
+                "location_rows": [],
+                "trend": {"labels": [], "downtime_hours": [], "work_order_counts": [], "bucket_mode": "day"},
+                "work_orders": [],
+                "filters": {"criticalities": [], "machine_groups": [], "locations": [], "asset_ids": [], "statuses": []},
+                "alerts": [],
+                "mapping_meta": get_grouped_machine_mapping_meta(DATA_DIR),
+            },
         }
         _DOWNTIME_CACHE[cache_signature] = payload
         return payload
@@ -1044,6 +1290,22 @@ def build_downtime_payload(period=None, month=None):
     selected_energy_events = [event for event in energy_events if within_period(event.get("start_time"), period_start, period_end)]
     selected_work_orders = [event for event in work_order_events if within_period(event.get("start_time"), period_start, period_end)]
     selected_events = selected_energy_events + selected_work_orders
+    mtbf_period_end = reference_dt
+    mtbf_period_start = reference_dt.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    mtbf_work_orders = [event for event in work_order_events if overlaps_period(event.get("start_time"), event.get("end_time"), mtbf_period_start, mtbf_period_end)]
+    management_work_orders = (
+        [event for event in work_order_events if overlaps_period(event.get("start_time"), event.get("end_time"), period_start, period_end)]
+        if normalized_period == "ytd"
+        else selected_work_orders
+    )
+    management_payload = build_management_downtime_payload(
+        management_work_orders,
+        selected_energy_events,
+        period_start,
+        period_end,
+        DATA_DIR,
+        mtbf_records=mtbf_work_orders,
+    )
     selected_candidate_rows = [row for row in candidate_rows if within_period(row.get("start_time"), period_start, period_end)]
     summarized = summarize_downtime_metrics(energy_events, candidate_rows, reference_dt)
     selected_candidate_in_window = sum(row["duration_hours"] for row in selected_candidate_rows if row.get("within_operating_hours"))
@@ -1064,6 +1326,52 @@ def build_downtime_payload(period=None, month=None):
     work_order_hours = None
     if work_order_payload["available"]:
         work_order_hours = round(sum(event["duration_hours"] for event in selected_work_orders), 3) if selected_work_orders else 0.0
+
+    period_hours = max((period_end - period_start).total_seconds() / 3600, 0)
+    active_machine_codes = {
+        row.get("machine_code")
+        for row in selected_candidate_rows
+        if row.get("machine_code") and row.get("within_operating_hours")
+    } or {
+        event.get("machine_code")
+        for event in selected_energy_events
+        if event.get("machine_code")
+    }
+    expected_active_hours = round(period_hours * len(active_machine_codes), 3) if active_machine_codes else None
+    energy_downtime_pct = (
+        round((energy_hours / expected_active_hours) * 100, 2)
+        if expected_active_hours and expected_active_hours > 0
+        else None
+    )
+    if energy_downtime_pct is None:
+        energy_status = "UNAVAILABLE"
+    elif energy_downtime_pct > 10:
+        energy_status = "WARNING"
+    elif energy_downtime_pct > 5:
+        energy_status = "ATTENTION"
+    else:
+        energy_status = "NORMAL"
+
+    period_duration = period_end - period_start
+    baseline_start = period_start - period_duration
+    baseline_end = period_start
+    baseline_energy_events = [
+        event
+        for event in energy_events
+        if within_period(event.get("start_time"), baseline_start, baseline_end)
+    ]
+    energy_event_count = len(selected_energy_events)
+    baseline_energy_event_count = len(baseline_energy_events)
+    if baseline_energy_event_count > 0:
+        event_ratio = energy_event_count / baseline_energy_event_count
+        if event_ratio > 1.40:
+            energy_event_status = "WARNING"
+        elif event_ratio > 1.20:
+            energy_event_status = "ATTENTION"
+        else:
+            energy_event_status = "NORMAL"
+    else:
+        energy_event_status = "UNAVAILABLE"
 
     source_rows = [
         {
@@ -1124,6 +1432,13 @@ def build_downtime_payload(period=None, month=None):
             "within_operating_pct": selected_within_pct if selected_within_pct is not None else summarized["within_operating_pct"],
             "energy_hours": energy_hours,
             "work_order_hours": work_order_hours,
+            "work_order_record_count": len(selected_work_orders),
+            "energy_status": energy_status,
+            "energy_downtime_pct": energy_downtime_pct,
+            "expected_active_hours": expected_active_hours,
+            "energy_event_status": energy_event_status,
+            "energy_event_count": energy_event_count,
+            "baseline_energy_event_count": baseline_energy_event_count,
         },
         "alerts": alerts,
         "trend": build_trend_series(selected_events, period_start, period_end),
@@ -1136,6 +1451,7 @@ def build_downtime_payload(period=None, month=None):
         "months": [{"value": value, "label": format_month_label(value)} for value in month_options],
         "work_order_source": work_order_payload,
         "operating_windows": operating_windows,
+        "management": management_payload,
     }
 
     _DOWNTIME_CACHE[cache_signature] = payload
